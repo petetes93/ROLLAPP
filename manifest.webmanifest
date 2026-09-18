@@ -1,0 +1,15 @@
+{
+  "name": "Arcanum - Aventura narrativa",
+  "short_name": "Arcanum",
+  "description": "Aventura narrativa de fantasía anime donde tus decisiones cambian la historia.",
+  "lang": "es",
+  "start_url": "./app/index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#11101f",
+  "theme_color": "#17152b",
+  "icons": [
+    { "src": "./assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -3,6 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#17152b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <title>ARCANUM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,21 +19,21 @@
    Penumbra de taberna: tinta oscura, pergamino cálido, bronce oxidado.
    ═══════════════════════════════════════════════════════════════════════ */
 :root{
-  --fondo:#14161A;
-  --fondo-2:#1B1E23;
-  --fondo-3:#24282E;
-  --linea:#33383F;
+  --fondo:#11101F;
+  --fondo-2:#19172B;
+  --fondo-3:#25213D;
+  --linea:#413A62;
 
   --texto:#DED8CB;
   --texto-2:#A29C90;
   --texto-3:#6E6961;
   --titulo:#F2EDE1;
 
-  --bronce:#8A9E7E;
-  --bronce-2:#A8BC98;
-  --oro:#C9A227;
-  --sal:#B4533A;
-  --aviso:#C08A3E;
+  --bronce:#8F7CFF;
+  --bronce-2:#C3B9FF;
+  --oro:#FFD166;
+  --sal:#FF6F91;
+  --aviso:#FFB45E;
 
   --display:'Fraunces',Georgia,serif;
   --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
@@ -40,7 +46,10 @@
 
 html,body{height:100%}
 body{
-  margin:0;background:var(--fondo);color:var(--texto);
+  margin:0;background:
+    radial-gradient(circle at 82% 6%,rgba(143,124,255,.2),transparent 28rem),
+    radial-gradient(circle at 8% 88%,rgba(255,111,145,.12),transparent 25rem),
+    var(--fondo);color:var(--texto);
   font-family:var(--sans);font-size:15px;line-height:1.55;
   overflow:hidden;
 }
@@ -62,7 +71,7 @@ button{font-family:inherit;cursor:pointer}
 }
 .btn:hover:not(:disabled){background:#2C313A;border-color:var(--bronce)}
 .btn:disabled{opacity:.4;cursor:not-allowed}
-.btn--grande{font-size:.9rem;padding:.85rem 1.6rem;background:var(--bronce);color:#12140F;border-color:var(--bronce);font-weight:500}
+.btn--grande{font-size:.9rem;padding:.85rem 1.6rem;background:linear-gradient(135deg,var(--bronce),#6E58DB);color:white;border-color:var(--bronce);font-weight:500;box-shadow:0 8px 28px rgba(143,124,255,.25)}
 .btn--grande:hover:not(:disabled){background:var(--bronce-2);border-color:var(--bronce-2)}
 .btn--fantasma{background:transparent}
 .btn--pequeno{font-size:.7rem;padding:.35rem .7rem}
@@ -80,6 +89,7 @@ button{font-family:inherit;cursor:pointer}
   font-family:var(--display);font-variation-settings:'SOFT' 0,'WONK' 1,'opsz' 144;
   font-weight:900;font-size:clamp(3rem,13vw,6rem);line-height:.9;
   letter-spacing:-.03em;color:var(--titulo);margin:0;
+  text-shadow:0 0 30px rgba(143,124,255,.55),3px 3px 0 rgba(255,111,145,.28);
 }
 .inicio__lema{
   font-family:var(--mono);font-size:.72rem;letter-spacing:.24em;
@@ -141,7 +151,7 @@ button{font-family:inherit;cursor:pointer}
 
 .cab{
   display:flex;justify-content:space-between;align-items:center;gap:1rem;
-  padding:.6rem 1rem;border-bottom:1px solid var(--linea);background:var(--fondo-2);
+  padding:calc(.6rem + env(safe-area-inset-top)) 1rem .6rem;border-bottom:1px solid var(--linea);background:rgba(25,23,43,.92);backdrop-filter:blur(12px);
 }
 .cab__info{display:flex;gap:.5rem;flex-wrap:wrap;font-family:var(--mono);font-size:.7rem;color:var(--texto-2)}
 .cab__lugar{color:var(--titulo)}
@@ -154,6 +164,14 @@ button{font-family:inherit;cursor:pointer}
 @media(max-width:800px){
   .tablero{grid-template-columns:1fr;grid-template-rows:1fr auto}
   .lateral{max-height:14rem}
+}
+@media(max-width:560px){
+  .escena{max-height:28vh}
+  .bitacora{padding:1rem .85rem}
+  .lateral{max-height:11rem;padding:.65rem}
+  .pie{padding-left:max(.7rem,env(safe-area-inset-left));padding-right:max(.7rem,env(safe-area-inset-right));padding-bottom:max(.7rem,env(safe-area-inset-bottom))}
+  .entrada{font-size:16px}
+  .combate{padding:max(1rem,env(safe-area-inset-top)) .8rem max(1rem,env(safe-area-inset-bottom))}
 }
 
 /* ── bitácora ───────────────────────────────────────────────────────── */
@@ -407,6 +425,14 @@ button{font-family:inherit;cursor:pointer}
   body{opacity:1}
 }
 </style>
+<!-- Estética original de fantasía anime. No usa personajes ni activos de otras obras. -->
+<style>
+.combate__libre{display:flex;gap:.55rem;width:min(34rem,100%);margin:.85rem auto .2rem}
+.combate__libre .entrada{flex:1;min-width:0}
+.combate__ayuda{text-align:center;color:var(--texto-3);font-size:.72rem;margin:.25rem 0 .75rem}
+.escena{position:relative;box-shadow:inset 0 -40px 55px rgba(17,16,31,.45)}
+.ficha.es-elegida{background:linear-gradient(135deg,rgba(143,124,255,.16),rgba(255,111,145,.08));box-shadow:inset 3px 0 var(--bronce)}
+</style>
 </head>
 <body>
 
@@ -430,13 +456,12 @@ button{font-family:inherit;cursor:pointer}
 <section data-pantalla="inicio" class="inicio" hidden>
   <div>
     <h1 class="inicio__marca">ARCANUM</h1>
-    <p class="inicio__lema">Crónicas de los Reinos Quebrados</p>
+    <p class="inicio__lema">TU AVENTURA · TUS DECISIONES</p>
 
     <div class="inicio__acciones" id="inicio-acciones"></div>
 
     <p class="inicio__pie">
-      Escribe lo que quieras hacer. El motor tira los dados y decide;
-      el narrador solo cuenta lo que ya está decidido.
+      Una aventura narrativa de fantasía anime. Escribe cualquier acción, explora, combate y haz crecer a tu personaje.
     </p>
   </div>
 </section>

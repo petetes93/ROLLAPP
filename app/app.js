@@ -850,6 +850,11 @@ function pintarCombate() {
   capa.append(lista);
 
   if (manager.esperandoJugador) {
+    capa.append(el('div', { class: 'combate__libre' },
+      el('input', { id: 'combate-entrada', class: 'entrada', type: 'text', placeholder: 'Describe cómo actúas…', maxlength: '180', onKeydown: (e) => { if (e.key === 'Enter') accionCombateLibre(); } }),
+      el('button', { class: 'btn', onClick: protegido('acción libre de combate', accionCombateLibre) }, 'Hacerlo'),
+    ));
+    capa.append(el('p', { class: 'combate__ayuda', text: 'También puedes escribir tu movimiento con tus propias palabras.' }));
     capa.append(el('div', { class: 'combate__acciones' },
       el('button', { class: 'btn btn--peligro', onClick: protegido('atacar', () => accionCombate('atacar')) }, 'Atacar'),
       el('button', { class: 'btn', onClick: protegido('defender', () => accionCombate('defender')) }, 'Defender'),
@@ -858,6 +863,16 @@ function pintarCombate() {
   } else {
     capa.append(el('p', { class: 'combate__espera', text: 'El enemigo actúa…' }));
   }
+}
+
+async function accionCombateLibre() {
+  const texto = ($('#combate-entrada')?.value ?? '').trim();
+  if (!texto) return;
+  const normal = texto.toLocaleLowerCase('es');
+  const tipo = /huir|escap|retir|correr/.test(normal) ? 'huir'
+    : /defiend|bloque|cubrir|esquiv|proteg/.test(normal) ? 'defender' : 'atacar';
+  bus.emit('narrative:direct', { texto: `Intentas: ${texto}`, voz: 'player' });
+  await accionCombate(tipo);
 }
 
 async function accionCombate(tipo) {
@@ -966,6 +981,9 @@ function arranqueFallido(donde, error) {
 }
 
 async function arrancar() {
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('../sw.js').catch((e) => console.warn('[arcanum] modo offline no disponible', e));
+  }
   // Si algo se cuelga, a los ocho segundos se dice en pantalla en vez de
   // dejar al jugador mirando un rótulo eterno.
   const vigilante = setTimeout(() => {

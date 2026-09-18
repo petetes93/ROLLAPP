@@ -962,7 +962,7 @@ function avisar(mensaje, tipo = 'info') {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function pintarDirectores() {
-  const dm = sistema('dm');
+  const dm = sistema('dungeonmaster');
   const caja = $('#director-opciones');
   if (!dm || !caja) return;
   vaciar(caja);
@@ -989,7 +989,7 @@ function abrirPuente({ prompt }) {
 }
 
 function aplicarPuente() {
-  const dm = sistema('dm');
+  const dm = sistema('dungeonmaster');
   const puente = dm?.proveedor(PROVEEDORES.PUENTE);
   const r = puente?.recibir($('#puente-respuesta')?.value ?? '');
   if (!r?.aceptada) {
@@ -1005,7 +1005,7 @@ function conectarEventos() {
   $('#director-cerrar')?.addEventListener('click', () => { $('#director-modal').hidden = true; });
   $('#puente-copiar')?.addEventListener('click', async () => { await navigator.clipboard.writeText($('#puente-prompt').value); avisar('Encargo copiado', 'exito'); });
   $('#puente-aplicar')?.addEventListener('click', protegido('respuesta del puente', aplicarPuente));
-  $('#puente-cancelar')?.addEventListener('click', () => sistema('dm')?.proveedor(PROVEEDORES.PUENTE)?.cancelar());
+  $('#puente-cancelar')?.addEventListener('click', () => sistema('dungeonmaster')?.proveedor(PROVEEDORES.PUENTE)?.cancelar());
   bus.on('bridge:open', abrirPuente);
   bus.on('bridge:close', () => { $('#puente-modal').hidden = true; });
 

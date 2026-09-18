@@ -764,7 +764,7 @@ function pintarComercio() {
     el('button', { class: 'btn btn--pequeno', text: 'Comprar', onClick: protegido('comprar', () => {
       const r = economia.comprar({ refIdMercader: mercaderActivo, objeto: o, cantidad: 1, stock: o.stock });
       avisar(r.exito ? `Comprado: ${o.nombre}` : r.mensaje, r.exito ? 'exito' : 'aviso'); pintarComercio(); refrescarTodo();
-    }) }));
+    }) })));
   caja.append(compra);
   const vendibles = mercado.vendibleA(mercaderActivo);
   if (vendibles.length) {
@@ -775,7 +775,7 @@ function pintarComercio() {
       el('button', { class: 'btn btn--pequeno', text: 'Vender', onClick: protegido('vender', () => {
         const r = economia.vender({ refIdMercader: mercaderActivo, idObjeto: o.id, cantidad: 1 });
         avisar(r.exito ? `Vendido: ${o.nombre}` : r.mensaje, r.exito ? 'exito' : 'aviso'); pintarComercio(); refrescarTodo();
-      }) }));
+      }) })));
     caja.append(venta);
   }
 }

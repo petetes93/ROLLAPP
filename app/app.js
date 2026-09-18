@@ -57,6 +57,7 @@ import { CLASES } from '../src/data/classes.data.js';
 import { TRASFONDOS } from '../src/data/backgrounds.data.js';
 import { obtenerLugar } from '../src/data/locations.data.js';
 import * as Comb from '../src/combat/Combatant.js';
+import { PROVEEDORES } from '../src/config/ai.config.js';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    UTILIDADES DE DOM
@@ -695,6 +696,15 @@ function pintarMisiones(caja) {
         class: 'mision__obj' + (o.hecho ? ' es-hecho' : ''),
         text: (o.hecho ? '✓ ' : '· ') + o.texto,
       })),
+      el('p', { class: 'mision__recompensa', text: `${m.recompensa?.xp ?? 0} XP · ${m.recompensa?.oro ?? 0} oro` }),
+      m.objetivos.every((o) => o.hecho) ? el('button', {
+        class: 'btn btn--pequeno', text: 'Entregar encargo',
+        onClick: protegido('entregar misión', () => {
+          const r = quests.completar(m.refId);
+          avisar(r.aplicada ? 'Encargo completado' : r.motivo, r.aplicada ? 'exito' : 'aviso');
+          refrescarTodo();
+        }),
+      }) : null,
     ));
   }
 }
@@ -904,7 +914,53 @@ function avisar(mensaje, tipo = 'info') {
    ARRANQUE
    ═══════════════════════════════════════════════════════════════════════════ */
 
+function pintarDirectores() {
+  const dm = sistema('dm');
+  const caja = $('#director-opciones');
+  if (!dm || !caja) return;
+  vaciar(caja);
+  for (const opcion of dm.catalogo()) {
+    const id = opcion.id ?? opcion.refId;
+    caja.append(el('button', {
+      class: 'director-opcion' + (dm.inspeccionar().elegido === id ? ' es-activo' : ''),
+      onClick: protegido('cambiar narrador', () => {
+        const r = dm.cambiar(id);
+        store.fijar('settings.proveedor', id);
+        avisar(r.motivo ?? `Narrador: ${opcion.nombre}`, r.motivo ? 'aviso' : 'exito');
+        pintarDirectores();
+        $('#director-modal').hidden = true;
+      }),
+    }, el('strong', { text: opcion.nombre }), el('span', { text: opcion.resumen ?? opcion.detalle ?? '' })))
+  }
+}
+
+function abrirPuente({ prompt }) {
+  $('#puente-prompt').value = prompt ?? '';
+  $('#puente-respuesta').value = '';
+  $('#puente-error').hidden = true;
+  $('#puente-modal').hidden = false;
+}
+
+function aplicarPuente() {
+  const dm = sistema('dm');
+  const puente = dm?.proveedor(PROVEEDORES.PUENTE);
+  const r = puente?.recibir($('#puente-respuesta')?.value ?? '');
+  if (!r?.aceptada) {
+    const error = $('#puente-error'); error.textContent = r?.motivo ?? 'La respuesta no es válida.'; error.hidden = false;
+    return;
+  }
+  $('#puente-modal').hidden = true;
+}
+
 function conectarEventos() {
+  $('#director')?.addEventListener('click', () => { pintarDirectores(); $('#director-modal').hidden = false; });
+  $('#director-cerrar')?.addEventListener('click', () => { $('#director-modal').hidden = true; });
+  $('#puente-copiar')?.addEventListener('click', async () => { await navigator.clipboard.writeText($('#puente-prompt').value); avisar('Encargo copiado', 'exito'); });
+  $('#puente-aplicar')?.addEventListener('click', protegido('respuesta del puente', aplicarPuente));
+  $('#puente-cancelar')?.addEventListener('click', () => sistema('dm')?.proveedor(PROVEEDORES.PUENTE)?.cancelar());
+  bus.on('bridge:open', abrirPuente);
+  bus.on('bridge:close', () => { $('#puente-modal').hidden = true; });
+
   // Entrada de texto.
   $('#enviar')?.addEventListener('click', protegido('enviar', () => enviar()));
 

@@ -432,6 +432,17 @@ button{font-family:inherit;cursor:pointer}
 .combate__ayuda{text-align:center;color:var(--texto-3);font-size:.72rem;margin:.25rem 0 .75rem}
 .escena{position:relative;box-shadow:inset 0 -40px 55px rgba(17,16,31,.45)}
 .ficha.es-elegida{background:linear-gradient(135deg,rgba(143,124,255,.16),rgba(255,111,145,.08));box-shadow:inset 3px 0 var(--bronce)}
+
+.cab__acciones{display:flex;gap:.4rem}
+.modal{position:fixed;inset:0;z-index:1000;background:rgba(7,6,16,.86);display:grid;place-items:center;padding:max(1rem,env(safe-area-inset-top)) 1rem max(1rem,env(safe-area-inset-bottom));backdrop-filter:blur(10px)}
+.modal[hidden]{display:none}
+.modal__panel{width:min(38rem,100%);max-height:92dvh;overflow:auto;background:var(--fondo-2);border:1px solid var(--linea);border-radius:14px;padding:1rem;box-shadow:0 22px 80px rgba(0,0,0,.55)}
+.modal__cab{display:flex;justify-content:space-between;align-items:center;gap:1rem}.modal__cab h2{font-family:var(--display);margin:0;color:var(--titulo)}
+.modal__nota{color:var(--texto-2);font-size:.85rem}.director-opcion{width:100%;text-align:left;margin:.35rem 0;padding:.8rem;border:1px solid var(--linea);border-radius:8px;background:var(--fondo-3);color:var(--texto)}
+.director-opcion.es-activo{border-color:var(--bronce);box-shadow:inset 3px 0 var(--bronce)}.director-opcion strong,.director-opcion span{display:block}.director-opcion span{color:var(--texto-2);font-size:.78rem;margin-top:.2rem}
+.modal__texto{width:100%;min-height:9rem;resize:vertical;margin:.4rem 0 1rem;padding:.75rem;background:var(--fondo);color:var(--texto);border:1px solid var(--linea);border-radius:6px;font:13px/1.5 var(--mono)}
+.modal__acciones{display:flex;justify-content:flex-end;gap:.5rem;flex-wrap:wrap}.modal__error{color:#ff9aae;font-size:.8rem}
+.mision__recompensa{font: .7rem var(--mono);color:var(--oro)}
 </style>
 </head>
 <body>
@@ -484,7 +495,7 @@ button{font-family:inherit;cursor:pointer}
 
   <header class="cab">
     <div class="cab__info" id="cabecera-info"></div>
-    <button class="btn btn--pequeno" id="guardar">Guardar</button>
+    <div class="cab__acciones"><button class="btn btn--pequeno" id="director">Narrador</button><button class="btn btn--pequeno" id="guardar">Guardar</button></div>
   </header>
 
   <div class="tablero">
@@ -522,6 +533,26 @@ button{font-family:inherit;cursor:pointer}
 
 <!-- ═══ capas ════════════════════════════════════════════════════════ -->
 <div class="combate" id="combate" hidden></div>
+<div class="modal" id="director-modal" hidden>
+  <section class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="director-titulo">
+    <header class="modal__cab"><h2 id="director-titulo">Narrador</h2><button class="btn btn--pequeno" id="director-cerrar">Cerrar</button></header>
+    <p class="modal__nota">Elige cómo se narra la aventura. El motor siempre conserva las reglas y las tiradas.</p>
+    <div id="director-opciones"></div>
+  </section>
+</div>
+<div class="modal" id="puente-modal" hidden>
+  <section class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="puente-titulo">
+    <header class="modal__cab"><h2 id="puente-titulo">Puente de IA</h2></header>
+    <p class="modal__nota">Copia el encargo, pégalo en tu asistente de IA y trae aquí la respuesta. La app no comparte nada automáticamente.</p>
+    <label class="sub-eti" for="puente-prompt">Encargo</label>
+    <textarea class="modal__texto" id="puente-prompt" readonly></textarea>
+    <button class="btn" id="puente-copiar">Copiar encargo</button>
+    <label class="sub-eti" for="puente-respuesta">Respuesta</label>
+    <textarea class="modal__texto" id="puente-respuesta" placeholder="Pega aquí la respuesta del narrador"></textarea>
+    <p class="modal__error" id="puente-error" hidden></p>
+    <div class="modal__acciones"><button class="btn btn--fantasma" id="puente-cancelar">Usar narrador interno</button><button class="btn btn--grande" id="puente-aplicar">Continuar aventura</button></div>
+  </section>
+</div>
 <div class="avisos" id="avisos"></div>
 
 <!-- El empaquetador retira esta etiqueta y pone el código en línea; sirviendo

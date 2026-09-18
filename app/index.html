@@ -47,6 +47,7 @@
 html,body{height:100%}
 body{
   margin:0;background:
+    repeating-linear-gradient(94deg,rgba(255,255,255,.012) 0 1px,transparent 1px 7px),
     radial-gradient(circle at 82% 6%,rgba(143,124,255,.2),transparent 28rem),
     radial-gradient(circle at 8% 88%,rgba(255,111,145,.12),transparent 25rem),
     var(--fondo);color:var(--texto);
@@ -107,6 +108,8 @@ button{font-family:inherit;cursor:pointer}
   font-weight:600;font-size:1.8rem;margin:0 0 .3rem;color:var(--titulo);
 }
 .creacion__nota{color:var(--texto-2);margin:0 0 2rem;font-size:.9rem}
+.creacion__titulo::before{content:'✦ ';color:var(--oro);filter:drop-shadow(0 0 8px rgba(255,209,102,.45))}
+.creacion::after{content:'D20';position:fixed;right:-.2rem;top:18%;z-index:-1;font:900 clamp(5rem,20vw,10rem)/1 var(--display);color:rgba(195,185,255,.028);transform:rotate(12deg);pointer-events:none}
 
 .campo{margin-bottom:1.75rem}
 .campo__eti,.grupo__eti{
@@ -134,9 +137,10 @@ button{font-family:inherit;cursor:pointer}
 .ficha__nota{font-size:.68rem;line-height:1.35;color:var(--texto-3)}
 
 .resumen{
-  padding:1rem 1.15rem;background:var(--fondo-2);
+  position:relative;padding:1rem 1.15rem;background:linear-gradient(135deg,rgba(37,33,61,.96),rgba(25,23,43,.96));
   border-left:3px solid var(--bronce);border-radius:var(--r);
 }
+.resumen::before{content:'◆ HOJA DE PERSONAJE';display:block;margin-bottom:.65rem;font:.62rem var(--mono);letter-spacing:.13em;color:var(--oro)}
 .resumen__linea{margin:0 0 .5rem;font-size:.88rem;color:var(--texto-2)}
 .resumen__linea--tenue{margin:0;font-size:.78rem;color:var(--texto-3)}
 
@@ -196,7 +200,7 @@ button{font-family:inherit;cursor:pointer}
   padding:.25rem .6rem;margin:0 0 .9rem;border-radius:var(--r);
   background:var(--fondo-2);border:1px solid var(--linea);
 }
-.tirada__dado{color:var(--titulo)}
+.tirada__dado{color:var(--titulo)}.tirada__dado::before{content:'◆ ';color:var(--oro)}
 .tirada__cuenta{color:var(--texto-3)}
 .tirada__veredicto{font-weight:500;letter-spacing:.06em;text-transform:uppercase}
 .tirada__hab{color:var(--texto-3)}
@@ -308,6 +312,11 @@ button{font-family:inherit;cursor:pointer}
    ═══════════════════════════════════════════════════════════════════════ */
 .arte{display:block;width:100%;height:100%}
 .arte--imagen{object-fit:cover}
+/* Cada marco es un contexto aislado: ningún retrato cargado tarde puede
+   escapar del recorte ni quedar flotando encima de la siguiente elección. */
+.eleccion__cara,.retrato-pj,.combate__criatura,.escena__lienzo{isolation:isolate;contain:paint}
+.eleccion__cara>.arte,.retrato-pj>.arte,.combate__criatura>.arte,.escena__lienzo>.arte{position:absolute;inset:0;z-index:0}
+.eleccion__cara>.arte--imagen,.retrato-pj>.arte--imagen,.combate__criatura>.arte--imagen,.escena__lienzo>.arte--imagen{z-index:1}
 
 /* ── escena: la cabecera ilustrada del lugar ────────────────────────── */
 .escena{
@@ -331,6 +340,7 @@ button{font-family:inherit;cursor:pointer}
 
 /* ── retrato en el panel de personaje ───────────────────────────────── */
 .retrato-pj{
+  position:relative;
   width:100%;aspect-ratio:5/6;max-height:10rem;overflow:hidden;
   border:1px solid var(--linea);border-radius:var(--r);
   background:var(--fondo-3);margin-bottom:.8rem;
@@ -448,6 +458,44 @@ button{font-family:inherit;cursor:pointer}
 .comercio__nombre{font-size:.84rem}.comercio__precio{font:.72rem var(--mono);color:var(--oro)}
 .ia-local{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--linea)}.ia-local h3{margin:.2rem 0;color:var(--titulo)}.ia-local p{font-size:.78rem;color:var(--texto-2)}.ia-local .entrada{width:100%;margin:.3rem 0 .8rem}
 @media(max-width:420px){.comercio__fila{grid-template-columns:minmax(0,1fr) auto}.comercio__fila .btn{grid-column:2}.modal__panel{padding:.8rem}}
+
+/* ═══ movimiento narrativo ═══════════════════════════════════════════
+   Ritmo cinematográfico sin librerías ni red: cada superficie entra con
+   una cadencia distinta y los estados activos respiran suavemente. */
+[data-pantalla].pantalla-entrando{animation:pantallaRevela .55s cubic-bezier(.2,.8,.2,1) both}
+@keyframes pantallaRevela{from{opacity:0;transform:translateY(14px) scale(.992);filter:blur(5px)}to{opacity:1;transform:none;filter:none}}
+.inicio__marca{animation:marcaViva 4.8s ease-in-out infinite}
+@keyframes marcaViva{50%{transform:translateY(-4px);text-shadow:0 0 44px rgba(143,124,255,.8),4px 4px 0 rgba(255,111,145,.36)}}
+.eleccion__cara{box-shadow:0 18px 55px rgba(0,0,0,.42);animation:retratoEntra .55s cubic-bezier(.2,.8,.2,1) both}
+.eleccion__cara::after,.retrato-pj::after{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(110deg,transparent 25%,rgba(195,185,255,.14) 45%,transparent 65%);transform:translateX(-130%);animation:destelloRetrato 6s ease-in-out infinite}
+@keyframes retratoEntra{from{opacity:0;transform:translateX(-18px) rotate(-1.5deg)}to{opacity:1;transform:none}}
+@keyframes destelloRetrato{0%,72%{transform:translateX(-130%)}88%,100%{transform:translateX(130%)}}
+.ficha{transition:transform .2s ease,border-color .2s ease,background .2s ease,box-shadow .2s ease}
+.ficha:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(0,0,0,.28)}
+.ficha.es-elegida{animation:eleccionPulso .42s cubic-bezier(.2,.9,.25,1)}
+@keyframes eleccionPulso{45%{transform:scale(1.025);box-shadow:0 0 0 4px rgba(143,124,255,.12),inset 3px 0 var(--bronce)}}
+.escena__lienzo>.arte{animation:escenaRespira 14s ease-in-out infinite alternate}
+@keyframes escenaRespira{from{transform:scale(1.01) translate3d(-.3%,0,0)}to{transform:scale(1.08) translate3d(.8%,-.5%,0)}}
+.escena__rotulo{animation:rotuloSube .65s .12s cubic-bezier(.2,.8,.2,1) both}
+@keyframes rotuloSube{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.linea.es-reciente{animation:relatoEscribe .48s cubic-bezier(.2,.8,.2,1) both}
+.linea--dm.es-reciente{animation-duration:.72s}
+@keyframes relatoEscribe{from{opacity:0;transform:translateY(10px);filter:blur(3px)}to{opacity:1;transform:none;filter:none}}
+.tirada.es-reciente{animation:dadoCae .65s cubic-bezier(.15,.9,.25,1) both}
+@keyframes dadoCae{0%{opacity:0;transform:translateY(-18px) rotate(-3deg) scale(.92)}65%{transform:translateY(3px) rotate(1deg) scale(1.02)}100%{opacity:1;transform:none}}
+.barra__relleno{transition:width .65s cubic-bezier(.2,.8,.2,1);position:relative;overflow:hidden}
+.barra__relleno::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);transform:translateX(-100%);animation:barraBrillo 2.8s ease-in-out infinite}
+@keyframes barraBrillo{70%,100%{transform:translateX(120%)}}
+.combate:not([hidden]){animation:combateIrrumpe .5s cubic-bezier(.18,.9,.25,1) both}
+@keyframes combateIrrumpe{from{opacity:0;transform:translate(-50%,28px) scale(.94)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+.combate__criatura{position:relative;animation:rivalAcecha 2.4s ease-in-out infinite}
+@keyframes rivalAcecha{50%{transform:translateY(-4px) rotate(.8deg);filter:drop-shadow(0 0 10px rgba(255,111,145,.3))}}
+.pensando:not([hidden])::after{content:' ';display:inline-block;width:1.2em;animation:puntos 1.1s steps(4,end) infinite}
+@keyframes puntos{0%{content:''}25%{content:'.'}50%{content:'..'}75%,100%{content:'...'}}
+.modal:not([hidden]){animation:veloEntra .28s ease both}.modal:not([hidden]) .modal__panel{animation:panelEntra .42s cubic-bezier(.2,.9,.2,1) both}
+@keyframes veloEntra{from{opacity:0}to{opacity:1}}@keyframes panelEntra{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+.opcion,.btn{transition:transform .16s ease,background .16s,border-color .16s,box-shadow .16s}.opcion:active,.btn:active{transform:scale(.96)}
+@media(prefers-reduced-motion:reduce){.inicio__marca,.eleccion__cara,.eleccion__cara::after,.retrato-pj::after,.escena__lienzo>.arte,.barra__relleno::after,.combate__criatura{animation:none!important}.pantalla-entrando,.linea.es-reciente,.tirada.es-reciente,.modal:not([hidden]),.modal:not([hidden]) .modal__panel{animation-duration:.01ms!important}}
 </style>
 </head>
 <body>

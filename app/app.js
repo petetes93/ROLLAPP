@@ -193,6 +193,13 @@ function mostrar(pantalla) {
   }
 
   document.body.setAttribute('data-active-screen', pantalla);
+
+  const activa = document.querySelector(`section[data-pantalla="${pantalla}"]`);
+  if (activa) {
+    activa.classList.remove('pantalla-entrando');
+    void activa.offsetWidth;
+    activa.classList.add('pantalla-entrando');
+  }
 }
 
 /* ── inicio ───────────────────────────────────────────────────────────── */
@@ -420,9 +427,14 @@ function pintarBitacora() {
   const entradas = ver('narrative.entradas', []) ?? [];
   vaciar(caja);
 
-  for (const e of entradas.slice(-60)) {
+  const visibles = entradas.slice(-60);
+  const desdeReciente = Math.max(0, visibles.length - 3);
+
+  for (const [indice, e] of visibles.entries()) {
     if (e.voz === 'tirada') {
-      caja.append(fichaTirada(e.meta?.tirada));
+      const ficha = fichaTirada(e.meta?.tirada);
+      if (indice >= desdeReciente) ficha.classList.add('es-reciente');
+      caja.append(ficha);
       continue;
     }
 
@@ -436,7 +448,7 @@ function pintarBitacora() {
 
     for (const parrafo of String(e.texto ?? '').split('\n')) {
       if (!parrafo.trim()) continue;
-      caja.append(el('p', { class: clase, text: parrafo }));
+      caja.append(el('p', { class: clase + (indice >= desdeReciente ? ' es-reciente' : ''), text: parrafo }));
     }
   }
 

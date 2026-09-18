@@ -961,6 +961,31 @@ function avisar(mensaje, tipo = 'info') {
    ARRANQUE
    ═══════════════════════════════════════════════════════════════════════════ */
 
+
+async function probarIALocal() {
+  const url = ($('#ia-url')?.value ?? '').trim();
+  const modelo = ($('#ia-modelo')?.value ?? '').trim();
+  const estado = $('#ia-estado'); const activar = $('#ia-activar');
+  const dm = sistema('dungeonmaster'); const local = dm?.proveedor(PROVEEDORES.LOCAL);
+  local?.configurar({ url, modelo });
+  if (!url || !modelo) { estado.textContent = 'Indica la dirección y el modelo instalados.'; activar.disabled = true; return; }
+  estado.textContent = 'Comprobando el modelo local…'; activar.disabled = true;
+  const r = await local.probar();
+  if (!r.ok) { estado.textContent = r.motivo; return; }
+  estado.textContent = r.modelos.includes(modelo) ? `Conectado a ${modelo}.` : `Servidor conectado. Modelos: ${r.modelos.join(', ') || 'ninguno'}`;
+  activar.disabled = !r.modelos.includes(modelo);
+}
+
+function activarIALocal() {
+  const dm = sistema('dungeonmaster');
+  const url = ($('#ia-url')?.value ?? '').trim(); const modelo = ($('#ia-modelo')?.value ?? '').trim();
+  dm?.proveedor(PROVEEDORES.LOCAL)?.configurar({ url, modelo });
+  const r = dm?.cambiar(PROVEEDORES.LOCAL);
+  if (!r?.exito || r.motivo) { avisar(r?.motivo ?? 'No se pudo activar la IA local', 'aviso'); return; }
+  store.fijar('settings.urlLocal', url); store.fijar('settings.modeloLocal', modelo); store.fijar('settings.proveedor', PROVEEDORES.LOCAL);
+  avisar('IA local activa: cada acción pasará por el modelo', 'exito'); $('#director-modal').hidden = true;
+}
+
 function pintarDirectores() {
   const dm = sistema('dungeonmaster');
   const caja = $('#director-opciones');
@@ -1001,7 +1026,9 @@ function aplicarPuente() {
 
 function conectarEventos() {
   $('#comercio-cerrar')?.addEventListener('click', () => { $('#comercio-modal').hidden = true; mercaderActivo = null; });
-  $('#director')?.addEventListener('click', () => { pintarDirectores(); $('#director-modal').hidden = false; });
+  $('#director')?.addEventListener('click', () => { pintarDirectores(); $('#ia-url').value = ver('settings.urlLocal', 'http://localhost:11434'); $('#ia-modelo').value = ver('settings.modeloLocal', ''); $('#director-modal').hidden = false; });
+  $('#ia-probar')?.addEventListener('click', protegido('probar IA local', probarIALocal));
+  $('#ia-activar')?.addEventListener('click', protegido('activar IA local', activarIALocal));
   $('#director-cerrar')?.addEventListener('click', () => { $('#director-modal').hidden = true; });
   $('#puente-copiar')?.addEventListener('click', async () => { await navigator.clipboard.writeText($('#puente-prompt').value); avisar('Encargo copiado', 'exito'); });
   $('#puente-aplicar')?.addEventListener('click', protegido('respuesta del puente', aplicarPuente));

@@ -443,6 +443,10 @@ button{font-family:inherit;cursor:pointer}
 .modal__texto{width:100%;min-height:9rem;resize:vertical;margin:.4rem 0 1rem;padding:.75rem;background:var(--fondo);color:var(--texto);border:1px solid var(--linea);border-radius:6px;font:13px/1.5 var(--mono)}
 .modal__acciones{display:flex;justify-content:flex-end;gap:.5rem;flex-wrap:wrap}.modal__error{color:#ff9aae;font-size:.8rem}
 .mision__recompensa{font: .7rem var(--mono);color:var(--oro)}
+.comercio__seccion{margin:1rem 0}.comercio__seccion h3{font:600 .72rem var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--bronce-2)}
+.comercio__fila{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:.5rem;align-items:center;padding:.55rem 0;border-bottom:1px solid var(--linea)}
+.comercio__nombre{font-size:.84rem}.comercio__precio{font:.72rem var(--mono);color:var(--oro)}
+@media(max-width:420px){.comercio__fila{grid-template-columns:minmax(0,1fr) auto}.comercio__fila .btn{grid-column:2}.modal__panel{padding:.8rem}}
 </style>
 </head>
 <body>
@@ -538,6 +542,13 @@ button{font-family:inherit;cursor:pointer}
     <header class="modal__cab"><h2 id="director-titulo">Narrador</h2><button class="btn btn--pequeno" id="director-cerrar">Cerrar</button></header>
     <p class="modal__nota">Elige cómo se narra la aventura. El motor siempre conserva las reglas y las tiradas.</p>
     <div id="director-opciones"></div>
+  </section>
+</div>
+<div class="modal" id="comercio-modal" hidden>
+  <section class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="comercio-titulo">
+    <header class="modal__cab"><h2 id="comercio-titulo">Comercio</h2><button class="btn btn--pequeno" id="comercio-cerrar">Cerrar</button></header>
+    <p class="modal__nota" id="comercio-nota"></p>
+    <div id="comercio-cuerpo"></div>
   </section>
 </div>
 <div class="modal" id="puente-modal" hidden>

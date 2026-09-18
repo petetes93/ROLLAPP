@@ -542,6 +542,7 @@ function pintarPersonaje() {
 /* ── lateral: inventario, mapa, misiones ──────────────────────────────── */
 
 let pestanaActiva = 'inventario';
+let mercaderActivo = null;
 
 function pintarLateral() {
   const caja = $('#panel-lateral');
@@ -722,16 +723,62 @@ function pintarGente(caja) {
     caja.append(el('div', { class: 'persona' },
       el('p', { class: 'persona__nombre', text: n.nombre }),
       el('p', { class: 'persona__rol', text: `${n.rol} · ${n.etiquetaActitud}` }),
-      el('button', {
-        class: 'btn btn--pequeno',
-        onClick: protegido('hablar', () => enviar(`Hablo con ${n.nombre}`)),
-        text: 'Hablar',
-      }),
+      el('div', { class: 'persona__acciones' },
+        el('button', {
+          class: 'btn btn--pequeno',
+          onClick: protegido('hablar', () => enviar(`Hablo con ${n.nombre}`)),
+          text: 'Hablar',
+        }),
+        n.esMercader ? el('button', {
+          class: 'btn btn--pequeno',
+          onClick: protegido('comerciar', () => abrirComercio(n.refId)),
+          text: 'Comerciar',
+        }) : null,
+      ),
     ));
   }
 }
 
 /* ── opciones sugeridas ───────────────────────────────────────────────── */
+
+function abrirComercio(refId) {
+  mercaderActivo = refId;
+  sistema('merchants')?.abrir(refId);
+  pintarComercio();
+  $('#comercio-modal').hidden = false;
+}
+
+function pintarComercio() {
+  const caja = $('#comercio-cuerpo');
+  const mercado = sistema('merchants');
+  const economia = sistema('economy');
+  const catalogo = mercado?.catalogoParaInterfaz(mercaderActivo);
+  if (!caja || !catalogo) return;
+  vaciar(caja);
+  $('#comercio-titulo').textContent = catalogo.mercader.nombre;
+  $('#comercio-nota').textContent = `Tu oro: ${ver('player.oro', 0)} · Su oro: ${catalogo.oro}`;
+  const compra = el('section', { class: 'comercio__seccion' }, el('h3', { text: 'Comprar' }));
+  for (const o of catalogo.objetos) compra.append(el('div', { class: 'comercio__fila' },
+    el('span', { class: 'comercio__nombre', text: `${o.nombre}${o.stock > 1 ? ` ×${o.stock}` : ''}` }),
+    el('span', { class: 'comercio__precio', text: `${o.precio} oro` }),
+    el('button', { class: 'btn btn--pequeno', text: 'Comprar', onClick: protegido('comprar', () => {
+      const r = economia.comprar({ refIdMercader: mercaderActivo, objeto: o, cantidad: 1, stock: o.stock });
+      avisar(r.exito ? `Comprado: ${o.nombre}` : r.mensaje, r.exito ? 'exito' : 'aviso'); pintarComercio(); refrescarTodo();
+    }) }));
+  caja.append(compra);
+  const vendibles = mercado.vendibleA(mercaderActivo);
+  if (vendibles.length) {
+    const venta = el('section', { class: 'comercio__seccion' }, el('h3', { text: 'Vender' }));
+    for (const o of vendibles) venta.append(el('div', { class: 'comercio__fila' },
+      el('span', { class: 'comercio__nombre', text: `${o.nombre}${o.cantidad > 1 ? ` ×${o.cantidad}` : ''}` }),
+      el('span', { class: 'comercio__precio', text: `${o.precio} oro` }),
+      el('button', { class: 'btn btn--pequeno', text: 'Vender', onClick: protegido('vender', () => {
+        const r = economia.vender({ refIdMercader: mercaderActivo, idObjeto: o.id, cantidad: 1 });
+        avisar(r.exito ? `Vendido: ${o.nombre}` : r.mensaje, r.exito ? 'exito' : 'aviso'); pintarComercio(); refrescarTodo();
+      }) }));
+    caja.append(venta);
+  }
+}
 
 function pintarOpciones() {
   const caja = $('#opciones');
@@ -953,6 +1000,7 @@ function aplicarPuente() {
 }
 
 function conectarEventos() {
+  $('#comercio-cerrar')?.addEventListener('click', () => { $('#comercio-modal').hidden = true; mercaderActivo = null; });
   $('#director')?.addEventListener('click', () => { pintarDirectores(); $('#director-modal').hidden = false; });
   $('#director-cerrar')?.addEventListener('click', () => { $('#director-modal').hidden = true; });
   $('#puente-copiar')?.addEventListener('click', async () => { await navigator.clipboard.writeText($('#puente-prompt').value); avisar('Encargo copiado', 'exito'); });

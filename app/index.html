@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ARCANUM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,400;9..144,600;9..144,900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ═══ tokens ══════════════════════════════════════════════════════════
+   Penumbra de taberna: tinta oscura, pergamino cálido, bronce oxidado.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root{
+  --fondo:#14161A;
+  --fondo-2:#1B1E23;
+  --fondo-3:#24282E;
+  --linea:#33383F;
+
+  --texto:#DED8CB;
+  --texto-2:#A29C90;
+  --texto-3:#6E6961;
+  --titulo:#F2EDE1;
+
+  --bronce:#8A9E7E;
+  --bronce-2:#A8BC98;
+  --oro:#C9A227;
+  --sal:#B4533A;
+  --aviso:#C08A3E;
+
+  --display:'Fraunces',Georgia,serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+
+  --r:4px;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+
+html,body{height:100%}
+body{
+  margin:0;background:var(--fondo);color:var(--texto);
+  font-family:var(--sans);font-size:15px;line-height:1.55;
+  overflow:hidden;
+}
+
+/* La página NUNCA se oculta esperando a que cargue algo: un fallo con el
+   cuerpo invisible es una pantalla en blanco sin explicación. Lo que se
+   atenúa es el contenido, y sólo hasta que el motor está en marcha. */
+.juego,.creacion{opacity:.35;transition:opacity .35s ease}
+body.esta-listo .juego,body.esta-listo .creacion{opacity:1}
+
+button{font-family:inherit;cursor:pointer}
+
+/* ═══ botones ═════════════════════════════════════════════════════════ */
+.btn{
+  font-family:var(--mono);font-size:.78rem;letter-spacing:.03em;
+  color:var(--texto);background:var(--fondo-3);
+  border:1px solid var(--linea);border-radius:var(--r);
+  padding:.6rem 1rem;transition:background .15s,border-color .15s;
+}
+.btn:hover:not(:disabled){background:#2C313A;border-color:var(--bronce)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn--grande{font-size:.9rem;padding:.85rem 1.6rem;background:var(--bronce);color:#12140F;border-color:var(--bronce);font-weight:500}
+.btn--grande:hover:not(:disabled){background:var(--bronce-2);border-color:var(--bronce-2)}
+.btn--fantasma{background:transparent}
+.btn--pequeno{font-size:.7rem;padding:.35rem .7rem}
+.btn--peligro{border-color:var(--sal);color:#E5A08C}
+
+:focus-visible{outline:2px solid var(--bronce);outline-offset:2px}
+
+/* ═══ pantallas ═══════════════════════════════════════════════════════ */
+[data-pantalla]{height:100dvh;overflow:auto}
+[data-pantalla][hidden]{display:none}
+
+/* ── inicio ─────────────────────────────────────────────────────────── */
+.inicio{display:grid;place-items:center;text-align:center;padding:2rem}
+.inicio__marca{
+  font-family:var(--display);font-variation-settings:'SOFT' 0,'WONK' 1,'opsz' 144;
+  font-weight:900;font-size:clamp(3rem,13vw,6rem);line-height:.9;
+  letter-spacing:-.03em;color:var(--titulo);margin:0;
+}
+.inicio__lema{
+  font-family:var(--mono);font-size:.72rem;letter-spacing:.24em;
+  text-transform:uppercase;color:var(--texto-3);margin:.9rem 0 2.5rem;
+}
+.inicio__acciones{display:flex;flex-direction:column;gap:.7rem;min-width:14rem}
+.inicio__pie{
+  margin-top:2.5rem;font-size:.78rem;color:var(--texto-3);max-width:26rem;
+}
+
+/* ── creación ───────────────────────────────────────────────────────── */
+.creacion{max-width:52rem;margin:0 auto;padding:2rem 1.25rem 6rem}
+.creacion__titulo{
+  font-family:var(--display);font-variation-settings:'SOFT' 30,'WONK' 1,'opsz' 60;
+  font-weight:600;font-size:1.8rem;margin:0 0 .3rem;color:var(--titulo);
+}
+.creacion__nota{color:var(--texto-2);margin:0 0 2rem;font-size:.9rem}
+
+.campo{margin-bottom:1.75rem}
+.campo__eti,.grupo__eti{
+  display:block;font-family:var(--mono);font-size:.65rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--bronce);margin:0 0 .5rem;
+}
+.campo__entrada{
+  width:100%;font-family:var(--display);font-size:1.3rem;
+  color:var(--titulo);background:var(--fondo-2);
+  border:1px solid var(--linea);border-radius:var(--r);padding:.7rem .9rem;
+}
+
+.grupo{margin-bottom:1.75rem}
+.fichas{display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:.5rem}
+.ficha{
+  text-align:left;padding:.6rem .75rem;
+  background:var(--fondo-2);border:1px solid var(--linea);
+  border-radius:var(--r);color:var(--texto-2);
+  display:flex;flex-direction:column;gap:.15rem;
+}
+.ficha:hover{border-color:var(--bronce);color:var(--texto)}
+.ficha.es-elegida{border-color:var(--bronce);background:#1F2620;color:var(--texto)}
+.ficha__nombre{font-family:var(--mono);font-size:.8rem;color:var(--titulo)}
+.ficha.es-elegida .ficha__nombre{color:var(--bronce-2)}
+.ficha__nota{font-size:.68rem;line-height:1.35;color:var(--texto-3)}
+
+.resumen{
+  padding:1rem 1.15rem;background:var(--fondo-2);
+  border-left:3px solid var(--bronce);border-radius:var(--r);
+}
+.resumen__linea{margin:0 0 .5rem;font-size:.88rem;color:var(--texto-2)}
+.resumen__linea--tenue{margin:0;font-size:.78rem;color:var(--texto-3)}
+
+.creacion__pie{
+  position:fixed;left:0;right:0;bottom:0;
+  display:flex;gap:.6rem;justify-content:center;
+  padding:1rem;background:linear-gradient(transparent,var(--fondo) 40%);
+}
+
+/* ═══ juego ═══════════════════════════════════════════════════════════ */
+.juego{display:grid;grid-template-rows:auto 1fr auto;height:100dvh;overflow:hidden}
+
+.cab{
+  display:flex;justify-content:space-between;align-items:center;gap:1rem;
+  padding:.6rem 1rem;border-bottom:1px solid var(--linea);background:var(--fondo-2);
+}
+.cab__info{display:flex;gap:.5rem;flex-wrap:wrap;font-family:var(--mono);font-size:.7rem;color:var(--texto-2)}
+.cab__lugar{color:var(--titulo)}
+.cab__sep{color:var(--texto-3)}
+
+.tablero{
+  display:grid;grid-template-columns:minmax(0,1fr) 17rem;
+  gap:1px;background:var(--linea);overflow:hidden;
+}
+@media(max-width:800px){
+  .tablero{grid-template-columns:1fr;grid-template-rows:1fr auto}
+  .lateral{max-height:14rem}
+}
+
+/* ── bitácora ───────────────────────────────────────────────────────── */
+.centro{display:flex;flex-direction:column;background:var(--fondo);overflow:hidden}
+.bitacora{flex:1;overflow-y:auto;padding:1.5rem 1.25rem;scroll-behavior:smooth}
+
+.linea{margin:0 0 .9rem;max-width:38rem}
+.linea--dm{
+  font-family:var(--display);font-variation-settings:'SOFT' 40,'WONK' 0,'opsz' 20;
+  font-size:1.02rem;line-height:1.65;color:var(--texto);
+}
+.linea--jugador{
+  font-family:var(--mono);font-size:.82rem;color:var(--bronce-2);
+  padding-left:.9rem;border-left:2px solid var(--bronce);
+}
+.linea--sistema{font-size:.82rem;color:var(--texto-3);font-style:italic}
+.linea--combate{font-family:var(--mono);font-size:.78rem;color:var(--texto-2)}
+
+.tirada{
+  display:inline-flex;align-items:baseline;gap:.55rem;flex-wrap:wrap;
+  font-family:var(--mono);font-size:.68rem;
+  padding:.25rem .6rem;margin:0 0 .9rem;border-radius:var(--r);
+  background:var(--fondo-2);border:1px solid var(--linea);
+}
+.tirada__dado{color:var(--titulo)}
+.tirada__cuenta{color:var(--texto-3)}
+.tirada__veredicto{font-weight:500;letter-spacing:.06em;text-transform:uppercase}
+.tirada__hab{color:var(--texto-3)}
+.tirada--exito,.tirada--critico{border-color:var(--bronce)}
+.tirada--exito .tirada__veredicto,.tirada--critico .tirada__veredicto{color:var(--bronce-2)}
+.tirada--fracaso,.tirada--pifia{border-color:var(--sal)}
+.tirada--fracaso .tirada__veredicto,.tirada--pifia .tirada__veredicto{color:#E5A08C}
+
+/* ── lateral ────────────────────────────────────────────────────────── */
+.lateral{background:var(--fondo-2);overflow-y:auto;padding:1rem}
+.lateral__cuerpo{margin-top:.75rem}
+
+.ficha-pj{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.9rem}
+.ficha-pj__nombre{font-family:var(--display);font-size:1.15rem;color:var(--titulo)}
+.ficha-pj__clase{font-family:var(--mono);font-size:.68rem;color:var(--texto-3)}
+
+.barra-caja{margin-bottom:.55rem}
+.barra-caja__fila{
+  display:flex;justify-content:space-between;
+  font-family:var(--mono);font-size:.65rem;color:var(--texto-2);margin-bottom:.15rem;
+}
+.barra-caja__cifra{color:var(--texto-3)}
+.barra{height:4px;background:#2A2E35;border-radius:2px;overflow:hidden}
+.barra__relleno{height:100%;transition:width .3s ease;background:var(--bronce)}
+.barra__relleno--vida{background:var(--sal)}
+.barra__relleno--mana{background:#5E7C9E}
+.barra__relleno--hambre{background:var(--aviso)}
+.barra__relleno--sed{background:#5E9E9A}
+.barra__relleno--fatiga{background:#8A7E9E}
+.barra__relleno--enemigo{background:var(--sal)}
+
+.oro{
+  display:flex;justify-content:space-between;
+  font-family:var(--mono);font-size:.72rem;
+  padding:.5rem 0;margin-top:.4rem;border-top:1px solid var(--linea);
+}
+.oro__cifra{color:var(--oro)}
+
+.etiquetas{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.5rem}
+.etiqueta{font-family:var(--mono);font-size:.62rem;padding:.1rem .4rem;border-radius:var(--r);background:var(--fondo-3)}
+.etiqueta--mal{color:#E5A08C}
+
+.pestanas{display:flex;gap:.25rem;border-bottom:1px solid var(--linea);padding-bottom:.5rem}
+.pestana{
+  font-family:var(--mono);font-size:.66rem;letter-spacing:.05em;
+  background:none;border:none;color:var(--texto-3);padding:.25rem .45rem;border-radius:var(--r);
+}
+.pestana:hover{color:var(--texto)}
+.pestana.es-activa{color:var(--bronce-2);background:var(--fondo-3)}
+
+.vacio{font-size:.8rem;color:var(--texto-3);font-style:italic;margin:.5rem 0}
+.sub-eti{font-family:var(--mono);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--texto-3);margin:.8rem 0 .4rem}
+.lugar-actual{font-family:var(--display);font-size:1.05rem;color:var(--titulo);margin:0 0 .3rem}
+
+.objeto,.destino{
+  display:flex;justify-content:space-between;align-items:center;gap:.5rem;
+  width:100%;text-align:left;padding:.45rem .6rem;margin-bottom:.25rem;
+  background:var(--fondo-3);border:1px solid transparent;border-radius:var(--r);
+  color:var(--texto);font-size:.8rem;
+}
+.objeto:hover,.destino:hover{border-color:var(--bronce)}
+.objeto.es-equipado{border-color:var(--bronce)}
+.objeto__cant,.destino__dato{font-family:var(--mono);font-size:.68rem;color:var(--texto-3)}
+.objeto__marca{font-family:var(--mono);font-size:.6rem;color:var(--bronce-2)}
+.destino__dato.es-aviso{color:var(--aviso)}
+.destino__dato.es-peligro{color:var(--sal)}
+
+.mision{padding:.6rem .7rem;margin-bottom:.5rem;background:var(--fondo-3);border-radius:var(--r);border-left:2px solid var(--linea)}
+.mision--oferta{border-left-color:var(--oro)}
+.mision__titulo{font-size:.85rem;color:var(--titulo);margin:0 0 .25rem}
+.mision__texto{font-size:.72rem;color:var(--texto-2);margin:0 0 .5rem}
+.mision__obj{font-family:var(--mono);font-size:.68rem;color:var(--texto-2);margin:0 0 .15rem}
+.mision__obj.es-hecho{color:var(--texto-3);text-decoration:line-through}
+
+.persona{padding:.55rem .65rem;margin-bottom:.4rem;background:var(--fondo-3);border-radius:var(--r)}
+.persona__nombre{font-size:.85rem;color:var(--titulo);margin:0}
+.persona__rol{font-family:var(--mono);font-size:.66rem;color:var(--texto-3);margin:0 0 .4rem}
+
+/* ── pie: opciones y entrada ────────────────────────────────────────── */
+.pie{border-top:1px solid var(--linea);background:var(--fondo-2);padding:.7rem 1rem}
+
+.opciones{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem}
+.opcion{
+  font-family:var(--mono);font-size:.72rem;
+  padding:.35rem .65rem;background:var(--fondo-3);
+  border:1px solid var(--linea);border-radius:var(--r);color:var(--texto-2);
+}
+.opcion:hover{border-color:var(--bronce);color:var(--texto)}
+
+.entrada-fila{display:flex;gap:.5rem;align-items:center}
+.entrada{
+  flex:1;font-family:var(--sans);font-size:.95rem;
+  color:var(--texto);background:var(--fondo);
+  border:1px solid var(--linea);border-radius:var(--r);padding:.65rem .85rem;
+}
+.entrada:focus{border-color:var(--bronce);outline:none}
+.entrada:disabled{opacity:.5}
+
+.pensando{
+  font-family:var(--mono);font-size:.68rem;color:var(--texto-3);
+  margin:.4rem 0 0;
+}
+.pensando[hidden]{display:none}
+
+/* ═══ arte ════════════════════════════════════════════════════════════
+   Todo el arte lo genera src/art/ como SVG. Los contenedores fijan la
+   proporción y recortan; el SVG se estira dentro con `slice`, así que
+   nunca se deforma ni deja bandas.
+   ═══════════════════════════════════════════════════════════════════════ */
+.arte{display:block;width:100%;height:100%}
+.arte--imagen{object-fit:cover}
+
+/* ── escena: la cabecera ilustrada del lugar ────────────────────────── */
+.escena{
+  position:relative;flex:0 0 auto;
+  height:clamp(140px,24vh,240px);overflow:hidden;
+  border-bottom:1px solid var(--linea);background:var(--fondo-2);
+}
+.escena__lienzo{position:absolute;inset:0}
+.escena__rotulo{
+  position:absolute;left:0;right:0;bottom:0;
+  display:flex;align-items:baseline;gap:.5rem;flex-wrap:wrap;
+  padding:1.4rem 1.25rem .7rem;
+  background:linear-gradient(transparent,rgb(10 12 16 / .88));
+}
+.escena__lugar{
+  font-family:var(--display);font-size:1.4rem;line-height:1.1;color:var(--titulo);
+  font-variation-settings:'SOFT' 30,'WONK' 1,'opsz' 60;
+}
+.escena__dato{font-family:var(--mono);font-size:.68rem;color:var(--texto-2)}
+.escena__sep{font-family:var(--mono);font-size:.68rem;color:var(--texto-3)}
+
+/* ── retrato en el panel de personaje ───────────────────────────────── */
+.retrato-pj{
+  width:100%;aspect-ratio:5/6;max-height:10rem;overflow:hidden;
+  border:1px solid var(--linea);border-radius:var(--r);
+  background:var(--fondo-3);margin-bottom:.8rem;
+}
+
+/* ── retrato en la creación ─────────────────────────────────────────── */
+.eleccion{display:grid;grid-template-columns:11rem minmax(0,1fr);gap:1.4rem;align-items:start}
+.eleccion__cara{
+  position:sticky;top:1rem;
+  width:100%;aspect-ratio:5/6;overflow:hidden;
+  border:1px solid var(--linea);border-radius:var(--r);background:var(--fondo-2);
+}
+@media(max-width:640px){
+  .eleccion{grid-template-columns:1fr}
+  .eleccion__cara{position:static;max-width:11rem;margin:0 auto}
+}
+
+/* ── criatura en combate ────────────────────────────────────────────── */
+/* Cuadrada. El lienzo de criatura es 1:1 y con `slice` un hueco apaisado
+   recortaba la franja de cielo que hay sobre el bicho: marco lleno, bicho
+   fuera. Al lado va su nombre, como una ficha de rival. */
+.combate__rival{display:flex;gap:.8rem;align-items:center;margin-bottom:.8rem}
+.combate__criatura{
+  flex:0 0 auto;width:5.5rem;height:5.5rem;overflow:hidden;
+  border:1px solid var(--linea);border-radius:var(--r);
+}
+.combate__quien{display:flex;flex-direction:column;gap:.15rem;min-width:0}
+.combate__nombre{font-family:var(--display);font-size:1.05rem;color:var(--titulo)}
+.combate__rasgo{font-family:var(--mono);font-size:.66rem;color:var(--texto-3)}
+
+/* ── combate ────────────────────────────────────────────────────────── */
+.combate{
+  position:fixed;left:50%;bottom:6.5rem;transform:translateX(-50%);
+  width:min(30rem,calc(100vw - 2rem));z-index:40;
+  padding:1rem;background:var(--fondo-3);
+  border:1px solid var(--sal);border-radius:var(--r);
+  box-shadow:0 12px 40px rgb(0 0 0 / .6);
+}
+.combate[hidden]{display:none}
+.combate__eti{
+  font-family:var(--mono);font-size:.65rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--sal);margin:0 0 .7rem;
+}
+.combate__lista{margin-bottom:.8rem}
+.luchador{margin-bottom:.5rem}
+.luchador.es-caido{opacity:.35}
+.luchador__fila{display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:.2rem}
+.luchador__cond{font-family:var(--mono);font-size:.66rem;color:var(--texto-3)}
+.combate__acciones{display:flex;gap:.4rem}
+.combate__acciones .btn{flex:1}
+.combate__espera{font-family:var(--mono);font-size:.7rem;color:var(--texto-3);text-align:center;margin:0}
+
+/* ── avisos ─────────────────────────────────────────────────────────── */
+.avisos{position:fixed;top:1rem;right:1rem;z-index:60;display:grid;gap:.4rem;max-width:18rem}
+.aviso{
+  font-size:.8rem;padding:.55rem .8rem;border-radius:var(--r);
+  background:var(--fondo-3);border:1px solid var(--linea);
+  animation:entrar .25s ease both;
+}
+.aviso--exito{border-color:var(--bronce);color:var(--bronce-2)}
+.aviso--aviso{border-color:var(--aviso);color:#DCB177}
+.aviso--error{border-color:var(--sal);color:#E5A08C}
+@keyframes entrar{from{opacity:0;transform:translateX(1rem)}}
+
+/* ── fallos ─────────────────────────────────────────────────────────── */
+.arranque{
+  position:fixed;inset:0;display:grid;place-items:center;text-align:center;
+  background:var(--fondo);z-index:80;
+}
+/* El rótulo lleva estilos EN LÍNEA para verse antes de que cargue nada, y una
+   declaración en línea gana a la hoja: sin `!important` aquí, poner `hidden`
+   no lo oculta y el rótulo se queda tapando el juego para siempre. */
+.arranque[hidden]{display:none!important}
+.arranque__marca{
+  font-family:var(--display);font-variation-settings:'SOFT' 0,'WONK' 1,'opsz' 144;
+  font-weight:900;font-size:clamp(2.5rem,10vw,4.5rem);letter-spacing:-.03em;
+  color:var(--titulo);margin:0;
+}
+.arranque__texto{font-family:var(--mono);font-size:.75rem;color:var(--texto-3);margin:.8rem 0 0}
+.arranque__texto.es-fallo{color:#E5A08C;max-width:32rem;padding:0 1.5rem;line-height:1.6}
+
+.fallos{
+  position:fixed;top:0;left:0;right:0;z-index:99;
+  padding:.8rem 1rem;background:#2A1512;border-bottom:1px solid var(--sal);
+  max-height:40vh;overflow:auto;
+}
+.fallos__titulo{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sal);margin:0 0 .4rem}
+.fallos__linea{font-family:var(--mono);font-size:.68rem;white-space:pre-wrap;color:var(--texto-2);margin:0 0 .4rem}
+
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+  body{opacity:1}
+}
+</style>
+</head>
+<body>
+
+<!-- Visible desde el primer momento: si el motor no arranca, esto es lo que
+     queda en pantalla en vez del vacío. -->
+<div class="arranque" id="arranque"
+     style="position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;
+            align-items:center;justify-content:center;text-align:center;
+            background:#14161A;color:#F2EDE1;font-family:Georgia,serif;padding:1.5rem">
+  <p style="font-size:clamp(2.5rem,10vw,4.5rem);font-weight:900;letter-spacing:-.03em;margin:0">ARCANUM</p>
+  <p id="arranque-texto"
+     style="font-family:ui-monospace,Menlo,monospace;font-size:.8rem;color:#8A857C;
+            margin:1rem 0 0;max-width:34rem;line-height:1.6">Preparando el motor… <span id="sello">build 7</span></p>
+  <pre id="arranque-detalle"
+       style="font-family:ui-monospace,Menlo,monospace;font-size:.68rem;color:#B4533A;
+              margin:1rem 0 0;max-width:90vw;max-height:40vh;overflow:auto;
+              white-space:pre-wrap;text-align:left;display:none"></pre>
+</div>
+
+<!-- ═══ inicio ═══════════════════════════════════════════════════════ -->
+<section data-pantalla="inicio" class="inicio" hidden>
+  <div>
+    <h1 class="inicio__marca">ARCANUM</h1>
+    <p class="inicio__lema">Crónicas de los Reinos Quebrados</p>
+
+    <div class="inicio__acciones" id="inicio-acciones"></div>
+
+    <p class="inicio__pie">
+      Escribe lo que quieras hacer. El motor tira los dados y decide;
+      el narrador solo cuenta lo que ya está decidido.
+    </p>
+  </div>
+</section>
+
+<!-- ═══ creación ═════════════════════════════════════════════════════ -->
+<section data-pantalla="creacion" class="creacion" hidden>
+  <h2 class="creacion__titulo">¿Quién eres?</h2>
+  <p class="creacion__nota">Nada de esto te encierra: el linaje decide dónde empiezas, no en quién te conviertes.</p>
+
+  <div id="creacion-cuerpo"></div>
+
+  <div class="creacion__pie">
+    <button class="btn btn--fantasma" id="creacion-volver">Atrás</button>
+    <button class="btn btn--grande" id="creacion-empezar">Empezar la crónica</button>
+  </div>
+</section>
+
+<!-- ═══ juego ════════════════════════════════════════════════════════ -->
+<section data-pantalla="juego" class="juego" hidden>
+
+  <header class="cab">
+    <div class="cab__info" id="cabecera-info"></div>
+    <button class="btn btn--pequeno" id="guardar">Guardar</button>
+  </header>
+
+  <div class="tablero">
+    <div class="centro">
+      <!-- La ilustración del lugar. Se repinta cuando cambias de sitio, de
+           hora o de tiempo, así que no es un adorno fijo: es estado. -->
+      <div class="escena" id="escena">
+        <div class="escena__lienzo" id="escena-lienzo"></div>
+        <div class="escena__rotulo" id="escena-rotulo"></div>
+      </div>
+
+      <div class="bitacora" id="bitacora"></div>
+    </div>
+
+    <aside class="lateral" id="panel-lateral-envoltura">
+      <div class="retrato-pj" id="retrato-pj"></div>
+      <div id="panel-personaje"></div>
+      <div id="panel-lateral"></div>
+    </aside>
+  </div>
+
+  <footer class="pie">
+    <div class="opciones" id="opciones"></div>
+
+    <div class="entrada-fila">
+      <input type="text" class="entrada" id="entrada"
+             placeholder="¿Qué haces?" autocomplete="off" autofocus>
+      <button class="btn" id="enviar">Actuar</button>
+    </div>
+
+    <p class="pensando" id="pensando" hidden>El director está narrando…</p>
+  </footer>
+
+</section>
+
+<!-- ═══ capas ════════════════════════════════════════════════════════ -->
+<div class="combate" id="combate" hidden></div>
+<div class="avisos" id="avisos"></div>
+
+<!-- El empaquetador retira esta etiqueta y pone el código en línea; sirviendo
+     por HTTP es lo que carga la app. Sin ella el rótulo de arranque se queda
+     puesto para siempre y la pantalla parece vacía. -->
+<script type="module" src="app.js"></script>
+
+</body>
+</html>

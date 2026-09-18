@@ -1,0 +1,29 @@
+# Dependencias (ARCANUM no las necesita, pero por si acaso)
+node_modules/
+package-lock.json
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporales
+*.log
+*.tmp
+.cache/
+
+# Nada de credenciales en el repositorio, nunca
+.env
+.env.*
+*.key
+credenciales.*
+# Salida del empaquetador
+dist/
+.gstack/

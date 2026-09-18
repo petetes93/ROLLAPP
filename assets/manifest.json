@@ -1,0 +1,11 @@
+{
+  "paisajes": {
+    "forja_alta": "paisajes/forja_alta.jpg"
+  },
+  "retratos": {
+    "griscuerno": "retratos/griscuerno.jpg"
+  },
+  "criaturas": {
+    "lobo_ceniciento": "criaturas/lobo_ceniciento.jpg"
+  }
+}

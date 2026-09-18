@@ -1,0 +1,28 @@
+# Cómo subir esto a GitHub
+
+Desde la carpeta `arcanum/`, con el repositorio ya creado y vacío:
+
+```bash
+git init
+git add .
+git commit -m "ARCANUM: motor de rol narrativo web"
+git branch -M main
+git remote add origin https://github.com/petetes93/ROLLAPP.git
+git push -u origin main
+```
+
+Si el repositorio ya tiene commits (por ejemplo un README creado desde la web):
+
+```bash
+git pull --rebase origin main
+git push -u origin main
+```
+
+## Después
+
+GitHub Pages sirve ARCANUM sin configuración adicional, porque no hay
+compilación: son archivos estáticos.
+
+En el repositorio → **Settings → Pages → Source: main / (root)**.
+
+En unos minutos estará en `https://petetes93.github.io/ROLLAPP/`.

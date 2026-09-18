@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCANUM · banco de pruebas del motor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,400;9..144,600;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ═══ tokens ═══════════════════════════════════════════════════════════
+   Paleta sacada de los materiales del mundo: ceniza del Bosque Cenizo,
+   bronce oxidado de las ruinas albares, sal roja de las dunas.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root{
+  --ceniza:#E4E2DA;
+  --ceniza-clara:#F2F1EC;
+  --tinta:#1C201E;
+  --tinta-suave:#4A514D;
+  --tinta-tenue:#7C837E;
+  --bronce:#3D6B5C;
+  --bronce-claro:#5A8B79;
+  --bronce-velo:#3D6B5C1A;
+  --sal:#9C4527;
+  --sal-velo:#9C45271A;
+  --hierro:#C8C6BE;
+
+  --display:'Fraunces',Georgia,serif;
+  --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+
+  --r:3px;
+  --linea:1px solid var(--hierro);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+
+html{-webkit-text-size-adjust:100%}
+
+body{
+  margin:0;
+  background:var(--ceniza);
+  color:var(--tinta);
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.55;
+  opacity:0;
+  transition:opacity .5s ease;
+}
+body.esta-listo{opacity:1}
+
+/* ═══ estructura ══════════════════════════════════════════════════════ */
+
+.envoltura{max-width:64rem;margin:0 auto;padding:0 1.5rem}
+
+.seccion{padding:3.5rem 0;border-top:var(--linea)}
+.seccion:first-of-type{border-top:none}
+
+.rotulo{
+  font-family:var(--mono);
+  font-size:.68rem;
+  font-weight:600;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--bronce);
+  margin:0 0 .35rem;
+}
+
+h2{
+  font-family:var(--display);
+  font-variation-settings:'SOFT' 30,'WONK' 1,'opsz' 60;
+  font-weight:600;
+  font-size:clamp(1.5rem,3.2vw,2rem);
+  line-height:1.15;
+  margin:0 0 .5rem;
+  letter-spacing:-.01em;
+}
+
+.entradilla{
+  color:var(--tinta-suave);
+  max-width:44rem;
+  margin:0 0 1.75rem;
+}
+
+/* ═══ portada ═════════════════════════════════════════════════════════ */
+
+.portada{padding:4.5rem 0 3rem}
+
+.portada__marca{
+  font-family:var(--display);
+  font-variation-settings:'SOFT' 0,'WONK' 1,'opsz' 144;
+  font-weight:900;
+  font-size:clamp(3.2rem,11vw,6.5rem);
+  line-height:.85;
+  letter-spacing:-.035em;
+  margin:0;
+}
+
+.portada__coletilla{
+  font-family:var(--mono);
+  font-size:.72rem;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  color:var(--tinta-tenue);
+  margin:.85rem 0 0;
+}
+
+.portada__tesis{
+  font-family:var(--display);
+  font-variation-settings:'SOFT' 40,'WONK' 1,'opsz' 40;
+  font-size:clamp(1.15rem,2.6vw,1.5rem);
+  line-height:1.3;
+  max-width:32rem;
+  margin:2rem 0 0;
+  padding-left:1.1rem;
+  border-left:3px solid var(--bronce);
+}
+
+.portada__nota{
+  font-size:.85rem;
+  color:var(--tinta-tenue);
+  max-width:34rem;
+  margin:1.25rem 0 0;
+}
+
+/* ═══ controles ═══════════════════════════════════════════════════════ */
+
+input[type=text],select,textarea{
+  font-family:var(--mono);
+  font-size:.85rem;
+  color:var(--tinta);
+  background:var(--ceniza-clara);
+  border:var(--linea);
+  border-radius:var(--r);
+  padding:.6rem .75rem;
+}
+input[type=text]:focus-visible,select:focus-visible,textarea:focus-visible,
+button:focus-visible,input[type=checkbox]:focus-visible{
+  outline:2px solid var(--bronce);
+  outline-offset:2px;
+}
+
+button{
+  font-family:var(--mono);
+  font-size:.75rem;
+  font-weight:500;
+  letter-spacing:.04em;
+  color:var(--tinta);
+  background:var(--ceniza-clara);
+  border:var(--linea);
+  border-radius:var(--r);
+  padding:.5rem .85rem;
+  cursor:pointer;
+  transition:background .15s,border-color .15s;
+}
+button:hover:not(:disabled){background:var(--bronce-velo);border-color:var(--bronce)}
+button:disabled{opacity:.4;cursor:not-allowed}
+
+.boton--fuerte{background:var(--bronce);color:var(--ceniza-clara);border-color:var(--bronce)}
+.boton--fuerte:hover:not(:disabled){background:var(--bronce-claro);border-color:var(--bronce-claro)}
+
+.mandos{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:1.25rem}
+
+.mando{display:flex;flex-direction:column;gap:.25rem}
+.mando__eti{
+  font-family:var(--mono);font-size:.62rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--tinta-tenue);
+}
+
+label.casilla{
+  display:inline-flex;align-items:center;gap:.4rem;
+  font-family:var(--mono);font-size:.75rem;cursor:pointer;
+}
+
+/* ═══ consola ═════════════════════════════════════════════════════════ */
+
+.consola__campo{width:100%;font-size:1rem;padding:.85rem 1rem}
+
+.sugerencias{display:flex;flex-wrap:wrap;gap:.4rem;margin:.7rem 0 1.5rem}
+.sugerencia{font-size:.7rem;padding:.35rem .6rem;color:var(--tinta-suave)}
+
+.lectura{display:flex;gap:1rem;padding:1.1rem 0;border-top:1px dashed var(--hierro)}
+.lectura:first-child{border-top:none;padding-top:0}
+
+.lectura__paso{
+  flex:0 0 auto;
+  font-family:var(--mono);font-size:.7rem;font-weight:600;
+  width:1.5rem;height:1.5rem;border-radius:50%;
+  display:grid;place-items:center;
+  background:var(--bronce);color:var(--ceniza-clara);
+}
+
+.lectura__titulo{
+  font-family:var(--mono);font-size:.65rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--tinta-tenue);margin-bottom:.5rem;
+}
+
+.chips{display:flex;flex-wrap:wrap;gap:.35rem}
+.chips--mods{margin-top:.6rem}
+
+.chip{
+  font-family:var(--mono);font-size:.7rem;
+  padding:.2rem .5rem;border-radius:var(--r);
+  background:var(--ceniza-clara);border:var(--linea);
+}
+.chip--fuerte{background:var(--bronce);color:var(--ceniza-clara);border-color:var(--bronce);font-weight:500}
+.chip--tenue{color:var(--tinta-tenue)}
+.chip--mod.es-mas{border-color:var(--bronce);color:var(--bronce)}
+.chip--mod.es-menos{border-color:var(--sal);color:var(--sal)}
+
+.nota{font-size:.85rem;color:var(--tinta-suave);margin:0}
+
+/* ═══ SIGNATURE · la pista de resolución ══════════════════════════════
+   El dado cae en una posición; el umbral es un poste fijo. Hace visible
+   que el motor decide antes de que hable el narrador.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.pista{margin-top:.25rem}
+
+.pista__via{
+  position:relative;height:2.6rem;
+  background:var(--ceniza-clara);
+  border:var(--linea);border-radius:var(--r);
+}
+
+.pista__zona{
+  position:absolute;top:0;bottom:0;
+  background:var(--bronce-velo);
+  border-left:1px solid var(--bronce);
+}
+
+.pista__umbral{position:absolute;top:0;bottom:0;width:2px;background:var(--bronce)}
+.pista__umbral-num{
+  position:absolute;top:-1.15rem;left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:.62rem;font-weight:600;color:var(--bronce);
+}
+
+.pista__tramo{
+  position:absolute;top:50%;height:2px;
+  background:var(--tinta-tenue);transform:translateY(-50%);
+  animation:extender .45s cubic-bezier(.2,.8,.3,1) both;
+}
+@keyframes extender{from{transform:translateY(-50%) scaleX(0);transform-origin:left}}
+
+.pista__marca{
+  position:absolute;top:50%;transform:translate(-50%,-50%);
+  width:.55rem;height:.55rem;border-radius:50%;
+  animation:caer .3s cubic-bezier(.3,1.4,.5,1) both;
+}
+@keyframes caer{from{transform:translate(-50%,-50%) scale(0)}}
+
+.pista__marca--nat{background:var(--tinta-tenue)}
+.pista__marca--total{background:var(--tinta);width:.75rem;height:.75rem}
+
+.pista__marca-num{
+  position:absolute;top:.75rem;left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:.68rem;font-weight:600;
+}
+.pista__marca--total .pista__marca-num{font-size:.8rem}
+
+.pista__leyenda{
+  display:flex;flex-wrap:wrap;gap:1rem;margin-top:1.3rem;
+  font-family:var(--mono);font-size:.72rem;color:var(--tinta-suave);
+}
+.pista__leyenda b{color:var(--tinta);font-weight:600}
+
+/* ═══ veredicto ═══════════════════════════════════════════════════════ */
+
+.veredicto{padding:.85rem 1rem;border-radius:var(--r);border:1px solid}
+.veredicto--exito,.veredicto--critico{background:var(--bronce-velo);border-color:var(--bronce)}
+.veredicto--fracaso,.veredicto--pifia{background:var(--sal-velo);border-color:var(--sal)}
+
+.veredicto__sello{
+  display:block;
+  font-family:var(--display);
+  font-variation-settings:'SOFT' 20,'WONK' 1,'opsz' 60;
+  font-weight:900;font-size:1.35rem;line-height:1.1;
+  letter-spacing:-.01em;
+}
+.veredicto--exito .veredicto__sello,.veredicto--critico .veredicto__sello{color:var(--bronce)}
+.veredicto--fracaso .veredicto__sello,.veredicto--pifia .veredicto__sello{color:var(--sal)}
+
+.veredicto__orden{
+  font-family:var(--mono);font-size:.68rem;letter-spacing:.06em;
+  color:var(--tinta-suave);margin:.4rem 0 0;
+}
+
+/* ═══ combate ═════════════════════════════════════════════════════════ */
+
+.combate{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:1.5rem}
+@media(max-width:760px){.combate{grid-template-columns:1fr}}
+
+.luchador{padding:.7rem 0;border-bottom:1px dashed var(--hierro)}
+.luchador.es-caido{opacity:.38}
+.luchador.es-activo{
+  padding-left:.6rem;margin-left:-.75rem;
+  border-left:3px solid var(--bronce);
+}
+
+.luchador__fila{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem}
+.luchador__nombre{font-family:var(--mono);font-size:.8rem;font-weight:500}
+.luchador__pv{font-family:var(--mono);font-size:.72rem;color:var(--tinta-tenue)}
+
+.barra{height:3px;background:var(--hierro);border-radius:2px;margin:.35rem 0 .3rem;overflow:hidden}
+.barra__relleno{height:100%;background:var(--sal);transition:width .35s ease}
+.barra__relleno.es-aliado{background:var(--bronce)}
+
+.luchador__pie{
+  display:flex;justify-content:space-between;gap:.5rem;
+  font-family:var(--mono);font-size:.65rem;color:var(--tinta-tenue);
+}
+.luchador__estados{color:var(--sal)}
+
+.log{
+  height:19rem;overflow-y:auto;padding:.85rem 1rem;
+  background:var(--ceniza-clara);border:var(--linea);border-radius:var(--r);
+}
+.log__linea{margin:0 0 .5rem;font-size:.82rem;line-height:1.45}
+.log__linea--sistema{font-family:var(--mono);font-size:.7rem;color:var(--tinta-tenue);letter-spacing:.03em}
+.log__linea--jugador{color:var(--tinta)}
+.log__linea--enemigo{color:var(--tinta-suave)}
+.log__linea--resumen{
+  font-family:var(--display);font-variation-settings:'SOFT' 40,'WONK' 1;
+  font-size:.95rem;padding-top:.5rem;border-top:1px dashed var(--hierro);
+}
+
+.caja-dm{
+  margin-top:1rem;padding:.85rem 1rem;
+  border:1px solid var(--bronce);border-radius:var(--r);background:var(--bronce-velo);
+}
+.caja-dm__eti{
+  font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--bronce);margin:0 0 .35rem;
+}
+.caja-dm__texto{margin:0;font-size:.88rem;font-style:italic;color:var(--tinta-suave)}
+
+/* ═══ mapa ════════════════════════════════════════════════════════════ */
+
+.ruta{padding:.9rem 0;border-bottom:1px dashed var(--hierro)}
+.ruta__cabecera{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.45rem}
+.ruta__criterio{
+  font-family:var(--mono);font-size:.65rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--bronce);
+}
+.ruta__coste{font-family:var(--mono);font-size:.78rem;font-weight:600}
+
+.ruta__tramos{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin-bottom:.45rem}
+.ruta__nodo{font-size:.85rem}
+.ruta__flecha{color:var(--tinta-tenue);font-family:var(--mono)}
+.ruta__flecha.es-aviso{color:#B07B2A}
+.ruta__flecha.es-peligro{color:var(--sal);font-weight:700}
+
+.ruta__pie{
+  display:flex;justify-content:space-between;gap:.5rem;
+  font-family:var(--mono);font-size:.68rem;color:var(--tinta-tenue);
+}
+.es-aviso{color:#B07B2A}
+.es-peligro{color:var(--sal)}
+
+.aviso{
+  font-family:var(--mono);font-size:.78rem;color:var(--sal);
+  padding:.75rem 1rem;background:var(--sal-velo);
+  border:1px solid var(--sal);border-radius:var(--r);
+}
+
+/* ═══ precios ═════════════════════════════════════════════════════════ */
+
+.tabla-envoltura{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th,td{padding:.55rem .7rem;text-align:left;border-bottom:1px dashed var(--hierro)}
+th{
+  font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--tinta-tenue);font-weight:500;
+  border-bottom:var(--linea);
+}
+.es-num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+td.es-caro{color:var(--sal);font-weight:600}
+td.es-barato{color:var(--bronce);font-weight:600}
+
+.celda__base{
+  display:block;font-family:var(--mono);font-size:.62rem;color:var(--tinta-tenue);
+}
+
+.pie-nota{
+  font-family:var(--mono);font-size:.72rem;color:var(--tinta-suave);
+  margin-top:.9rem;
+}
+
+/* ═══ encuentros ══════════════════════════════════════════════════════ */
+
+.encuentro{padding:1.1rem 1.25rem;border-left:3px solid var(--tinta-tenue);background:var(--ceniza-clara)}
+.encuentro.es-hostil{border-left-color:var(--sal)}
+.encuentro.es-neutro{border-left-color:var(--bronce)}
+.encuentro.es-util{border-left-color:#B07B2A}
+
+.encuentro__cabecera{display:flex;justify-content:space-between;align-items:baseline;gap:.75rem;margin-bottom:.4rem}
+.encuentro__nombre{
+  font-family:var(--display);font-variation-settings:'SOFT' 30,'WONK' 1,'opsz' 40;
+  font-weight:600;font-size:1.15rem;
+}
+.encuentro__familia{
+  font-family:var(--mono);font-size:.62rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--tinta-tenue);
+}
+.encuentro__texto{margin:0 0 .8rem;font-style:italic;color:var(--tinta-suave)}
+
+.encuentro__vias{display:flex;flex-wrap:wrap;gap:.4rem}
+.via{
+  display:inline-flex;align-items:baseline;gap:.4rem;
+  font-family:var(--mono);font-size:.72rem;
+  padding:.25rem .55rem;background:var(--ceniza);
+  border:var(--linea);border-radius:var(--r);
+}
+.via__xp{color:var(--bronce);font-weight:600}
+
+/* ═══ rescate ═════════════════════════════════════════════════════════ */
+
+.rescate{padding:1rem 1.15rem;border-radius:var(--r);border:1px solid}
+.rescate--ok{border-color:var(--bronce);background:var(--bronce-velo)}
+.rescate--aviso{border-color:#B07B2A;background:#B07B2A14}
+.rescate--mal{border-color:var(--sal);background:var(--sal-velo)}
+
+.rescate__cabecera{display:flex;justify-content:space-between;margin-bottom:.6rem}
+.rescate__nivel{
+  font-family:var(--mono);font-size:.65rem;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;
+}
+.rescate__estado{font-family:var(--mono);font-size:.65rem;color:var(--tinta-tenue)}
+.rescate__story{margin:0 0 .6rem;font-size:.92rem}
+.rescate__error{margin:0;font-family:var(--mono);font-size:.78rem;color:var(--sal)}
+.rescate__aviso{
+  margin:.6rem 0 0;font-family:var(--mono);font-size:.66rem;color:var(--tinta-tenue);
+}
+
+.rescate-caja textarea{width:100%;min-height:5.5rem;resize:vertical;margin-bottom:.7rem}
+
+/* ═══ cierre ══════════════════════════════════════════════════════════ */
+
+.cierre{padding:3rem 0 4rem;border-top:2px solid var(--tinta)}
+.cierre__cifras{
+  display:flex;flex-wrap:wrap;gap:2.5rem;margin-bottom:1.5rem;
+}
+.cifra__num{
+  display:block;font-family:var(--display);
+  font-variation-settings:'SOFT' 0,'WONK' 1,'opsz' 90;
+  font-weight:900;font-size:2.4rem;line-height:1;letter-spacing:-.02em;
+}
+.cifra__eti{
+  font-family:var(--mono);font-size:.65rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--tinta-tenue);
+}
+
+.fallos{
+  margin:1.5rem 0;padding:1rem 1.25rem;
+  border:1px solid var(--sal);border-radius:var(--r);background:var(--sal-velo);
+}
+.fallos__titulo{
+  font-family:var(--mono);font-size:.7rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--sal);margin:0 0 .6rem;
+}
+.fallos__linea{
+  font-family:var(--mono);font-size:.7rem;line-height:1.5;
+  white-space:pre-wrap;word-break:break-word;margin:0 0 .5rem;color:var(--tinta-suave);
+}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+  body{opacity:1}
+}
+</style>
+</head>
+<body>
+
+<div class="envoltura">
+
+  <!-- ═══ portada ═══════════════════════════════════════════════════ -->
+  <header class="portada">
+    <h1 class="portada__marca">ARCANUM</h1>
+    <p class="portada__coletilla">Banco de pruebas del motor</p>
+
+    <p class="portada__tesis">
+      El motor tira los dados. El director solo narra lo que ya está decidido.
+    </p>
+
+    <p class="portada__nota">
+      Nada de esta página está simulado. Cada número sale de los mismos módulos
+      que corren en el juego: el intérprete de intenciones, el sistema de dados,
+      el resolutor de combate, el grafo del mapa. Toca lo que quieras.
+    </p>
+  </header>
+
+  <!-- ═══ 1 · consola ═══════════════════════════════════════════════ -->
+  <section class="seccion">
+    <p class="rotulo">Uno</p>
+    <h2>Escribe algo y mira quién decide</h2>
+    <p class="entradilla">
+      El intérprete deduce qué pretendes, el motor de reglas tira, y solo
+      entonces se le pasa el resultado al narrador. En ese orden, siempre.
+    </p>
+
+    <input type="text" class="consola__campo" id="consola-entrada"
+           value="intento colarme por la ventana sin que me vean"
+           placeholder="Escribe una acción…" autocomplete="off">
+
+    <div class="sugerencias">
+      <button class="sugerencia" data-texto="ataco al lobo con la espada">ataco al lobo</button>
+      <button class="sugerencia" data-texto="registro la habitación a fondo">registro la habitación</button>
+      <button class="sugerencia" data-texto="amenazo al guardia para que nos deje pasar">amenazo al guardia</button>
+      <button class="sugerencia" data-texto="le miento sobre lo que llevo encima">le miento</button>
+      <button class="sugerencia" data-texto="me bebo la poción">me bebo la poción</button>
+      <button class="sugerencia" data-texto="fuerzo la cerradura con la ganzúa">fuerzo la cerradura</button>
+    </div>
+
+    <div id="consola-salida"></div>
+  </section>
+
+  <!-- ═══ 2 · combate ═══════════════════════════════════════════════ -->
+  <section class="seccion">
+    <p class="rotulo">Dos</p>
+    <h2>Un combate, turno a turno</h2>
+    <p class="entradilla">
+      Iniciativa real, esquiva porcentual antes de la tirada, armadura que
+      absorbe y enemigos que deciden según su táctica. Los lobos van a por el
+      más débil porque su ficha dice «manada».
+    </p>
+
+    <div class="mandos">
+      <div class="mando">
+        <label class="mando__eti" for="combate-enemigo">Enemigo</label>
+        <select id="combate-enemigo">
+          <option value="lobo_ceniciento">Lobo ceniciento · manada</option>
+          <option value="saqueador">Saqueador · cobarde</option>
+          <option value="guardia_corrupto">Guardia corrupto · disciplinado</option>
+          <option value="espectro_menor">Espectro · acechador</option>
+          <option value="tejedora_de_umbral">Tejedora del umbral · controlador</option>
+        </select>
+      </div>
+
+      <div class="mando">
+        <label class="mando__eti" for="combate-cuantos">Cuántos</label>
+        <select id="combate-cuantos">
+          <option>1</option><option selected>3</option><option>4</option>
+        </select>
+      </div>
+
+      <button class="boton--fuerte" id="combate-nuevo">Empezar combate</button>
+      <button id="combate-avanzar" disabled>Siguiente turno</button>
+    </div>
+
+    <div class="combate">
+      <div id="combate-estado"></div>
+
+      <div>
+        <div class="log" id="combate-log"></div>
+
+        <div class="caja-dm" id="combate-dm-caja" hidden>
+          <p class="caja-dm__eti">Lo que recibe el director, sin números</p>
+          <p class="caja-dm__texto" id="combate-dm"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 3 · mapa ══════════════════════════════════════════════════ -->
+  <section class="seccion">
+    <p class="rotulo">Tres</p>
+    <h2>El mapa es un grafo, no una lista</h2>
+    <p class="entradilla">
+      Dijkstra con tres criterios de coste. La ruta más rápida no siempre es la
+      más corta: un túnel se cruza antes que un paso de montaña. Y en invierno
+      los pasos se cierran de verdad.
+    </p>
+
+    <div class="mandos">
+      <div class="mando">
+        <label class="mando__eti" for="mapa-desde">Desde</label>
+        <select id="mapa-desde"></select>
+      </div>
+      <div class="mando">
+        <label class="mando__eti" for="mapa-hasta">Hasta</label>
+        <select id="mapa-hasta"></select>
+      </div>
+      <label class="casilla">
+        <input type="checkbox" id="mapa-invierno"> Es invierno
+      </label>
+    </div>
+
+    <div id="mapa-salida"></div>
+  </section>
+
+  <!-- ═══ 4 · precios ═══════════════════════════════════════════════ -->
+  <section class="seccion">
+    <p class="rotulo">Cuatro</p>
+    <h2>El agua cuesta el triple en el desierto</h2>
+    <p class="entradilla">
+      Los precios salen de multiplicar seis factores. Los eventos se acumulan
+      entre sí, así que combinaciones que nadie programó salen solas: marca
+      feria y buena cosecha a la vez.
+    </p>
+
+    <div class="mandos">
+      <label class="casilla"><input type="checkbox" class="evento-check" value="feria"> Feria</label>
+      <label class="casilla"><input type="checkbox" class="evento-check" value="buena_cosecha"> Buena cosecha</label>
+      <label class="casilla"><input type="checkbox" class="evento-check" value="crisis_comercial"> Crisis comercial</label>
+      <label class="casilla"><input type="checkbox" class="evento-check" value="invierno_duro"> Invierno duro</label>
+    </div>
+
+    <div class="tabla-envoltura">
+      <table><tbody id="precios-tabla"></tbody></table>
+    </div>
+    <p class="pie-nota" id="precios-nota"></p>
+  </section>
+
+  <!-- ═══ 5 · encuentros ════════════════════════════════════════════ -->
+  <section class="seccion">
+    <p class="rotulo">Cinco</p>
+    <h2>Hablar da más experiencia que matar</h2>
+    <p class="entradilla">
+      No es un ajuste de números: es la decisión de diseño más clara del
+      proyecto. Mediar una disputa vale más que resolverla a espadazos, y los
+      encuentros neutros son mayoría.
+    </p>
+
+    <div class="mandos">
+      <div class="mando">
+        <label class="mando__eti" for="enc-terreno">Terreno</label>
+        <select id="enc-terreno">
+          <option value="camino">Camino</option>
+          <option value="bosque">Bosque</option>
+          <option value="montana">Montaña</option>
+          <option value="pantano">Pantano</option>
+          <option value="ruinas">Ruinas</option>
+          <option value="desierto">Desierto</option>
+        </select>
+      </div>
+      <div class="mando">
+        <label class="mando__eti" for="enc-peligro">Peligro</label>
+        <select id="enc-peligro">
+          <option>1</option><option selected>3</option><option>5</option>
+        </select>
+      </div>
+      <button id="enc-tirar">Generar encuentro</button>
+    </div>
+
+    <div id="enc-salida"></div>
+  </section>
+
+  <!-- ═══ 6 · rescate ═══════════════════════════════════════════════ -->
+  <section class="seccion">
+    <p class="rotulo">Seis</p>
+    <h2>Cuando el modelo no responde como debe</h2>
+    <p class="entradilla">
+      Tres niveles de rescate. Si el JSON viene roto se repara; si no viene
+      JSON, la prosa se aprovecha igual y las opciones se infieren del texto.
+      Un turno bien escrito no se tira por venir sin formato.
+    </p>
+
+    <div class="mandos">
+      <button class="ejemplo" data-caso="limpio">JSON limpio</button>
+      <button class="ejemplo" data-caso="bloque">En bloque de código</button>
+      <button class="ejemplo" data-caso="roto">Con coma de más</button>
+      <button class="ejemplo" data-caso="claves">Claves sin comillas</button>
+      <button class="ejemplo" data-caso="prosa">Prosa sin JSON</button>
+      <button class="ejemplo" data-caso="basura">Una negativa</button>
+    </div>
+
+    <div class="rescate-caja">
+      <textarea id="rescate-entrada" spellcheck="false"></textarea>
+      <div id="rescate-salida"></div>
+    </div>
+  </section>
+
+  <!-- ═══ cierre ════════════════════════════════════════════════════ -->
+  <footer class="cierre">
+    <div class="cierre__cifras">
+      <div><span class="cifra__num">145</span><span class="cifra__eti">módulos</span></div>
+      <div><span class="cifra__num">66k</span><span class="cifra__eti">líneas</span></div>
+      <div><span class="cifra__num">0</span><span class="cifra__eti">dependencias</span></div>
+    </div>
+
+    <p class="entradilla" style="margin-bottom:0">
+      Todo corre en este archivo: sin servidor, sin red y sin nada instalado.
+      El juego completo funciona igual, solo que con un director de juego
+      encima narrando lo que el motor decide.
+    </p>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,551 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ARCANUM · ai/MemoryStore.js
+ * ---------------------------------------------------------------------------
+ * Memoria narrativa a largo plazo del director.
+ *
+ * Es lo que separa una partida de una sucesión de escenas inconexas. Sin esto,
+ * el director olvidaría en el turno 30 lo que prometiste en el turno 5.
+ *
+ * Tres capas, de más volátil a más permanente:
+ *
+ *   1. HISTORIAL — turnos recientes íntegros. Se poda por antigüedad.
+ *   2. RESÚMENES — cada N turnos, el historial antiguo se comprime en un
+ *      párrafo. Es la memoria de medio plazo.
+ *   3. HECHOS — afirmaciones permanentes con peso. Nunca caducan por tiempo,
+ *      solo por relevancia.
+ *
+ * Además hay HILOS: promesas, deudas y misterios abiertos. El director los
+ * consulta para decidir qué retomar. Un hilo que lleva muchos turnos sin
+ * tocarse sube de prioridad: es el mecanismo que hace que el pasado vuelva.
+ *
+ * Funciones puras salvo la clase, que mantiene estado serializable.
+ *
+ * Dependencias: config/ai.config.js, Logger, utils/text.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+import { CONTEXTO } from '../config/ai.config.js';
+import { COTAS_IA } from '../config/balance.config.js';
+import { crearCanal } from '../core/Logger.js';
+import { limpiar, truncar } from '../utils/text.js';
+import { idEstable, TIPO } from '../utils/id.js';
+
+const log = crearCanal('ai');
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TIPOS DE HILO
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Categorías de hilo narrativo abierto.
+ *
+ * `urgencia` es cuántos turnos tarda en volverse apremiante. Una promesa pesa
+ * antes que un misterio: el jugador dio su palabra y el mundo lo recuerda.
+ */
+export const TIPOS_HILO = Object.freeze({
+  promesa: { nombre: 'promesa', urgencia: 12, peso: 3 },
+  deuda: { nombre: 'deuda', urgencia: 15, peso: 3 },
+  amenaza: { nombre: 'amenaza', urgencia: 8, peso: 4 },
+  misterio: { nombre: 'misterio', urgencia: 25, peso: 2 },
+  relacion: { nombre: 'relación', urgencia: 20, peso: 2 },
+  objeto: { nombre: 'objeto', urgencia: 30, peso: 1 },
+  lugar: { nombre: 'lugar', urgencia: 30, peso: 1 },
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ALMACÉN
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export class MemoryStore {
+  /**
+   * @param {Object} [inicial] Estado previo, al cargar una partida.
+   */
+  constructor(inicial = {}) {
+    /**
+     * Turnos recientes en formato compacto.
+     * @type {Array<{turno: number, accion: string, resumen: string, mood: string}>}
+     */
+    this.historial = inicial.historial ?? [];
+
+    /**
+     * Resúmenes de capítulo.
+     * @type {Array<{desde: number, hasta: number, texto: string}>}
+     */
+    this.resumenes = inicial.resumenes ?? [];
+
+    /**
+     * Hechos permanentes.
+     * @type {Array<{id: string, texto: string, turno: number, peso: number, veces: number}>}
+     */
+    this.hechos = inicial.hechos ?? [];
+
+    /**
+     * Hilos narrativos abiertos.
+     * @type {Array<Object>}
+     */
+    this.hilos = inicial.hilos ?? [];
+
+    /** Turno del último resumen generado. */
+    this.ultimoResumen = inicial.ultimoResumen ?? 0;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     REGISTRO DE TURNOS
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /**
+   * Registra un turno en el historial.
+   *
+   * @param {Object} turno
+   * @param {number} turno.numero
+   * @param {string} turno.accion Lo que hizo el jugador.
+   * @param {string} turno.narracion Lo que respondió el director.
+   * @param {string} [turno.mood]
+   * @param {Object} [turno.tirada]
+   */
+  registrarTurno(turno) {
+    this.historial.push({
+      turno: turno.numero,
+      accion: truncar(limpiar(turno.accion ?? ''), 120),
+      resumen: this._comprimirNarracion(turno.narracion ?? ''),
+      mood: turno.mood ?? 'neutro',
+      exito: turno.tirada?.exito ?? null,
+    });
+
+    // El historial se poda por antigüedad; lo antiguo ya está en los resúmenes.
+    const tope = CONTEXTO.turnosIntegros + CONTEXTO.turnosResumidos;
+    if (this.historial.length > tope) {
+      this.historial = this.historial.slice(-tope);
+    }
+  }
+
+  /**
+   * Comprime una narración larga a su primera frase útil.
+   *
+   * No se guarda el texto entero: el historial es para que el director recuerde
+   * QUÉ pasó, no para releerlo.
+   *
+   * @param {string} narracion
+   * @returns {string}
+   * @private
+   */
+  _comprimirNarracion(narracion) {
+    const texto = limpiar(narracion);
+    if (texto.length <= 160) return texto;
+
+    // Se corta por la primera frase completa que supere los 60 caracteres.
+    const frases = texto.split(/(?<=[.!?])\s+/);
+    let acumulado = '';
+
+    for (const frase of frases) {
+      acumulado += (acumulado ? ' ' : '') + frase;
+      if (acumulado.length >= 60) break;
+    }
+
+    return truncar(acumulado, 160);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     HECHOS
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /**
+   * Registra un hecho permanente.
+   *
+   * Si ya existe uno equivalente, se refuerza en vez de duplicarse. Que el
+   * director repita un hecho significa que le importa, y eso sube su peso.
+   *
+   * @param {string} texto
+   * @param {Object} [opciones]
+   * @param {number} [opciones.turno=0]
+   * @param {number} [opciones.peso=1]
+   * @param {string} [opciones.categoria]
+   * @returns {boolean} true si se añadió como hecho nuevo.
+   */
+  recordar(texto, opciones = {}) {
+    const limpio = limpiar(texto);
+    if (!limpio || limpio.length < 8) return false;
+
+    const id = idEstable(limpio.toLowerCase(), TIPO.EVENTO);
+    const existente = this.hechos.find((h) => h.id === id);
+
+    if (existente) {
+      existente.veces++;
+      existente.peso = Math.min(existente.peso + 0.5, 10);
+      existente.turno = opciones.turno ?? existente.turno;
+      return false;
+    }
+
+    this.hechos.push({
+      id,
+      texto: truncar(limpio, 200),
+      turno: opciones.turno ?? 0,
+      peso: opciones.peso ?? 1,
+      categoria: opciones.categoria ?? 'general',
+      veces: 1,
+    });
+
+    this._podarHechos();
+    return true;
+  }
+
+  /**
+   * Registra varios hechos de una vez, respetando la cota por turno.
+   * @param {string[]} textos
+   * @param {Object} [opciones]
+   * @returns {number} Cuántos eran nuevos.
+   */
+  recordarVarios(textos, opciones = {}) {
+    const limitados = (textos ?? []).slice(0, COTAS_IA.memoriaPorTurno);
+    let nuevos = 0;
+    for (const t of limitados) {
+      if (this.recordar(t, opciones)) nuevos++;
+    }
+    return nuevos;
+  }
+
+  /**
+   * Poda los hechos menos relevantes al superar el tope.
+   *
+   * El criterio no es la antigüedad sino el peso combinado con las repeticiones:
+   * un hecho mencionado tres veces hace cuarenta turnos importa más que uno
+   * mencionado una vez el turno pasado.
+   *
+   * @private
+   */
+  _podarHechos() {
+    if (this.hechos.length <= COTAS_IA.memoriaPorTurno * 40) return;
+
+    this.hechos.sort((a, b) => (b.peso * b.veces) - (a.peso * a.veces));
+    const antes = this.hechos.length;
+    this.hechos = this.hechos.slice(0, CONTEXTO.hechosMax * 2);
+
+    log.debug(`memoria podada: ${antes} → ${this.hechos.length} hechos`);
+  }
+
+  /**
+   * Hechos más relevantes, para el contexto del prompt.
+   * @param {number} [limite]
+   * @returns {Array<Object>}
+   */
+  hechosRelevantes(limite = CONTEXTO.hechosMax) {
+    return [...this.hechos]
+      .sort((a, b) => (b.peso * b.veces) - (a.peso * a.veces))
+      .slice(0, limite);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     HILOS NARRATIVOS
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /**
+   * Abre un hilo narrativo.
+   *
+   * @param {Object} datos
+   * @param {string} datos.tipo Clave de TIPOS_HILO.
+   * @param {string} datos.texto Descripción del hilo.
+   * @param {number} datos.turno Turno de apertura.
+   * @param {string} [datos.relacionadoCon] refId de PNJ, lugar o misión.
+   * @returns {Object} El hilo creado.
+   */
+  abrirHilo(datos) {
+    const id = idEstable(`${datos.tipo}:${datos.texto}`.toLowerCase(), TIPO.EVENTO);
+
+    const existente = this.hilos.find((h) => h.id === id && !h.cerrado);
+    if (existente) return existente;
+
+    const hilo = {
+      id,
+      tipo: datos.tipo ?? 'misterio',
+      texto: truncar(limpiar(datos.texto), 200),
+      turnoApertura: datos.turno ?? 0,
+      turnoUltimaMencion: datos.turno ?? 0,
+      relacionadoCon: datos.relacionadoCon ?? null,
+      cerrado: false,
+      resolucion: null,
+    };
+
+    this.hilos.push(hilo);
+    log.debug(`hilo abierto (${hilo.tipo}): ${hilo.texto}`);
+    return hilo;
+  }
+
+  /**
+   * Marca un hilo como mencionado en este turno.
+   * @param {string} id
+   * @param {number} turno
+   */
+  tocarHilo(id, turno) {
+    const hilo = this.hilos.find((h) => h.id === id);
+    if (hilo) hilo.turnoUltimaMencion = turno;
+  }
+
+  /**
+   * Cierra un hilo.
+   * @param {string} id
+   * @param {string} [resolucion]
+   * @param {number} [turno]
+   */
+  cerrarHilo(id, resolucion, turno) {
+    const hilo = this.hilos.find((h) => h.id === id);
+    if (!hilo) return;
+
+    hilo.cerrado = true;
+    hilo.resolucion = resolucion ?? null;
+    hilo.turnoCierre = turno ?? 0;
+
+    // Un hilo resuelto se convierte en hecho permanente: forma parte de la
+    // historia del personaje aunque ya no esté abierto.
+    if (resolucion) this.recordar(resolucion, { turno, peso: 2, categoria: 'resolucion' });
+
+    log.debug(`hilo cerrado: ${hilo.texto}`);
+  }
+
+  /**
+   * Hilos abiertos ordenados por urgencia.
+   *
+   * La urgencia crece con los turnos sin mencionar. Es el mecanismo que hace
+   * que una promesa olvidada vuelva a la superficie: cuanto más la ignoras, más
+   * arriba aparece en el contexto del director.
+   *
+   * @param {number} turnoActual
+   * @param {number} [limite=5]
+   * @returns {Array<Object>}
+   */
+  hilosUrgentes(turnoActual, limite = 5) {
+    return this.hilos
+      .filter((h) => !h.cerrado)
+      .map((h) => {
+        const meta = TIPOS_HILO[h.tipo] ?? TIPOS_HILO.misterio;
+        const silencio = turnoActual - h.turnoUltimaMencion;
+        return {
+          ...h,
+          silencio,
+          urgencia: (silencio / meta.urgencia) * meta.peso,
+        };
+      })
+      .sort((a, b) => b.urgencia - a.urgencia)
+      .slice(0, limite);
+  }
+
+  /**
+   * Comprueba si conviene retomar algún hilo ahora mismo.
+   *
+   * @param {number} turnoActual
+   * @returns {Object|null} El hilo más apremiante, o null.
+   */
+  hiloParaRetomar(turnoActual) {
+    const urgentes = this.hilosUrgentes(turnoActual, 3);
+    const primero = urgentes[0];
+
+    // Umbral 1.0 significa que ya ha pasado el tiempo de urgencia declarado.
+    return primero && primero.urgencia >= 1 ? primero : null;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     RESÚMENES
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /**
+   * Comprueba si toca generar un resumen de capítulo.
+   * @param {number} turnoActual
+   * @returns {boolean}
+   */
+  tocaResumir(turnoActual) {
+    return turnoActual - this.ultimoResumen >= CONTEXTO.intervaloResumen;
+  }
+
+  /**
+   * Turnos pendientes de resumir.
+   * @returns {Array<Object>}
+   */
+  turnosParaResumir() {
+    return this.historial.filter((t) => t.turno > this.ultimoResumen);
+  }
+
+  /**
+   * Registra un resumen de capítulo.
+   *
+   * @param {string} texto
+   * @param {number} desde
+   * @param {number} hasta
+   */
+  guardarResumen(texto, desde, hasta) {
+    this.resumenes.push({
+      desde,
+      hasta,
+      texto: truncar(limpiar(texto), CONTEXTO.resumenMax),
+    });
+
+    this.ultimoResumen = hasta;
+
+    // Los resúmenes también se podan: solo importan los últimos capítulos.
+    if (this.resumenes.length > 8) this.resumenes = this.resumenes.slice(-8);
+
+    log.info(`resumen de capítulo guardado (turnos ${desde}-${hasta})`);
+  }
+
+  /**
+   * Genera un resumen mecánico cuando el proveedor no puede hacerlo.
+   *
+   * No es tan bueno como el de un modelo de lenguaje, pero conserva lo esencial:
+   * qué hizo el jugador y cómo le fue.
+   *
+   * @param {Array<Object>} turnos
+   * @returns {string}
+   */
+  resumenMecanico(turnos) {
+    if (!turnos.length) return '';
+
+    const acciones = turnos
+      .filter((t) => t.accion)
+      .map((t) => t.accion)
+      .slice(0, 8);
+
+    const exitos = turnos.filter((t) => t.exito === true).length;
+    const fallos = turnos.filter((t) => t.exito === false).length;
+
+    const partes = [];
+
+    if (acciones.length) {
+      partes.push(`El personaje: ${acciones.join('; ')}.`);
+    }
+    if (exitos + fallos > 0) {
+      partes.push(`De ${exitos + fallos} intentos, ${exitos} salieron bien.`);
+    }
+
+    // El tono predominante da color al resumen.
+    const moods = turnos.map((t) => t.mood).filter(Boolean);
+    if (moods.length) {
+      const cuenta = {};
+      for (const m of moods) cuenta[m] = (cuenta[m] ?? 0) + 1;
+      const dominante = Object.entries(cuenta).sort((a, b) => b[1] - a[1])[0][0];
+      if (dominante !== 'neutro') partes.push(`El tono general fue de ${dominante}.`);
+    }
+
+    return partes.join(' ');
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     COMPOSICIÓN DE CONTEXTO
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /**
+   * Bloque de memoria listo para el prompt.
+   *
+   * @param {number} turnoActual
+   * @param {Object} [opciones]
+   * @param {number} [opciones.maxCaracteres]
+   * @returns {string}
+   */
+  paraPrompt(turnoActual, opciones = {}) {
+    const max = opciones.maxCaracteres ?? 2000;
+    const bloques = [];
+
+    // ─── Resúmenes de capítulos anteriores ─────────────────────────────
+    if (this.resumenes.length) {
+      const ultimos = this.resumenes.slice(-2);
+      bloques.push(`LO OCURRIDO ANTES:\n${ultimos.map((r) => r.texto).join('\n')}`);
+    }
+
+    // ─── Hechos permanentes ────────────────────────────────────────────
+    const hechos = this.hechosRelevantes(12);
+    if (hechos.length) {
+      bloques.push(`RECUERDA:\n${hechos.map((h) => `· ${h.texto}`).join('\n')}`);
+    }
+
+    // ─── Hilos abiertos ────────────────────────────────────────────────
+    const hilos = this.hilosUrgentes(turnoActual, 4);
+    if (hilos.length) {
+      const lineas = hilos.map((h) => {
+        const meta = TIPOS_HILO[h.tipo] ?? TIPOS_HILO.misterio;
+        const nota = h.urgencia >= 1.5
+          ? ' [lleva mucho sin tocarse: conviene retomarlo]'
+          : '';
+        return `· (${meta.nombre}) ${h.texto}${nota}`;
+      });
+      bloques.push(`HILOS ABIERTOS:\n${lineas.join('\n')}`);
+    }
+
+    let texto = bloques.join('\n\n');
+
+    // Si excede el presupuesto, se sacrifican primero los resúmenes: los hechos
+    // y los hilos son más accionables.
+    if (texto.length > max && bloques.length > 1) {
+      texto = bloques.slice(1).join('\n\n');
+    }
+
+    return truncar(texto, max);
+  }
+
+  /**
+   * Turnos recientes para el contexto, los últimos íntegros.
+   *
+   * @param {number} [cuantos]
+   * @returns {string}
+   */
+  turnosRecientes(cuantos = CONTEXTO.turnosIntegros) {
+    const recientes = this.historial.slice(-cuantos);
+    if (!recientes.length) return '';
+
+    const lineas = recientes.map((t) => {
+      const partes = [];
+      if (t.accion) partes.push(`Jugador: ${t.accion}`);
+      if (t.resumen) partes.push(`Ocurrió: ${t.resumen}`);
+      return partes.join(' → ');
+    });
+
+    return `TURNOS RECIENTES:\n${lineas.join('\n')}`;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     PERSISTENCIA
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /**
+   * Estado serializable para el guardado.
+   * @returns {Object}
+   */
+  serializar() {
+    return {
+      historial: this.historial,
+      resumenes: this.resumenes,
+      hechos: this.hechos,
+      hilos: this.hilos,
+      ultimoResumen: this.ultimoResumen,
+    };
+  }
+
+  /**
+   * Restaura desde un guardado.
+   * @param {Object} datos
+   * @returns {MemoryStore}
+   */
+  static restaurar(datos) {
+    return new MemoryStore(datos ?? {});
+  }
+
+  /** Vacía la memoria. Se usa al empezar una partida nueva. */
+  limpiar() {
+    this.historial = [];
+    this.resumenes = [];
+    this.hechos = [];
+    this.hilos = [];
+    this.ultimoResumen = 0;
+  }
+
+  /** Radiografía, para depuración. */
+  inspeccionar() {
+    return {
+      turnos: this.historial.length,
+      resumenes: this.resumenes.length,
+      hechos: this.hechos.length,
+      hilosAbiertos: this.hilos.filter((h) => !h.cerrado).length,
+      hilosCerrados: this.hilos.filter((h) => h.cerrado).length,
+      ultimoResumen: this.ultimoResumen,
+    };
+  }
+}
+
+export default MemoryStore;

@@ -1,0 +1,526 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ARCANUM · engine/IntentParser.js
+ * ---------------------------------------------------------------------------
+ * Interpretación del texto libre del jugador.
+ *
+ * Traduce «intento colarme por la ventana sin que me vean» en una intención
+ * estructurada: tipo `hide`, habilidad `sigilo`, objetivo «ventana».
+ *
+ * Es lo que permite que la escritura libre no sea decorativa. Sin esto, el
+ * jugador podría escribir lo que quisiera pero el motor no sabría qué tirada
+ * pedir, y todo acabaría resolviéndose igual.
+ *
+ * El análisis es por capas, de más fiable a menos:
+ *   1. Comandos explícitos (/dado, /estado)
+ *   2. Opción elegida del popup, que ya trae su intención
+ *   3. Verbo reconocido al principio de la frase
+ *   4. Vocabulario disperso por el texto
+ *   5. Habilidad deducida del catálogo
+ *
+ * Funciones puras.
+ *
+ * Dependencias: skills.data, config/ai.config.js, utils/text.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+import { HABILIDADES, deducirHabilidad } from '../data/skills.data.js';
+import { DIRECTOR } from '../config/ai.config.js';
+import { sinAcentos, limpiar } from '../utils/text.js';
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VOCABULARIO DE INTENCIONES
+   ---------------------------------------------------------------------------
+   Cada intención declara sus verbos, la habilidad que suele implicar y el
+   umbral por defecto. El peso resuelve las ambigüedades: «atacar» pesa más
+   como `attack` que «golpear», que también podría ser abrir algo a golpes.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * @typedef {Object} DefinicionIntencion
+ * @property {string} tipo
+ * @property {Record<string, number>} verbos Vocabulario → peso.
+ * @property {string|null} habilidad Habilidad asociada por defecto.
+ * @property {string} umbral Dificultad por defecto.
+ * @property {boolean} requiereTirada
+ */
+
+/** @type {Record<string, DefinicionIntencion>} */
+export const INTENCIONES = Object.freeze({
+
+  attack: {
+    tipo: 'attack',
+    verbos: {
+      atacar: 10, ataco: 10, golpear: 7, golpeo: 7, pegar: 6,
+      apuñalar: 9, acuchillar: 9, disparar: 9, lanzar: 5, matar: 9,
+      embestir: 8, cargar: 6, arremeter: 8, herir: 7, abatir: 8,
+      espada: 4, arma: 3, flecha: 5,
+    },
+    habilidad: null,   // El ataque usa el arma, no una competencia.
+    umbral: 'moderada',
+    requiereTirada: true,
+  },
+
+  talk: {
+    tipo: 'talk',
+    verbos: {
+      hablar: 10, hablo: 10, decir: 7, digo: 7, preguntar: 9, pregunto: 9,
+      saludar: 8, conversar: 9, charlar: 8, comentar: 6, contar: 6,
+      responder: 7, contestar: 7, dirigirme: 7, dirigirse: 7,
+    },
+    habilidad: 'trato_social',
+    umbral: 'facil',
+    requiereTirada: false,
+  },
+
+  persuade: {
+    tipo: 'persuade',
+    verbos: {
+      convencer: 10, convenzo: 10, persuadir: 10, persuado: 10,
+      suplicar: 8, rogar: 8, pedir: 6, razonar: 8, apelar: 7,
+      seducir: 7, encandilar: 7,
+    },
+    habilidad: 'trato_social',
+    umbral: 'moderada',
+    requiereTirada: true,
+  },
+
+  intimidate: {
+    tipo: 'intimidate',
+    verbos: {
+      intimidar: 10, intimido: 10, amenazar: 10, amenazo: 10,
+      asustar: 8, coaccionar: 9, presionar: 7, advertir: 6,
+      gritar: 6, imponerme: 8,
+    },
+    habilidad: 'intimidacion',
+    umbral: 'moderada',
+    requiereTirada: true,
+  },
+
+  deceive: {
+    tipo: 'deceive',
+    verbos: {
+      mentir: 10, miento: 10, engañar: 10, engaño: 10, fingir: 9,
+      disimular: 8, disfrazar: 8, suplantar: 9, timar: 8,
+      distraer: 7, despistar: 7,
+    },
+    habilidad: 'engano',
+    umbral: 'moderada',
+    requiereTirada: true,
+  },
+
+  negotiate: {
+    tipo: 'negotiate',
+    verbos: {
+      negociar: 10, negocio: 10, regatear: 10, ofrecer: 8, proponer: 8,
+      pactar: 9, acordar: 8, tratar: 6, sobornar: 9, comprar: 5, vender: 5,
+    },
+    habilidad: 'trato_social',
+    umbral: 'moderada',
+    requiereTirada: true,
+  },
+
+  explore: {
+    tipo: 'explore',
+    verbos: {
+      explorar: 10, exploro: 10, avanzar: 8, avanzo: 8, seguir: 7,
+      continuar: 7, adentrarme: 9, entrar: 7, salir: 6, subir: 6,
+      bajar: 6, cruzar: 7, atravesar: 8, recorrer: 8,
+    },
+    habilidad: null,
+    umbral: 'facil',
+    requiereTirada: false,
+  },
+
+  search: {
+    tipo: 'search',
+    verbos: {
+      buscar: 10, busco: 10, registrar: 10, registro: 9, rebuscar: 9,
+      inspeccionar: 9, revisar: 8, rastrear: 8, husmear: 7,
+      cachear: 8, escudriñar: 8,
+    },
+    habilidad: 'percepcion',
+    umbral: 'moderada',
+    requiereTirada: true,
+  },
+
+  observe: {
+    tipo: 'observe',
+    verbos: {
+      mirar: 9, miro: 9, observar: 10, observo: 10, examinar: 9,
+      fijarme: 8, contemplar: 7, estudiar: 8, escuchar: 8,
+      atender: 6, vigilar: 8, esperar: 4,
+    },
+    habilidad: 'percepcion',
+    umbral: 'facil',
+    requiereTirada: true,
+  },
+
+  hide: {
+    tipo: 'hide',
+    verbos: {
+      esconderme: 10, esconderse: 10, escondo: 10, ocultarme: 10,
+      colarme: 9, infiltrarme: 9, sigilo: 9, agazaparme: 8,
+      acechar: 7, seguir: 4, espiar: 8, disimular: 5,
+    },
+    habilidad: 'sigilo',
+    umbral: 'moderada',
+    requiereTirada: true,
+  },
+
+  open: {
+    tipo: 'open',
+    verbos: {
+      abrir: 10, abro: 10, forzar: 9, fuerzo: 9, desbloquear: 8,
+      ganzúa: 10, ganzua: 10, descerrajar: 9, romper: 6,
+      levantar: 5, destapar: 7,
+    },
+    habilidad: 'juego_manos',
+    umbral: 'moderada',
+    requiereTirada: true,
+  },
+
+  use_item: {
+    tipo: 'use_item',
+    verbos: {
+      usar: 9, uso: 9, beber: 9, bebo: 9, comer: 9, como: 8,
+      aplicar: 7, tomar: 6, consumir: 8, encender: 7, activar: 7,
+      poción: 8, pocion: 8, vendar: 8,
+    },
+    habilidad: null,
+    umbral: 'facil',
+    requiereTirada: false,
+  },
+
+  cast: {
+    tipo: 'cast',
+    verbos: {
+      lanzar: 6, conjurar: 10, invocar: 9, hechizar: 9, glifo: 10,
+      trazar: 7, canalizar: 9, magia: 7, encantamiento: 8, ritual: 8,
+    },
+    habilidad: 'saber_arcano',
+    umbral: 'moderada',
+    requiereTirada: true,
+  },
+
+  flee: {
+    tipo: 'flee',
+    verbos: {
+      huir: 10, huyo: 10, escapar: 10, escapo: 10, correr: 7,
+      retirarme: 9, retroceder: 8, alejarme: 8, largarme: 9,
+      abandonar: 7, salir: 5,
+    },
+    habilidad: 'acrobacias',
+    umbral: 'moderada',
+    requiereTirada: true,
+  },
+
+  rest: {
+    tipo: 'rest',
+    verbos: {
+      descansar: 10, descanso: 10, dormir: 10, duermo: 10,
+      acampar: 9, recuperarme: 8, sentarme: 6, reposar: 9,
+      pernoctar: 9,
+    },
+    habilidad: null,
+    umbral: 'facil',
+    requiereTirada: false,
+  },
+
+  travel: {
+    tipo: 'travel',
+    verbos: {
+      viajar: 10, viajo: 10, ir: 6, voy: 6, dirigirme: 8,
+      partir: 8, marchar: 8, caminar: 7, volver: 7, regresar: 8,
+      encaminarme: 8,
+    },
+    habilidad: null,
+    umbral: 'facil',
+    requiereTirada: false,
+  },
+
+  trade: {
+    tipo: 'trade',
+    verbos: {
+      comerciar: 10, comprar: 9, compro: 9, vender: 9, vendo: 9,
+      mercado: 7, tienda: 6, precio: 6, trueque: 8,
+    },
+    habilidad: 'tasacion',
+    umbral: 'facil',
+    requiereTirada: false,
+  },
+
+  wait: {
+    tipo: 'wait',
+    verbos: {
+      esperar: 9, espero: 9, aguardar: 9, quedarme: 7,
+      permanecer: 7, pasar: 4, nada: 5,
+    },
+    habilidad: null,
+    umbral: 'facil',
+    requiereTirada: false,
+  },
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMANDOS DE DEPURACIÓN
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Comandos que no consumen turno. */
+export const COMANDOS = Object.freeze({
+  '/dado': { descripcion: 'Tira dados: /dado 2d6+3' },
+  '/estado': { descripcion: 'Muestra tu estado completo' },
+  '/inventario': { descripcion: 'Abre el inventario' },
+  '/misiones': { descripcion: 'Lista las misiones activas' },
+  '/mapa': { descripcion: 'Muestra el mapa' },
+  '/ayuda': { descripcion: 'Lista los comandos disponibles' },
+  '/guardar': { descripcion: 'Guarda la partida' },
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ANÁLISIS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * @typedef {Object} Intencion
+ * @property {string} tipo Uno de DIRECTOR.intenciones.
+ * @property {string|null} habilidad
+ * @property {string} umbral
+ * @property {boolean} requiereTirada
+ * @property {string|null} objetivo Sustantivo hacia el que se dirige la acción.
+ * @property {number} confianza 0-1.
+ * @property {string} texto Texto original.
+ * @property {boolean} esComando
+ * @property {string|null} comando
+ * @property {string[]} argumentos
+ */
+
+/**
+ * Interpreta la acción del jugador.
+ *
+ * @param {string} texto
+ * @param {Object} [contexto]
+ * @param {string} [contexto.intencionSugerida] Si vino del popup.
+ * @param {boolean} [contexto.enCombate=false]
+ * @param {Array<Object>} [contexto.npcsPresentes]
+ * @returns {Intencion}
+ */
+export function interpretar(texto, contexto = {}) {
+  const original = limpiar(texto ?? '');
+
+  const base = {
+    tipo: 'custom',
+    habilidad: null,
+    umbral: 'moderada',
+    requiereTirada: false,
+    objetivo: null,
+    confianza: 0,
+    texto: original,
+    esComando: false,
+    comando: null,
+    argumentos: [],
+  };
+
+  if (!original) return base;
+
+  // ─── 1. Comandos ────────────────────────────────────────────────────────
+  if (original.startsWith('/')) {
+    const [comando, ...argumentos] = original.split(/\s+/);
+    if (COMANDOS[comando.toLowerCase()]) {
+      return { ...base, esComando: true, comando: comando.toLowerCase(), argumentos, confianza: 1 };
+    }
+  }
+
+  // ─── 2. Intención sugerida por el popup ─────────────────────────────────
+  // Si el jugador pulsó una opción, su intención ya viene declarada y es fiable.
+  if (contexto.intencionSugerida && INTENCIONES[contexto.intencionSugerida]) {
+    const def = INTENCIONES[contexto.intencionSugerida];
+    return {
+      ...base,
+      ...def,
+      objetivo: extraerObjetivo(original),
+      confianza: 0.95,
+    };
+  }
+
+  // ─── 3. Análisis léxico ─────────────────────────────────────────────────
+  const normal = sinAcentos(original.toLowerCase());
+  const palabras = normal.split(/\s+/).filter((p) => p.length > 2);
+
+  const marcador = new Map();
+
+  for (const [tipo, def] of Object.entries(INTENCIONES)) {
+    let puntos = 0;
+
+    for (const [verbo, peso] of Object.entries(def.verbos)) {
+      const verboNormal = sinAcentos(verbo);
+
+      // El verbo al principio de la frase pesa el doble: «ataco al goblin» es
+      // más claro que «al goblin, si me deja, quizá ataque».
+      if (palabras[0] === verboNormal) puntos += peso * 2;
+      else if (palabras.includes(verboNormal)) puntos += peso;
+      else if (normal.includes(verboNormal)) puntos += peso * 0.6;
+    }
+
+    if (puntos > 0) marcador.set(tipo, puntos);
+  }
+
+  if (!marcador.size) {
+    // Sin verbo reconocido: se prueba con el catálogo de habilidades.
+    const habilidad = deducirHabilidad(original);
+    if (habilidad) {
+      return {
+        ...base,
+        tipo: 'custom',
+        habilidad: habilidad.refId,
+        umbral: 'moderada',
+        requiereTirada: true,
+        objetivo: extraerObjetivo(original),
+        confianza: habilidad.confianza * 0.7,
+      };
+    }
+    return { ...base, objetivo: extraerObjetivo(original) };
+  }
+
+  // ─── 4. Mejor candidato ─────────────────────────────────────────────────
+  const orden = [...marcador.entries()].sort((a, b) => b[1] - a[1]);
+  const [tipoElegido, puntos] = orden[0];
+  const segundo = orden[1]?.[1] ?? 0;
+
+  // La confianza combina fuerza absoluta y ventaja sobre el segundo.
+  const ventaja = segundo > 0 ? (puntos - segundo) / puntos : 1;
+  const fuerza = Math.min(puntos / 12, 1);
+  const confianza = Math.min(ventaja * 0.5 + fuerza * 0.5, 1);
+
+  const def = INTENCIONES[tipoElegido];
+
+  const intencion = {
+    ...base,
+    tipo: def.tipo,
+    habilidad: def.habilidad,
+    umbral: def.umbral,
+    requiereTirada: def.requiereTirada,
+    objetivo: extraerObjetivo(original),
+    confianza,
+  };
+
+  // ─── 5. Ajustes por contexto ────────────────────────────────────────────
+  return ajustarPorContexto(intencion, contexto);
+}
+
+/**
+ * Ajusta la intención según la situación de la partida.
+ *
+ * En combate, «esperar» significa defenderse, no descansar. Hablar con alguien
+ * requiere que haya alguien. Estas correcciones evitan resultados absurdos.
+ *
+ * @param {Intencion} intencion
+ * @param {Object} contexto
+ * @returns {Intencion}
+ */
+export function ajustarPorContexto(intencion, contexto) {
+  const salida = { ...intencion };
+
+  if (contexto.enCombate) {
+    // Descansar en mitad de un combate no tiene sentido: se reinterpreta.
+    if (salida.tipo === 'rest') {
+      salida.tipo = 'wait';
+      salida.requiereTirada = false;
+    }
+    // Huir en combate es más difícil que alejarse tranquilamente.
+    if (salida.tipo === 'flee') {
+      salida.umbral = 'dificil';
+    }
+    // Explorar durante un combate se interpreta como observar el campo.
+    if (salida.tipo === 'explore' || salida.tipo === 'travel') {
+      salida.tipo = 'observe';
+      salida.habilidad = 'percepcion';
+    }
+  }
+
+  // Hablar sin nadie delante rebaja la confianza.
+  const hayNPC = (contexto.npcsPresentes?.length ?? 0) > 0;
+  if (!hayNPC && ['talk', 'persuade', 'intimidate', 'deceive', 'negotiate'].includes(salida.tipo)) {
+    salida.confianza *= 0.6;
+  }
+
+  return salida;
+}
+
+/**
+ * Extrae el objetivo de la acción: el sustantivo al que se dirige.
+ *
+ * Busca tras las preposiciones habituales, que es donde suele estar en español:
+ * «ataco AL goblin», «hablo CON la posadera», «miro EN el cofre».
+ *
+ * @param {string} texto
+ * @returns {string|null}
+ */
+export function extraerObjetivo(texto) {
+  const patrones = [
+    /\b(?:a|al|a la|a los|a las)\s+([a-záéíóúñü]+(?:\s+[a-záéíóúñü]+)?)/i,
+    /\b(?:con|contra|hacia)\s+(?:el |la |los |las |un |una )?([a-záéíóúñü]+(?:\s+[a-záéíóúñü]+)?)/i,
+    /\b(?:en|sobre|dentro de)\s+(?:el |la |los |las |un |una )?([a-záéíóúñü]+(?:\s+[a-záéíóúñü]+)?)/i,
+    /\b(?:el|la|los|las|un|una)\s+([a-záéíóúñü]+)$/i,
+  ];
+
+  // Palabras funcionales que no pueden formar parte de un objetivo.
+  const funcionales = /^(que|para|por|sin|con|como|donde|cuando|si|pero|y|o|a|de|del|al|en|el|la|los|las|un|una)$/i;
+
+  // Locuciones adverbiales que los patrones capturan como si fueran objetivos:
+  // «registro a fondo» no tiene por objetivo «fondo».
+  const adverbiales = /^(fondo|dentro|traves|través|veces|solas|prisa|escondidas|oscuras|tientas|conciencia|cuidado|calma)$/i;
+
+  for (const p of patrones) {
+    const m = texto.match(p);
+    if (!m?.[1]) continue;
+
+    // El patrón puede capturar dos palabras: se recorta en cuanto aparece una
+    // funcional. «al lobo con la espada» → «lobo», no «lobo con».
+    const palabras = m[1].trim().split(/\s+/);
+    const utiles = [];
+
+    for (const palabra of palabras) {
+      if (funcionales.test(palabra)) break;
+      utiles.push(palabra);
+    }
+
+    if (utiles.length && !adverbiales.test(utiles[0])) return utiles.join(' ');
+  }
+
+  return null;
+}
+
+/**
+ * Comprueba si una intención requiere que haya un objetivo válido.
+ * @param {string} tipo
+ * @returns {boolean}
+ */
+export function necesitaObjetivo(tipo) {
+  return ['attack', 'talk', 'persuade', 'intimidate', 'deceive', 'negotiate', 'trade'].includes(tipo);
+}
+
+/**
+ * Tipo de turno que corresponde a una intención, para elegir el perfil de
+ * muestreo del proveedor.
+ *
+ * @param {Intencion} intencion
+ * @param {Object} contexto
+ * @returns {string}
+ */
+export function tipoDeTurno(intencion, contexto = {}) {
+  if (contexto.enCombate) return 'combate';
+  if (intencion.tipo === 'trade') return 'comercio';
+  if (['talk', 'persuade', 'intimidate', 'deceive', 'negotiate'].includes(intencion.tipo)) return 'dialogo';
+  return 'narracion';
+}
+
+export default {
+  INTENCIONES,
+  COMANDOS,
+  interpretar,
+  ajustarPorContexto,
+  extraerObjetivo,
+  necesitaObjetivo,
+  tipoDeTurno,
+};

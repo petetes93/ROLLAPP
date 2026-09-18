@@ -172,7 +172,7 @@ export function pintarArte(nodo, peticion) {
   nodo.innerHTML = generar(familia, opciones);
 
   /* ── Mejora a imagen, si la hay ───────────────────────────────────────── */
-  const ruta = rutaRaster(familia, clave);
+  const ruta = opciones.sinRaster ? null : rutaRaster(familia, clave);
   if (!ruta) return;
 
   const img = new Image();
@@ -240,6 +240,9 @@ export function pintarRetrato(nodo, personaje = {}) {
       // linaje. Se guarda con el personaje, así que la vista previa y la
       // partida producen exactamente el mismo retrato sin depender de red.
       semilla: personaje.descripcion ?? personaje.retrato ?? '',
+      // Una descripción personalizada debe producir su retrato propio, no
+      // reutilizar el retrato canónico del linaje incluido en el catálogo.
+      sinRaster: Boolean((personaje.descripcion ?? personaje.retrato ?? '').trim()),
     },
   });
 }

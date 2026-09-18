@@ -236,11 +236,10 @@ export function pintarRetrato(nodo, personaje = {}) {
     opciones: {
       raza: personaje.raza ?? 'valdes',
       nombre: personaje.nombre ?? '',
-      // La semilla es SOLO el linaje, no el nombre. Sembrar con el nombre daba
-      // más variedad, pero la vista previa de la creación —donde aún no hay
-      // nombre escrito— habría enseñado una cara y la partida otra distinta.
-      // Que el jugador reciba el rostro que eligió importa más que la variedad.
-      semilla: '',
+      // La descripción libre distingue rasgos de dos personajes del mismo
+      // linaje. Se guarda con el personaje, así que la vista previa y la
+      // partida producen exactamente el mismo retrato sin depender de red.
+      semilla: personaje.descripcion ?? personaje.retrato ?? '',
     },
   });
 }

@@ -249,6 +249,7 @@ const borrador = {
   raza: 'valdes',
   clase: 'rastreador',
   trasfondo: 'errante',
+  retrato: '',
 };
 
 function pintarCreacion() {
@@ -279,7 +280,31 @@ function pintarCreacion() {
     ),
   );
 
-  pintarRetrato(cara, { raza: borrador.raza, nombre: RAZAS[borrador.raza]?.nombre });
+  pintarRetrato(cara, {
+    raza: borrador.raza,
+    nombre: RAZAS[borrador.raza]?.nombre,
+    descripcion: borrador.retrato,
+  });
+
+  caja.append(
+    el('div', { class: 'campo retrato-descripcion' },
+      el('label', { class: 'campo__eti', for: 'retrato-descripcion', text: 'Describe a tu personaje' }),
+      el('textarea', {
+        id: 'retrato-descripcion', class: 'campo__entrada campo__entrada--retrato',
+        placeholder: 'Ej.: exploradora de pelo plateado, cicatriz en la ceja, capa violeta y brújula de bronce…',
+        maxlength: '360', value: borrador.retrato,
+        onInput: (e) => {
+          borrador.retrato = e.target.value;
+          pintarRetrato(cara, {
+            raza: borrador.raza,
+            nombre: RAZAS[borrador.raza]?.nombre,
+            descripcion: borrador.retrato,
+          });
+        },
+      }),
+      el('p', { class: 'campo__ayuda', text: 'El retrato local interpreta tu descripción. La IA también la usará para narrar quién eres.' }),
+    ),
+  );
 
   // ── Resto de elecciones ─────────────────────────────────────────────
   caja.append(

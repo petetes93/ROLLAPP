@@ -582,4 +582,25 @@ export function paisaje(opciones = {}) {
   });
 }
 
+/**
+ * Capa transparente para fundir una ilustración raster con el estado vivo.
+ * Conserva hora, clima y partículas sin volver a dibujar el lugar debajo.
+ */
+export function atmosfera(opciones = {}) {
+  const { refId = 'lugar', nombre = '', franja = 'manana', clima = 'despejado' } = opciones;
+  const hora = FRANJAS[franja] ?? FRANJA_POR_DEFECTO;
+  const semilla = hashSemilla(`paisaje:${refId}`);
+  const flujo = new Flujo(semilla, 'atmosfera');
+  const etiqueta = nombre ? `Atmósfera de ${nombre}` : 'Atmósfera';
+  const cuerpo = [
+    velo(clima, flujo),
+    `<rect width="${ANCHO}" height="${ALTO}" fill="${hora.tinte}" `
+      + `opacity="${num(Math.max(0.05, hora.velo * 0.72))}" style="mix-blend-mode:soft-light"/>`,
+  ].join('');
+  return lienzo({
+    ancho: ANCHO, alto: ALTO, etiqueta, semilla, cuerpo,
+    vineta: 0.34, grano: 0.06, clase: 'arte arte--atmosfera',
+  });
+}
+
 export default paisaje;

@@ -255,8 +255,18 @@ export class ProceduralProvider extends IDMProvider {
       ],
     };
 
-    const opciones = plantillas[tipo] ?? ['Haces lo que has decidido hacer.'];
-    return this._unico(opciones);
+    if (plantillas[tipo]) return this._unico(plantillas[tipo]);
+
+    const accion = String(intencion?.texto ?? intencion?.accion ?? '').trim();
+    const lugar = ctx.mundo?.lugar ?? ctx.mundo?.nombreLugar ?? 'este lugar';
+    const abiertas = [
+      accion ? `Pones en práctica tu idea: ${accion}.` : 'Actúas según tu instinto.',
+      accion ? `Sin apartar la vista de ${lugar}, intentas ${accion.toLowerCase()}.` : `Tomas la iniciativa en ${lugar}.`,
+      accion ? `No dudas más. ${capitalizar(accion)}.` : 'Das el siguiente paso.',
+      'Tu decisión rompe la quietud y obliga al mundo a responder.',
+      'Te mueves con intención; alrededor, nada permanece del todo indiferente.',
+    ];
+    return this._unico(abiertas);
   }
 
   /* ═══════════════════════════════════════════════════════════════════════

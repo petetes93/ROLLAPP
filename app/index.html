@@ -319,7 +319,8 @@ button{font-family:inherit;cursor:pointer}
    escapar del recorte ni quedar flotando encima de la siguiente elección. */
 .eleccion__cara,.retrato-pj,.combate__criatura,.escena__lienzo{isolation:isolate;contain:paint}
 .eleccion__cara>.arte,.retrato-pj>.arte,.combate__criatura>.arte,.escena__lienzo>.arte{position:absolute;inset:0;z-index:0}
-.eleccion__cara>.arte--imagen,.retrato-pj>.arte--imagen,.combate__criatura>.arte--imagen,.escena__lienzo>.arte--imagen{z-index:1}
+.eleccion__cara>.arte--imagen,.retrato-pj>.arte--imagen,.combate__criatura>.arte--imagen{z-index:1}
+.escena__lienzo>.arte--imagen{z-index:0}.escena__lienzo>.arte--atmosfera{z-index:1;pointer-events:none}
 
 /* ── escena: la cabecera ilustrada del lugar ────────────────────────── */
 .escena{

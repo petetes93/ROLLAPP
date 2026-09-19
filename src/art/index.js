@@ -21,11 +21,11 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import { paisaje } from './paisaje.js';
+import { paisaje, atmosfera } from './paisaje.js';
 import { retrato } from './retrato.js';
 import { criatura } from './criatura.js';
 
-export { paisaje, retrato, criatura };
+export { paisaje, atmosfera, retrato, criatura };
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MANIFIESTO
@@ -183,6 +183,15 @@ export function pintarArte(nodo, peticion) {
 
     img.className = 'arte arte--imagen';
     img.alt = opciones.nombre ?? '';
+
+    if (familia === 'paisajes' && opciones.hibrido) {
+      // La ilustración da el impacto de un momento clave; la capa SVG mantiene
+      // la hora, el clima y las partículas vivas encima de ella.
+      nodo.innerHTML = atmosfera(opciones);
+      nodo.prepend(img);
+      return;
+    }
+
     nodo.replaceChildren(img);
   });
 
@@ -219,6 +228,8 @@ export function pintarLugar(nodo, lugar, mundo = {}) {
       nombre: lugar.nombre,
       franja: mundo.franja ?? 'manana',
       clima: mundo.clima ?? 'despejado',
+      hibrido: Boolean(mundo.momentoClave),
+      sinRaster: !mundo.momentoClave,
     },
   });
 }
@@ -262,6 +273,7 @@ export function pintarCriatura(nodo, enemigo = {}) {
       tipo: enemigo.tipo,
       tamano: enemigo.tamano,
       nombre: enemigo.nombre ?? '',
+      sinRaster: !enemigo.momentoClave,
     },
   });
 }

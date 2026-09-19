@@ -425,8 +425,16 @@ function pintarEscena() {
 
   const t = ver('world.tiempo', {}) ?? {};
   const clima = ver('world.clima.actual', 'despejado');
+  // Las entradas de región son ilustraciones clave. El resto del viaje usa
+  // paisaje 100% procedural; en estas seis, el raster recibe encima la misma
+  // hora, clima y partículas del mundo vivo.
+  const hitosRegion = new Set([
+    'vado_yunque', 'arboleda_madre', 'forja_alta',
+    'pilotes_brumal', 'umbral_albar', 'oasis_sal',
+  ]);
+  const momentoClave = hitosRegion.has(lugar.refId);
 
-  pintarLugar($('#escena-lienzo'), lugar, { franja: t.franja, clima });
+  pintarLugar($('#escena-lienzo'), lugar, { franja: t.franja, clima, momentoClave });
 
   const rotulo = $('#escena-rotulo');
   if (!rotulo) return;
@@ -918,7 +926,8 @@ function pintarCombate() {
         ),
       ));
 
-      pintarCriatura(marco, plantilla);
+      const jefes = new Set(['devorador_de_brumas', 'guardian_de_la_puerta', 'senora_del_pantano']);
+      pintarCriatura(marco, { ...plantilla, momentoClave: jefes.has(plantilla.refId) });
     }
   }
 

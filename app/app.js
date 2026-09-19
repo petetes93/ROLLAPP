@@ -833,12 +833,20 @@ function pintarOpciones() {
 
   const opciones = ver('narrative.opciones', []) ?? [];
 
-  for (const o of opciones.slice(0, 4)) {
+  const glifos = { ataque: '⚔', combate: '⚔', explorar: '⌖', observar: '◉', hablar: '✦', social: '✦', viajar: '➶', huir: '➶', objeto: '◆', magia: '✧' };
+  for (const [indice, o] of opciones.slice(0, 4).entries()) {
+    const intencion = String(o.intent ?? o.intencion ?? '').toLowerCase();
     caja.append(el('button', {
       class: 'opcion',
+      dataset: { risk: o.risk ?? 'low', intent: intencion || 'accion' },
       onClick: protegido('opción', () => enviar(o.label, o.intent)),
-      text: o.label,
-    }));
+    },
+      el('span', { class: 'opcion__glifo', text: glifos[intencion] ?? '✦' }),
+      el('span', { class: 'opcion__contenido' },
+        el('small', { class: 'opcion__orden', text: `ACCIÓN ${indice + 1}` }),
+        el('span', { class: 'opcion__texto', text: o.label }),
+      ),
+    ));
   }
 }
 

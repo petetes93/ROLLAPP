@@ -96,7 +96,7 @@ try {
 
   await evaluate(`document.querySelector('#inicio-acciones .btn--grande').click()`);
   await until('document.body.dataset.activeScreen === "creacion"');
-  await evaluate(`(()=>{const fill=(q,v)=>{const n=document.querySelector(q);n.value=v;n.dispatchEvent(new Event('input',{bubbles:true}))};fill('#nombre','Lyra');document.querySelector('[data-clave="raza"][data-valor="albar"]').click();fill('#retrato-descripcion','exploradora de pelo plateado y cicatriz en la ceja');fill('#lore-personaje','Mi hermana cruzó el Umbral con nuestro medallón. La busco desde entonces.');})()`);
+  await evaluate(`(()=>{const fill=(q,v)=>{const n=document.querySelector(q);n.value=v;n.dispatchEvent(new Event('input',{bubbles:true}))};fill('#nombre','Lyra');document.querySelector('[data-clave="raza"][data-valor="albar"]').click();fill('#retrato-descripcion','elfa exploradora de pelo plateado, ojos azul brillante, cicatriz en la ceja y armadura de cuero negro');fill('#lore-personaje','Mi hermana cruzó el Umbral con nuestro medallón. La busco desde entonces.');})()`);
   await until('document.querySelector("#creacion-cara .arte")');
   const retrato = await evaluate(`({cicatriz:Boolean(document.querySelector('#creacion-cara .retrato-rasgo--cicatriz')), loreVisible:document.querySelector('#lore-personaje').getBoundingClientRect().top < innerHeight})`);
   if (!retrato.cicatriz) throw new Error('la descripción libre no dibujó la cicatriz');

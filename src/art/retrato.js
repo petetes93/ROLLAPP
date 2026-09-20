@@ -304,6 +304,7 @@ function mirada(forma, tonos) {
       + `stroke="#111217" stroke-width="3.4" `
       + 'fill="none" stroke-linecap="round"/>');
     piezas.push(`<path d="M${num(x-lado*a*.22)} ${num(OJOS_Y-1)} L${num(x+lado*a*1.42)} ${num(OJOS_Y-8)}" stroke="#111217" stroke-width="2.2" opacity=".86"/>`);
+    piezas.push(`<path d="M${num(x+a*.20)} ${num(OJOS_Y+7)} Q${num(x+a*.46)} ${num(OJOS_Y+18)} ${num(x+a*.34)} ${num(OJOS_Y+32)}" stroke="#11141B" stroke-width="${num(1.4*escala)}" fill="none" opacity=".74"/>`);
   }
 
   // Cejas: por encima del hueso, no pegadas al párpado.
@@ -665,7 +666,7 @@ function acabadoPictorico(forma, tonos, flujo, dCabeza, idRecorte, idResplandor)
   }
   piezas.push('</g>');
   // Silueta de tinta irregular y contraluz de plata.
-  piezas.push(`<path d="${dCabeza}" fill="none" stroke="#090B0F" stroke-width="4.5" opacity=".8"/>`);
+  piezas.push(`<path d="${dCabeza}" fill="none" stroke="#090B0F" stroke-width="2.6" opacity=".58"/>`);
   piezas.push(`<path d="${dCabeza}" fill="none" stroke="${brillo(tonos.pelo,1.42)}" stroke-width="2.1" opacity=".72" filter="url(#${idResplandor})"/>`);
   // Hebras largas que cruzan el rostro, como las referencias.
   for(let i=0;i<5;i++) {
@@ -707,6 +708,7 @@ export function retrato(opciones = {}) {
   const idResplandor = idUnico('glow');
   const idSuave = idUnico('soft');
   const idTextura = idUnico('skin');
+  const idPintura = idUnico('paint');
 
   const dCabeza = siluetaCabeza(forma);
 
@@ -721,6 +723,7 @@ export function retrato(opciones = {}) {
     + `<filter id="${idResplandor}" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`
     + `<filter id="${idSuave}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="10"/></filter>`
     + `<filter id="${idTextura}" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency=".025 .16" numOctaves="3" seed="${semilla}"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope=".34"/></feComponentTransfer></filter>`
+    + `<filter id="${idPintura}" x="-12%" y="-12%" width="124%" height="124%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".018 .055" numOctaves="4" seed="${semilla}" result="fibra"/><feDisplacementMap in="SourceGraphic" in2="fibra" scale="2.6" xChannelSelector="R" yChannelSelector="B" result="ondulado"/><feGaussianBlur in="SourceGraphic" stdDeviation="5" result="veladura"/><feBlend in="ondulado" in2="veladura" mode="soft-light" result="pintado"/><feComposite in="pintado" in2="SourceGraphic" operator="in"/></filter>`
     + degradadoLuz(idPiel, brillo(tonos.piel, 1.10), brillo(tonos.pielSombra, .66))
     // La tela tiene que despegarse del fondo. Con los grises de `ceniza` a
     // `tinta` el busto salía del mismo color que el fondo y la cabeza parecía
@@ -737,7 +740,7 @@ export function retrato(opciones = {}) {
     busto(forma, tonos, idTela),
 
     // La cabeza y todo lo que la modela, recortado contra su propia silueta.
-    `<path d="${dCabeza}" fill="url(#${idPiel})"/>`,
+    `<path d="${dCabeza}" fill="url(#${idPiel})" filter="url(#${idPintura})"/>`,
     modeladoPiel(forma, tonos, idRecorte, idSuave, idTextura),
     `<g clip-path="url(#${idRecorte})">`,
     volumenRostro(forma, tonos),
@@ -748,7 +751,7 @@ export function retrato(opciones = {}) {
     // Filo de luz en el borde iluminado. Va SIN recortar y encima de todo:
     // es lo que separa la cabeza del fondo y lo que más se parece a óleo.
     `<path d="${dCabeza}" fill="none" stroke="${brillo(tonos.piel, 1.3)}" `
-      + 'stroke-width="2.2" opacity="0.30"/>',
+      + 'stroke-width="1.6" opacity="0.48" filter="url(#' + idResplandor + ')"/>',
 
     acabadoPictorico(forma, tonos, flujo, dCabeza, idRecorte, idResplandor),
     rasgoLinaje(tonos.rasgo, forma, tonos, flujo, 'delante'),

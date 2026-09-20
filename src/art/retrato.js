@@ -574,6 +574,35 @@ function rasgoLinaje(rasgo, forma, tonos, flujo, capa) {
   return piezas.join('');
 }
 
+/** Convierte palabras visuales del jugador en detalles dibujados, localmente. */
+function detallesDescripcion(descripcion, forma, tonos) {
+  const d = String(descripcion ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const rx = RX * forma.ancho;
+  const ry = RY * forma.largo;
+  const cx = CX + GIRO;
+  const piezas = [];
+
+  if (/cicatriz|scar/.test(d)) {
+    const lado = /izquierd/.test(d) ? -1 : 1;
+    const x = cx + lado * rx * .43;
+    piezas.push(`<path d="M${num(x-9)} ${num(OJOS_Y-24)} L${num(x+7)} ${num(OJOS_Y+30)}" stroke="${brillo(tonos.pielSombra,.66)}" stroke-width="3" opacity=".82"/>`);
+    piezas.push(`<path d="M${num(x-5)} ${num(OJOS_Y-8)} l-7 5 M${num(x+1)} ${num(OJOS_Y+10)} l8 -3" stroke="${brillo(tonos.piel,1.22)}" stroke-width="1.4" opacity=".6"/>`);
+  }
+  if (/parche|eyepatch/.test(d)) {
+    const lado = /izquierd/.test(d) ? -1 : 1;
+    const x = cx + lado * rx * .44;
+    piezas.push(`<ellipse cx="${num(x)}" cy="${num(OJOS_Y)}" rx="19" ry="13" fill="#171313"/>`);
+    piezas.push(`<path d="M${num(cx-rx*.92)} ${num(OJOS_Y-16)} L${num(cx+rx*.92)} ${num(OJOS_Y+5)}" stroke="#211B19" stroke-width="4"/>`);
+  }
+  if (/barba|barbudo|beard/.test(d)) {
+    piezas.push(`<path d="M${num(cx-rx*.68)} ${num(OJOS_Y+ry*.48)} Q${num(cx)} ${num(OJOS_Y+ry*1.22)} ${num(cx+rx*.64)} ${num(OJOS_Y+ry*.46)} Q${num(cx)} ${num(OJOS_Y+ry*.9)} ${num(cx-rx*.68)} ${num(OJOS_Y+ry*.48)}Z" fill="${tonos.pelo}" opacity=".9"/>`);
+  }
+  if (/capucha|hood/.test(d)) {
+    piezas.push(`<path d="M${num(cx-rx*1.2)} ${num(OJOS_Y+ry*.35)} Q${num(cx-rx*1.25)} ${num(OJOS_Y-ry*1.18)} ${num(cx)} ${num(OJOS_Y-ry*1.3)} Q${num(cx+rx*1.25)} ${num(OJOS_Y-ry*1.18)} ${num(cx+rx*1.2)} ${num(OJOS_Y+ry*.35)}" fill="none" stroke="${brillo(BASE.hierro,.8)}" stroke-width="25" opacity=".8"/>`);
+  }
+  return piezas.join('');
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    PRINCIPAL
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -588,7 +617,7 @@ function rasgoLinaje(rasgo, forma, tonos, flujo, capa) {
  * @returns {string} SVG completo.
  */
 export function retrato(opciones = {}) {
-  const { raza = 'valdes', nombre = '', semilla: extra = '' } = opciones;
+  const { raza = 'valdes', nombre = '', semilla: extra = '', descripcion = '' } = opciones;
 
   const tonos = LINAJES[raza] ?? LINAJE_POR_DEFECTO;
   const forma = FORMA[raza] ?? FORMA_POR_DEFECTO;
@@ -637,6 +666,7 @@ export function retrato(opciones = {}) {
       + 'stroke-width="2.2" opacity="0.30"/>',
 
     rasgoLinaje(tonos.rasgo, forma, tonos, flujo, 'delante'),
+    detallesDescripcion(descripcion, forma, tonos),
     `<path d="M${num(CX-78)} 410 Q${num(CX)} 374 ${num(CX+78)} 410" stroke="${tonos.acento}" stroke-width="2" fill="none" opacity=".52"/>`,
     `<circle cx="${num(CX)}" cy="398" r="10" fill="${brillo(tonos.acento,.7)}" stroke="${brillo(tonos.acento,1.3)}" stroke-width="2"/>`,
   ].join('');

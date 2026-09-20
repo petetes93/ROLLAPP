@@ -251,7 +251,7 @@ function volumenRostro(forma, tonos) {
     + `fill="${sombra}" opacity="0.45"/>`);
 
   // Línea de la boca: lo único parecido a un trazo, y muy tenue.
-  piezas.push(`<path d="M${num(cx-rx*.25)} ${num(OJOS_Y+ry*.56)} Q${num(cx-rx*.08)} ${num(OJOS_Y+ry*.49)} ${num(cx)} ${num(OJOS_Y+ry*.54)} Q${num(cx+rx*.10)} ${num(OJOS_Y+ry*.48)} ${num(cx+rx*.34)} ${num(OJOS_Y+ry*.54)} Q${num(cx)} ${num(OJOS_Y+ry*.67)} ${num(cx-rx*.3)} ${num(OJOS_Y+ry*.56)}Z" fill="${mezclar('#331D27', tonos.ojo, .10)}" opacity=".82"/>`);
+  piezas.push(`<path d="M${num(cx-rx*.25)} ${num(OJOS_Y+ry*.56)} Q${num(cx-rx*.08)} ${num(OJOS_Y+ry*.49)} ${num(cx)} ${num(OJOS_Y+ry*.54)} Q${num(cx+rx*.10)} ${num(OJOS_Y+ry*.48)} ${num(cx+rx*.34)} ${num(OJOS_Y+ry*.54)} Q${num(cx)} ${num(OJOS_Y+ry*.67)} ${num(cx-rx*.3)} ${num(OJOS_Y+ry*.56)}Z" fill="${mezclar('#2A121D', tonos.ojo, .08)}" opacity=".92"/>`);
   piezas.push(`<path d="M${num(cx-rx*.25)} ${num(OJOS_Y+ry*.56)} Q${num(cx)} ${num(OJOS_Y+ry*.60)} ${num(cx+rx*.25)} ${num(OJOS_Y+ry*.55)}" stroke="${brillo(sombra,.5)}" stroke-width="1.4" fill="none"/>`);
 
   return piezas.join('');
@@ -357,11 +357,12 @@ function pelo(forma, tonos, flujo) {
   const raices = [];
   raices.push(`<path d="M${num(cx-rx*.82)} ${num(nacimiento+12)} Q${num(cx-rx*.18)} ${num(OJOS_Y-ry*1.13)} ${num(cx+rx*.72)} ${num(nacimiento+6)}" stroke="${brillo(tonos.pelo,.48)}" stroke-width="24" fill="none" opacity=".34" stroke-linecap="round"/>`);
   for (let i=0;i<34;i++) {
-    const t=i/33, x0=cx-rx*.86+t*rx*1.72;
-    const raizX=cx+flujo.flotante(-rx*.16,rx*.16);
-    const curvaX=x0+flujo.flotante(-18,18);
+    const lado=i%2===0?-1:1;
+    const t=(i%17)/16, x0=cx+lado*rx*(.52+t*.62);
+    const raizX=cx-rx*.12+lado*flujo.flotante(0,rx*.16);
+    const curvaX=cx+lado*rx*flujo.flotante(.56,1.0);
     const finalY=OJOS_Y+ry*flujo.flotante(.35,1.38);
-    raices.push(`<path d="M${num(raizX)} ${num(OJOS_Y-ry*.93+flujo.flotante(-8,8))} Q${num(curvaX)} ${num(OJOS_Y-ry*.45)} ${num(x0+flujo.flotante(-12,12))} ${num(finalY)}" stroke="${brillo(tonos.pelo,flujo.flotante(.45,1.55))}" stroke-width="${num(flujo.flotante(.55,3.8))}" fill="none" opacity="${num(flujo.flotante(.25,.86))}" stroke-linecap="round"/>`);
+    raices.push(`<path d="M${num(raizX)} ${num(OJOS_Y-ry*.93+flujo.flotante(-8,8))} Q${num(curvaX)} ${num(OJOS_Y-ry*.42)} ${num(x0+flujo.flotante(-8,8))} ${num(finalY)}" stroke="${brillo(tonos.pelo,flujo.flotante(.45,1.55))}" stroke-width="${num(flujo.flotante(.55,3.8))}" fill="none" opacity="${num(flujo.flotante(.25,.86))}" stroke-linecap="round"/>`);
   }
 
   // Un par de mechones sueltos rompen el borde limpio del vector.
@@ -382,6 +383,7 @@ function pelo(forma, tonos, flujo) {
   const pincel = [];
   pincel.push(`<path d="M${num(cx-rx*.94)} ${num(OJOS_Y-ry*.63)} Q${num(cx-rx*.28)} ${num(OJOS_Y-ry*1.15)} ${num(cx+rx*.58)} ${num(OJOS_Y-ry*.78)}" stroke="${brillo(tonos.pelo,1.34)}" stroke-width="18" fill="none" opacity=".38" stroke-linecap="round"/>`);
   pincel.push(`<path d="M${num(cx-rx*.82)} ${num(OJOS_Y-ry*.54)} Q${num(cx-rx*.14)} ${num(OJOS_Y-ry*1.02)} ${num(cx+rx*.68)} ${num(OJOS_Y-ry*.68)}" stroke="${brillo(tonos.pelo,.72)}" stroke-width="11" fill="none" opacity=".52" stroke-linecap="round"/>`);
+  pincel.push(`<path d="M${num(cx-rx*.10)} ${num(OJOS_Y-ry*.94)} Q${num(cx-rx*.72)} ${num(OJOS_Y-ry*.46)} ${num(cx-rx*.76)} ${num(OJOS_Y+ry*.78)}" stroke="${brillo(tonos.pelo,1.14)}" stroke-width="8" fill="none" opacity=".74" stroke-linecap="round"/>`);
 
   const luz = `<path d="M${num(cx - rx * 0.8)} ${num(OJOS_Y - ry * 0.72)}`
     + `Q${num(cx - rx * 0.2)} ${num(OJOS_Y - ry * 1.0)} ${num(cx + rx * 0.4)} `

@@ -364,7 +364,7 @@ function pelo(forma, tonos, flujo) {
     const x = cx + flujo.flotante(-rx, rx);
     const y = nacimiento + flujo.flotante(-4, 10);
 
-    mechones.push(`<path d="M${num(x)} ${num(y)}q${num(flujo.flotante(-8, 8))} `
+    mechones.push(`<path class="retrato-mechon" style="--mechon-fase:${num(flujo.flotante(-3, 0))}s" d="M${num(x)} ${num(y)}q${num(flujo.flotante(-8, 8))} `
       + `${num(flujo.flotante(8, 18))} ${num(flujo.flotante(-10, 10))} `
       + `${num(flujo.flotante(16, 30))}" stroke="${tonos.pelo}" `
       + `stroke-width="${num(flujo.flotante(2, 4.5))}" fill="none" `

@@ -25,10 +25,10 @@ const ALTO = 480;
    se quiere. Cambiarla para un solo linaje es lo que rompe la serie.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const OJOS_Y = 184;           // Primer plano: ojos cerca del tercio superior.
+const OJOS_Y = 190;           // Primer plano: ojos cerca del tercio superior.
 const CX = ANCHO * 0.5;
-const RX = 94;                // Rostro cercano, pómulos dominantes.
-const RY = 126;               // Cráneo largo y mandíbula afilada.
+const RX = 112;                // Rostro cercano, pómulos dominantes.
+const RY = 146;               // Cráneo largo y mandíbula afilada.
 const GIRO = 9;               // Tres cuartos muy leve.               // Desplazamiento de tres cuartos.
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -103,7 +103,7 @@ function busto(forma, tonos, idTela) {
   const ry = RY * forma.largo;
   const anchoCuello = 32 * forma.ancho;
   const cuelloY = OJOS_Y + ry * 0.72;
-  const hombroY = ALTO * 0.76;
+  const hombroY = ALTO * 0.83;
   const anchoHombro = 150 * forma.hombros;
 
   // Cuello. Va en sombra entero: la mandíbula lo tapa de la luz. Baja hasta
@@ -199,7 +199,7 @@ function modeladoPiel(forma, tonos, idRecorte, idSuave, idTextura) {
   const rx=RX*forma.ancho, ry=RY*forma.largo, cx=CX+GIRO;
   return `<g clip-path="url(#${idRecorte})">`
     + `<ellipse cx="${num(cx-rx*.35)}" cy="${num(OJOS_Y-ry*.18)}" rx="${num(rx*.62)}" ry="${num(ry*.78)}" fill="${brillo(tonos.piel,1.28)}" opacity=".22" filter="url(#${idSuave})"/>`
-    + `<ellipse cx="${num(cx+rx*.62)}" cy="${num(OJOS_Y+ry*.04)}" rx="${num(rx*.54)}" ry="${num(ry*.86)}" fill="#06080D" opacity=".48" filter="url(#${idSuave})"/>`
+    + `<ellipse cx="${num(cx+rx*.62)}" cy="${num(OJOS_Y+ry*.04)}" rx="${num(rx*.54)}" ry="${num(ry*.86)}" fill="#03050A" opacity=".62" filter="url(#${idSuave})"/>`
     + `<ellipse cx="${num(cx-rx*.48)}" cy="${num(OJOS_Y+ry*.30)}" rx="${num(rx*.30)}" ry="${num(ry*.20)}" fill="${brillo(tonos.piel,1.18)}" opacity=".24" filter="url(#${idSuave})"/>`
     + `<path d="M${num(cx-rx*.74)} ${num(OJOS_Y-ry*.55)} Q${num(cx-rx*.12)} ${num(OJOS_Y-ry*.92)} ${num(cx+rx*.64)} ${num(OJOS_Y-ry*.50)}" stroke="#E8F0F2" stroke-width="8" fill="none" opacity=".13" filter="url(#${idSuave})"/>`
     + `<rect x="${num(cx-rx)}" y="${num(OJOS_Y-ry)}" width="${num(rx*2)}" height="${num(ry*2)}" filter="url(#${idTextura})" opacity=".22" style="mix-blend-mode:soft-light"/>`
@@ -217,7 +217,7 @@ function volumenRostro(forma, tonos) {
   // cansancio que pide el ancla, pero floja: subida de opacidad, las dos
   // manchas se juntan con el iris y el resultado son unas gafas de buzo.
   for (const lado of [-1, 1]) {
-    const x = cx + lado * rx * 0.44;
+    const x = cx + lado * rx * 0.40;
     const escala = lado < 0 ? 1 : 0.9;   // El lado en sombra, algo menor.
 
     piezas.push(`<ellipse cx="${num(x)}" cy="${num(OJOS_Y - 1)}" `
@@ -274,11 +274,11 @@ function mirada(forma, tonos) {
 
   // El ojo mide una quinta parte de la anchura de la cara: la proporción
   // clásica, y la que evita que parezcan botones pegados.
-  const w = rx * 0.235;
+  const w = rx * 0.25;
 
   for (const lado of [-1, 1]) {
     const escala = lado < 0 ? 1 : 0.88;
-    const x = cx + lado * rx * 0.44;
+    const x = cx + lado * rx * 0.40;
     const a = w * escala;
 
     // Hendidura del párpado: almendra, más alta por dentro que por fuera.
@@ -371,12 +371,15 @@ function pelo(forma, tonos, flujo) {
   }
 
   // Brillo del pelo, arriba a la izquierda como todo lo demás.
+  const pincel = [];
+  pincel.push(`<path d="M${num(cx-rx*.94)} ${num(OJOS_Y-ry*.63)} Q${num(cx-rx*.28)} ${num(OJOS_Y-ry*1.15)} ${num(cx+rx*.58)} ${num(OJOS_Y-ry*.78)}" stroke="${brillo(tonos.pelo,1.34)}" stroke-width="18" fill="none" opacity=".38" stroke-linecap="round"/>`);
+  pincel.push(`<path d="M${num(cx-rx*.82)} ${num(OJOS_Y-ry*.54)} Q${num(cx-rx*.14)} ${num(OJOS_Y-ry*1.02)} ${num(cx+rx*.68)} ${num(OJOS_Y-ry*.68)}" stroke="${brillo(tonos.pelo,.72)}" stroke-width="11" fill="none" opacity=".52" stroke-linecap="round"/>`);
+
   const luz = `<path d="M${num(cx - rx * 0.8)} ${num(OJOS_Y - ry * 0.72)}`
     + `Q${num(cx - rx * 0.2)} ${num(OJOS_Y - ry * 1.0)} ${num(cx + rx * 0.4)} `
     + `${num(OJOS_Y - ry * 0.82)}" stroke="${brillo(tonos.pelo, 1.5)}" `
     + 'stroke-width="6" fill="none" opacity="0.3" stroke-linecap="round"/>';
 
-  const pincel = [];
   for (let i=0;i<22;i++) {
     const lado=i%2===0?-1:1;
     const x=cx+lado*flujo.flotante(rx*.58,rx*.98);
@@ -590,7 +593,7 @@ function tonosDescripcion(base, descripcion) {
   else if (/pelo (blanco|plateado)|cabello (blanco|plateado)/.test(d)) pelo = '#D8D8D2';
   else if (/pelo (dorado|rubio)|cabello (dorado|rubio)/.test(d)) pelo = '#B99A5C';
   if (/ojos? (rojos?|carmesi|escarlata)/.test(d)) ojo = '#FF334E';
-  else if (/ojos? (azules?|celestes?|cian)/.test(d)) ojo = '#55C8FF';
+  else if (/ojos? (azul(?:es)?|celestes?|cian)/.test(d)) ojo = '#55C8FF';
   else if (/ojos? verdes?/.test(d)) ojo = '#64C991';
   else if (/ojos? (dorados?|ambar)/.test(d)) ojo = '#C29A3A';
   else if (/ojos? (violetas?|morados?)/.test(d)) ojo = '#8170A2';

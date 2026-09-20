@@ -574,6 +574,22 @@ function rasgoLinaje(rasgo, forma, tonos, flujo, capa) {
   return piezas.join('');
 }
 
+/** Ajusta la paleta con colores visuales escritos por el jugador. */
+function tonosDescripcion(base, descripcion) {
+  const d = String(descripcion ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  let pelo = base.pelo;
+  let ojo = base.ojo;
+  if (/pelo (rojo|pelirroj)|cabello (rojo|pelirroj)/.test(d)) pelo = '#8E432F';
+  else if (/pelo (negro|azabache)|cabello (negro|azabache)/.test(d)) pelo = '#171519';
+  else if (/pelo (blanco|plateado)|cabello (blanco|plateado)/.test(d)) pelo = '#D8D8D2';
+  else if (/pelo (dorado|rubio)|cabello (dorado|rubio)/.test(d)) pelo = '#B99A5C';
+  if (/ojos? verdes?/.test(d)) ojo = '#65846B';
+  else if (/ojos? azules?/.test(d)) ojo = '#6588A0';
+  else if (/ojos? (dorados?|ambar)/.test(d)) ojo = '#C29A3A';
+  else if (/ojos? (violetas?|morados?)/.test(d)) ojo = '#8170A2';
+  return { ...base, pelo, ojo };
+}
+
 /** Convierte palabras visuales del jugador en detalles dibujados, localmente. */
 function detallesDescripcion(descripcion, forma, tonos) {
   const d = String(descripcion ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -619,7 +635,7 @@ function detallesDescripcion(descripcion, forma, tonos) {
 export function retrato(opciones = {}) {
   const { raza = 'valdes', nombre = '', semilla: extra = '', descripcion = '' } = opciones;
 
-  const tonos = LINAJES[raza] ?? LINAJE_POR_DEFECTO;
+  const tonos = tonosDescripcion(LINAJES[raza] ?? LINAJE_POR_DEFECTO, descripcion);
   const forma = FORMA[raza] ?? FORMA_POR_DEFECTO;
 
   const semilla = hashSemilla(`retrato:${raza}:${extra}`);

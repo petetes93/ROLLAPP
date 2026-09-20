@@ -677,13 +677,14 @@ function orejasAfiladas(raza, forma, tonos) {
 function acabadoPictorico(forma, tonos, flujo, dCabeza, idRecorte, idResplandor) {
   const rx=RX*forma.ancho, ry=RY*forma.largo, cx=CX+GIRO;
   const piezas=[`<g clip-path="url(#${idRecorte})">`];
-  // Planos de luz quebrados sobre frente, nariz y pómulos.
-  piezas.push(`<path d="M${num(cx-rx*.82)} ${num(OJOS_Y-ry*.48)} Q${num(cx-rx*.35)} ${num(OJOS_Y-ry*.75)} ${num(cx+3)} ${num(OJOS_Y-ry*.54)} L${num(cx-10)} ${num(OJOS_Y+ry*.36)} Q${num(cx-rx*.5)} ${num(OJOS_Y+ry*.54)} ${num(cx-rx*.82)} ${num(OJOS_Y+ry*.18)}Z" fill="${brillo(tonos.piel,1.22)}" opacity=".22"/>`);
-  piezas.push(`<path d="M${num(cx+4)} ${num(OJOS_Y-ry*.42)} Q${num(cx+rx*.82)} ${num(OJOS_Y-ry*.18)} ${num(cx+rx*.72)} ${num(OJOS_Y+ry*.43)} Q${num(cx+rx*.42)} ${num(OJOS_Y+ry*.65)} ${num(cx+8)} ${num(OJOS_Y+ry*.48)}Z" fill="#0A0E15" opacity=".16"/>`);
-  // Trazos cortos como pincel seco en las mejillas.
-  for (const lado of [-1,1]) for(let i=0;i<3;i++) {
-    const x=cx+lado*rx*flujo.flotante(.42,.78), y=OJOS_Y+ry*flujo.flotante(.18,.53);
-    piezas.push(`<path d="M${num(x)} ${num(y)} l${num(lado*flujo.flotante(10,25))} ${num(flujo.flotante(-5,5))}" stroke="${brillo(tonos.pielSombra,.62)}" stroke-width="${num(flujo.flotante(.7,1.8))}" opacity=".34"/>`);
+  // Veladuras amplias sobre frente, nariz y pómulos. Los bordes blandos
+  // conservan estructura sin dividir la piel en polígonos visibles.
+  piezas.push(`<path d="M${num(cx-rx*.82)} ${num(OJOS_Y-ry*.48)} Q${num(cx-rx*.35)} ${num(OJOS_Y-ry*.75)} ${num(cx+3)} ${num(OJOS_Y-ry*.54)} L${num(cx-10)} ${num(OJOS_Y+ry*.36)} Q${num(cx-rx*.5)} ${num(OJOS_Y+ry*.54)} ${num(cx-rx*.82)} ${num(OJOS_Y+ry*.18)}Z" fill="${brillo(tonos.piel,1.22)}" opacity=".11" filter="blur(7px)"/>`);
+  piezas.push(`<path d="M${num(cx+4)} ${num(OJOS_Y-ry*.42)} Q${num(cx+rx*.82)} ${num(OJOS_Y-ry*.18)} ${num(cx+rx*.72)} ${num(OJOS_Y+ry*.43)} Q${num(cx+rx*.42)} ${num(OJOS_Y+ry*.65)} ${num(cx+8)} ${num(OJOS_Y+ry*.48)}Z" fill="#0A0E15" opacity=".13" filter="blur(6px)"/>`);
+  // Pincel seco mínimo en el borde del pómulo, no sobre toda la mejilla.
+  for (const lado of [-1,1]) for(let i=0;i<2;i++) {
+    const x=cx+lado*rx*flujo.flotante(.62,.82), y=OJOS_Y+ry*flujo.flotante(.28,.48);
+    piezas.push(`<path d="M${num(x)} ${num(y)} l${num(lado*flujo.flotante(8,16))} ${num(flujo.flotante(-3,3))}" stroke="${brillo(tonos.pielSombra,.62)}" stroke-width="${num(flujo.flotante(.6,1.2))}" opacity=".18"/>`);
   }
   piezas.push('</g>');
   // Silueta de tinta irregular y contraluz de plata.

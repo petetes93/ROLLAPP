@@ -73,23 +73,14 @@ function siluetaCabeza(forma) {
   const ry = RY * forma.largo;
   const cx = CX + GIRO;
   const cy = OJOS_Y;
-
-  const mx = rx * (0.34 * forma.menton);   // Media anchura del mentón.
-  const my = cy + ry * 0.98;               // Punta del mentón.
-
-  return `M${num(cx - rx)} ${num(cy - ry * 0.10)}`
-    // Cráneo.
-    + `C${num(cx - rx * 1.02)} ${num(cy - ry * 1.02)} ${num(cx + rx * 1.02)} `
-    + `${num(cy - ry * 1.02)} ${num(cx + rx)} ${num(cy - ry * 0.10)}`
-    // Pómulo a mandíbula, lado derecho.
-    + `C${num(cx + rx * 0.99)} ${num(cy + ry * 0.30)} ${num(cx + rx * 0.86)} `
-    + `${num(cy + ry * 0.56)} ${num(cx + rx * 0.56)} ${num(cy + ry * 0.80)}`
-    // Mentón.
-    + `C${num(cx + mx)} ${num(my)} ${num(cx - mx)} ${num(my)} `
-    + `${num(cx - rx * 0.56)} ${num(cy + ry * 0.80)}`
-    // Mandíbula a pómulo, lado izquierdo.
-    + `C${num(cx - rx * 0.86)} ${num(cy + ry * 0.56)} ${num(cx - rx * 0.99)} `
-    + `${num(cy + ry * 0.30)} ${num(cx - rx)} ${num(cy - ry * 0.10)}Z`;
+  const mandibula = rx * (0.48 * forma.menton);
+  const menton = rx * (0.20 * forma.menton);
+  return `M${num(cx-rx*.94)} ${num(cy-ry*.12)}`
+    + `C${num(cx-rx*1.02)} ${num(cy-ry*.82)} ${num(cx-rx*.48)} ${num(cy-ry*1.02)} ${num(cx)} ${num(cy-ry)}`
+    + `C${num(cx+rx*.68)} ${num(cy-ry*.98)} ${num(cx+rx*1.02)} ${num(cy-ry*.66)} ${num(cx+rx*.98)} ${num(cy-ry*.08)}`
+    + `C${num(cx+rx*.96)} ${num(cy+ry*.26)} ${num(cx+rx*.80)} ${num(cy+ry*.54)} ${num(cx+mandibula)} ${num(cy+ry*.77)}`
+    + `C${num(cx+menton)} ${num(cy+ry*1.02)} ${num(cx-menton)} ${num(cy+ry*1.02)} ${num(cx-mandibula)} ${num(cy+ry*.77)}`
+    + `C${num(cx-rx*.80)} ${num(cy+ry*.54)} ${num(cx-rx*.98)} ${num(cy+ry*.25)} ${num(cx-rx*.94)} ${num(cy-ry*.12)}Z`;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -204,6 +195,17 @@ function cabelloExterior(forma, tonos, flujo) {
  * @param {Object} tonos
  * @returns {string}
  */
+function modeladoPiel(forma, tonos, idRecorte, idSuave, idTextura) {
+  const rx=RX*forma.ancho, ry=RY*forma.largo, cx=CX+GIRO;
+  return `<g clip-path="url(#${idRecorte})">`
+    + `<ellipse cx="${num(cx-rx*.35)}" cy="${num(OJOS_Y-ry*.18)}" rx="${num(rx*.62)}" ry="${num(ry*.78)}" fill="${brillo(tonos.piel,1.28)}" opacity=".22" filter="url(#${idSuave})"/>`
+    + `<ellipse cx="${num(cx+rx*.62)}" cy="${num(OJOS_Y+ry*.04)}" rx="${num(rx*.54)}" ry="${num(ry*.86)}" fill="#06080D" opacity=".48" filter="url(#${idSuave})"/>`
+    + `<ellipse cx="${num(cx-rx*.48)}" cy="${num(OJOS_Y+ry*.30)}" rx="${num(rx*.30)}" ry="${num(ry*.20)}" fill="${brillo(tonos.piel,1.18)}" opacity=".24" filter="url(#${idSuave})"/>`
+    + `<path d="M${num(cx-rx*.74)} ${num(OJOS_Y-ry*.55)} Q${num(cx-rx*.12)} ${num(OJOS_Y-ry*.92)} ${num(cx+rx*.64)} ${num(OJOS_Y-ry*.50)}" stroke="#E8F0F2" stroke-width="8" fill="none" opacity=".13" filter="url(#${idSuave})"/>`
+    + `<rect x="${num(cx-rx)}" y="${num(OJOS_Y-ry)}" width="${num(rx*2)}" height="${num(ry*2)}" filter="url(#${idTextura})" opacity=".22" style="mix-blend-mode:soft-light"/>`
+    + '</g>';
+}
+
 function volumenRostro(forma, tonos) {
   const rx = RX * forma.ancho;
   const ry = RY * forma.largo;
@@ -219,8 +221,8 @@ function volumenRostro(forma, tonos) {
     const escala = lado < 0 ? 1 : 0.9;   // El lado en sombra, algo menor.
 
     piezas.push(`<ellipse cx="${num(x)}" cy="${num(OJOS_Y - 1)}" `
-      + `rx="${num(21 * escala)}" ry="${num(13 * escala)}" `
-      + `fill="${sombra}" opacity="0.26"/>`);
+      + `rx="${num(24 * escala)}" ry="${num(9 * escala)}" `
+      + `fill="#080A10" opacity="0.38" filter="blur(3px)"/>`);
   }
 
   // Hueso de la ceja: una franja clara justo encima de las cuencas.
@@ -374,9 +376,9 @@ function pelo(forma, tonos, flujo) {
     + 'stroke-width="6" fill="none" opacity="0.3" stroke-linecap="round"/>';
 
   const pincel = [];
-  for (let i=0;i<18;i++) {
+  for (let i=0;i<22;i++) {
     const lado=i%2===0?-1:1;
-    const x=cx+lado*flujo.flotante(rx*.08,rx*.9);
+    const x=cx+lado*flujo.flotante(rx*.58,rx*.98);
     const y=OJOS_Y-ry*flujo.flotante(.48,.92);
     pincel.push(`<path d="M${num(x)} ${num(y)} Q${num(x+lado*flujo.flotante(8,24))} ${num(y+ry*.42)} ${num(x+lado*flujo.flotante(4,34))} ${num(y+ry*1.05)}" stroke="${brillo(tonos.pelo,flujo.flotante(.68,1.42))}" stroke-width="${num(flujo.flotante(2.2,6.4))}" fill="none" opacity="${num(flujo.flotante(.28,.72))}" stroke-linecap="round"/>`);
   }
@@ -657,7 +659,7 @@ function acabadoPictorico(forma, tonos, flujo, dCabeza, idRecorte, idResplandor)
   piezas.push(`<path d="M${num(cx-rx*.82)} ${num(OJOS_Y-ry*.48)} Q${num(cx-rx*.35)} ${num(OJOS_Y-ry*.75)} ${num(cx+3)} ${num(OJOS_Y-ry*.54)} L${num(cx-10)} ${num(OJOS_Y+ry*.36)} Q${num(cx-rx*.5)} ${num(OJOS_Y+ry*.54)} ${num(cx-rx*.82)} ${num(OJOS_Y+ry*.18)}Z" fill="${brillo(tonos.piel,1.22)}" opacity=".22"/>`);
   piezas.push(`<path d="M${num(cx+4)} ${num(OJOS_Y-ry*.42)} Q${num(cx+rx*.82)} ${num(OJOS_Y-ry*.18)} ${num(cx+rx*.72)} ${num(OJOS_Y+ry*.43)} Q${num(cx+rx*.42)} ${num(OJOS_Y+ry*.65)} ${num(cx+8)} ${num(OJOS_Y+ry*.48)}Z" fill="#05070B" opacity=".23"/>`);
   // Trazos cortos como pincel seco en las mejillas.
-  for (const lado of [-1,1]) for(let i=0;i<5;i++) {
+  for (const lado of [-1,1]) for(let i=0;i<3;i++) {
     const x=cx+lado*rx*flujo.flotante(.42,.78), y=OJOS_Y+ry*flujo.flotante(.18,.53);
     piezas.push(`<path d="M${num(x)} ${num(y)} l${num(lado*flujo.flotante(10,25))} ${num(flujo.flotante(-5,5))}" stroke="${brillo(tonos.pielSombra,.62)}" stroke-width="${num(flujo.flotante(.7,1.8))}" opacity=".34"/>`);
   }
@@ -666,9 +668,10 @@ function acabadoPictorico(forma, tonos, flujo, dCabeza, idRecorte, idResplandor)
   piezas.push(`<path d="${dCabeza}" fill="none" stroke="#090B0F" stroke-width="4.5" opacity=".8"/>`);
   piezas.push(`<path d="${dCabeza}" fill="none" stroke="${brillo(tonos.pelo,1.42)}" stroke-width="2.1" opacity=".72" filter="url(#${idResplandor})"/>`);
   // Hebras largas que cruzan el rostro, como las referencias.
-  for(let i=0;i<12;i++) {
-    const x=cx+flujo.flotante(-rx*.9,rx*.9), y=OJOS_Y-ry*flujo.flotante(.35,.94);
-    const deriva=flujo.flotante(-70,70);
+  for(let i=0;i<5;i++) {
+    const lado=i%2===0?-1:1;
+    const x=cx+lado*flujo.flotante(rx*.54,rx*.94), y=OJOS_Y-ry*flujo.flotante(.35,.94);
+    const deriva=lado*flujo.flotante(18,62);
     piezas.push(`<path class="retrato-mechon" style="--mechon-fase:${num(flujo.flotante(-3,0))}s" d="M${num(x)} ${num(y)} Q${num(x+deriva*.42)} ${num(y+ry*.65)} ${num(x+deriva)} ${num(y+ry*1.32)}" stroke="${brillo(tonos.pelo,flujo.flotante(.72,1.38))}" stroke-width="${num(flujo.flotante(.65,2.5))}" fill="none" opacity="${num(flujo.flotante(.28,.76))}" stroke-linecap="round"/>`);
   }
   return piezas.join('');
@@ -702,6 +705,8 @@ export function retrato(opciones = {}) {
   const idRecorte = idUnico('rec');
   const idHalo = idUnico('halo');
   const idResplandor = idUnico('glow');
+  const idSuave = idUnico('soft');
+  const idTextura = idUnico('skin');
 
   const dCabeza = siluetaCabeza(forma);
 
@@ -714,6 +719,8 @@ export function retrato(opciones = {}) {
     + '</radialGradient>'
     + `<radialGradient id="${idHalo}"><stop offset="0" stop-color="#E5F3F5" stop-opacity=".38"/><stop offset="1" stop-color="#B7D2DD" stop-opacity="0"/></radialGradient>`
     + `<filter id="${idResplandor}" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`
+    + `<filter id="${idSuave}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="10"/></filter>`
+    + `<filter id="${idTextura}" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency=".025 .16" numOctaves="3" seed="${semilla}"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope=".34"/></feComponentTransfer></filter>`
     + degradadoLuz(idPiel, brillo(tonos.piel, 1.10), brillo(tonos.pielSombra, .66))
     // La tela tiene que despegarse del fondo. Con los grises de `ceniza` a
     // `tinta` el busto salía del mismo color que el fondo y la cabeza parecía
@@ -731,6 +738,7 @@ export function retrato(opciones = {}) {
 
     // La cabeza y todo lo que la modela, recortado contra su propia silueta.
     `<path d="${dCabeza}" fill="url(#${idPiel})"/>`,
+    modeladoPiel(forma, tonos, idRecorte, idSuave, idTextura),
     `<g clip-path="url(#${idRecorte})">`,
     volumenRostro(forma, tonos),
     mirada(forma, tonos),

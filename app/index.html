@@ -551,6 +551,12 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
 .eleccion__cara.se-esta-generando{box-shadow:0 0 0 1px #D7AD55,0 0 32px rgba(206,157,58,.3),inset 0 0 28px rgba(239,196,91,.14)}
 @keyframes estadoGeneracion{0%,100%{opacity:0;transform:translateY(8px)}18%,78%{opacity:1;transform:none}}
 @keyframes piezaSeForja{0%{opacity:.25;filter:sepia(1) brightness(1.8) blur(5px);transform:scale(1.08)}48%{opacity:.82;filter:sepia(.55) brightness(1.25) blur(1px)}100%{opacity:1;filter:none;transform:none}}
+/* El personaje generado conserva vida después de forjarse. Los movimientos son
+   mínimos para que siga pareciendo un retrato y no una marioneta. */
+.retrato-mirada{animation:miradaViva 5.8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.retrato-mechon{animation:mechonVivo 3.8s ease-in-out var(--mechon-fase,0s) infinite alternate;transform-box:fill-box;transform-origin:top center}
+@keyframes miradaViva{0%,42%,48%,100%{transform:scaleY(1)}45%{transform:scaleY(.12)}}
+@keyframes mechonVivo{to{transform:rotate(1.8deg) translateX(1px)}}
 .ficha{transition:transform .2s ease,border-color .2s ease,background .2s ease,box-shadow .2s ease}
 .ficha:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(0,0,0,.28)}
 .ficha.es-elegida{animation:eleccionPulso .42s cubic-bezier(.2,.9,.25,1)}
@@ -588,7 +594,7 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
 .modal:not([hidden]){animation:veloEntra .28s ease both}.modal:not([hidden]) .modal__panel{animation:panelEntra .42s cubic-bezier(.2,.9,.2,1) both}
 @keyframes veloEntra{from{opacity:0}to{opacity:1}}@keyframes panelEntra{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
 .opcion,.btn{transition:transform .16s ease,background .16s,border-color .16s,box-shadow .16s}.opcion:active,.btn:active{transform:scale(.96)}
-@media(prefers-reduced-motion:reduce){body::before,.escena::after,.clima-particula,.inicio__marca,.eleccion__cara,.eleccion__cara::after,.retrato-pj::after,.eleccion__cara::before,.retrato-pj::before,.eleccion__cara>.arte,.retrato-pj>.arte,.escena__lienzo>.arte,.barra__relleno::after,.combate__criatura{animation:none!important}.pantalla-entrando,.linea.es-reciente,.tirada.es-reciente,.modal:not([hidden]),.modal:not([hidden]) .modal__panel{animation-duration:.01ms!important}}
+@media(prefers-reduced-motion:reduce){body::before,.escena::after,.clima-particula,.retrato-mirada,.retrato-mechon,.inicio__marca,.eleccion__cara,.eleccion__cara::after,.retrato-pj::after,.eleccion__cara::before,.retrato-pj::before,.eleccion__cara>.arte,.retrato-pj>.arte,.escena__lienzo>.arte,.barra__relleno::after,.combate__criatura{animation:none!important}.pantalla-entrando,.linea.es-reciente,.tirada.es-reciente,.modal:not([hidden]),.modal:not([hidden]) .modal__panel{animation-duration:.01ms!important}}
 </style>
 
 <style id="fantasy-chrome-final">

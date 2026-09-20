@@ -293,7 +293,7 @@ function mirada(forma, tonos) {
       + `fill="${brillo(tonos.pielSombra, 0.42)}"/>`);
 
     // Iris.
-    piezas.push(`<circle cx="${num(x + lado * 0.8)}" cy="${num(OJOS_Y + 1)}" `
+    piezas.push(`<circle class="retrato-mirada" cx="${num(x + lado * 0.8)}" cy="${num(OJOS_Y + 1)}" `
       + `r="${num(a * 0.36)}" fill="${tonos.ojo}"/>`);
 
     // Reflejo, siempre arriba a la izquierda: es la misma lámpara de todo el

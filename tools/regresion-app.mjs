@@ -98,6 +98,9 @@ try {
   await until('document.body.dataset.activeScreen === "creacion"');
   await evaluate(`(()=>{const fill=(q,v)=>{const n=document.querySelector(q);n.value=v;n.dispatchEvent(new Event('input',{bubbles:true}))};fill('#nombre','Lyra');document.querySelector('[data-clave="raza"][data-valor="albar"]').click();fill('#retrato-descripcion','exploradora de pelo plateado y cicatriz en la ceja');fill('#lore-personaje','Mi hermana cruzó el Umbral con nuestro medallón. La busco desde entonces.');})()`);
   await until('document.querySelector("#creacion-cara .arte")');
+  // La forja visual dura 720 ms; la captura valida el estado final nítido,
+  // no un fotograma borroso de la transición procedural.
+  await new Promise(resolve => setTimeout(resolve, 850));
   await shot(`02-creacion-${viewport.label}.png`);
   await evaluate(`document.querySelector('#creacion-empezar').click()`);
   await until('document.body.dataset.activeScreen === "juego" && !document.querySelector("#entrada").disabled && ARCANUM.sistema("turns").inspeccionar().ocupado === false && ARCANUM.ver("narrative.entradas",[]).length > 0 && ARCANUM.ver("player.lore","").includes("hermana")', 15000);

@@ -251,10 +251,8 @@ function volumenRostro(forma, tonos) {
     + `fill="${sombra}" opacity="0.45"/>`);
 
   // Línea de la boca: lo único parecido a un trazo, y muy tenue.
-  piezas.push(`<path d="M${num(cx - rx * 0.28)} ${num(OJOS_Y + ry * 0.55)}`
-    + `Q${num(cx)} ${num(OJOS_Y + ry * 0.58)} ${num(cx + rx * 0.26)} `
-    + `${num(OJOS_Y + ry * 0.54)}" stroke="${brillo(sombra, 0.7)}" `
-    + 'stroke-width="2.4" fill="none" opacity="0.6" stroke-linecap="round"/>');
+  piezas.push(`<path d="M${num(cx-rx*.3)} ${num(OJOS_Y+ry*.56)} Q${num(cx-rx*.08)} ${num(OJOS_Y+ry*.49)} ${num(cx)} ${num(OJOS_Y+ry*.54)} Q${num(cx+rx*.10)} ${num(OJOS_Y+ry*.48)} ${num(cx+rx*.3)} ${num(OJOS_Y+ry*.54)} Q${num(cx)} ${num(OJOS_Y+ry*.67)} ${num(cx-rx*.3)} ${num(OJOS_Y+ry*.56)}Z" fill="${mezclar('#331D27', tonos.ojo, .10)}" opacity=".82"/>`);
+  piezas.push(`<path d="M${num(cx-rx*.25)} ${num(OJOS_Y+ry*.56)} Q${num(cx)} ${num(OJOS_Y+ry*.60)} ${num(cx+rx*.25)} ${num(OJOS_Y+ry*.55)}" stroke="${brillo(sombra,.5)}" stroke-width="1.4" fill="none"/>`);
 
   return piezas.join('');
 }
@@ -274,7 +272,7 @@ function mirada(forma, tonos) {
 
   // El ojo mide una quinta parte de la anchura de la cara: la proporción
   // clásica, y la que evita que parezcan botones pegados.
-  const w = rx * 0.20;
+  const w = rx * 0.235;
 
   for (const lado of [-1, 1]) {
     const escala = lado < 0 ? 1 : 0.88;
@@ -289,7 +287,8 @@ function mirada(forma, tonos) {
 
     // Iris.
     piezas.push(`<circle class="retrato-mirada" cx="${num(x + lado * 0.8)}" cy="${num(OJOS_Y + 1)}" `
-      + `r="${num(a * 0.42)}" fill="${tonos.ojo}" style="filter:drop-shadow(0 0 5px ${tonos.ojo})"/>`);
+      + `r="${num(a * 0.48)}" fill="${tonos.ojo}" style="filter:drop-shadow(0 0 7px ${tonos.ojo})"/>`);
+    piezas.push(`<circle cx="${num(x+lado*.8)}" cy="${num(OJOS_Y+1)}" r="${num(a*.20)}" fill="#071016"/>`);
     piezas.push(`<path d="M${num(x-a*.72)} ${num(OJOS_Y+1)} Q${num(x)} ${num(OJOS_Y+5)} ${num(x+a*.78)} ${num(OJOS_Y-1)}" stroke="${brillo(tonos.ojo,1.25)}" stroke-width="1.2" fill="none" opacity=".92"/>`);
 
     // Reflejo, siempre arriba a la izquierda: es la misma lámpara de todo el
@@ -300,8 +299,9 @@ function mirada(forma, tonos) {
     // Pestaña superior: sombra fina, no línea negra.
     piezas.push(`<path d="M${num(x - a)} ${num(OJOS_Y)}`
       + `Q${num(x)} ${num(OJOS_Y - a * 0.52)} ${num(x + a)} ${num(OJOS_Y - 2)}" `
-      + `stroke="${brillo(tonos.pielSombra, 0.48)}" stroke-width="2.4" `
+      + `stroke="#111217" stroke-width="3.4" `
       + 'fill="none" stroke-linecap="round"/>');
+    piezas.push(`<path d="M${num(x-lado*a*.22)} ${num(OJOS_Y-1)} L${num(x+lado*a*1.42)} ${num(OJOS_Y-8)}" stroke="#111217" stroke-width="2.2" opacity=".86"/>`);
   }
 
   // Cejas: por encima del hueso, no pegadas al párpado.
@@ -630,6 +630,18 @@ function atmosferaRetrato(tonos, flujo, idFondo, idHalo) {
   return piezas.join('');
 }
 
+/** Orejas altas y afiladas para los linajes feéricos de la referencia. */
+function orejasAfiladas(raza, forma, tonos) {
+  if (!['albar', 'brumal'].includes(raza)) return '';
+  const rx=RX*forma.ancho, ry=RY*forma.largo, cx=CX+GIRO;
+  return [-1,1].map(lado => {
+    const baseX=cx+lado*rx*.88, baseY=OJOS_Y-ry*.03;
+    const tipX=cx+lado*rx*1.72, tipY=OJOS_Y-ry*.42;
+    return `<path d="M${num(baseX)} ${num(baseY-24)} Q${num(tipX)} ${num(tipY)} ${num(baseX)} ${num(baseY+34)} Q${num(baseX-lado*18)} ${num(baseY+3)} ${num(baseX)} ${num(baseY-24)}Z" fill="${tonos.pielSombra}" stroke="${brillo(tonos.piel,1.25)}" stroke-width="2"/>`
+      + `<path d="M${num(baseX+lado*3)} ${num(baseY-11)} L${num(tipX-lado*16)} ${num(tipY+10)} L${num(baseX+lado*4)} ${num(baseY+18)}" fill="none" stroke="${brillo(tonos.pielSombra,.62)}" stroke-width="1.4" opacity=".8"/>`;
+  }).join('');
+}
+
 /** Pinceladas de concept art: planos afilados, pelo filamentoso y luz de borde. */
 function acabadoPictorico(forma, tonos, flujo, dCabeza, idRecorte, idResplandor) {
   const rx=RX*forma.ancho, ry=RY*forma.largo, cx=CX+GIRO;
@@ -647,7 +659,7 @@ function acabadoPictorico(forma, tonos, flujo, dCabeza, idRecorte, idResplandor)
   piezas.push(`<path d="${dCabeza}" fill="none" stroke="#090B0F" stroke-width="4.5" opacity=".8"/>`);
   piezas.push(`<path d="${dCabeza}" fill="none" stroke="${brillo(tonos.pelo,1.42)}" stroke-width="2.1" opacity=".72" filter="url(#${idResplandor})"/>`);
   // Hebras largas que cruzan el rostro, como las referencias.
-  for(let i=0;i<18;i++) {
+  for(let i=0;i<12;i++) {
     const x=cx+flujo.flotante(-rx*.9,rx*.9), y=OJOS_Y-ry*flujo.flotante(.35,.94);
     const deriva=flujo.flotante(-70,70);
     piezas.push(`<path class="retrato-mechon" style="--mechon-fase:${num(flujo.flotante(-3,0))}s" d="M${num(x)} ${num(y)} Q${num(x+deriva*.42)} ${num(y+ry*.65)} ${num(x+deriva)} ${num(y+ry*1.32)}" stroke="${brillo(tonos.pelo,flujo.flotante(.72,1.38))}" stroke-width="${num(flujo.flotante(.65,2.5))}" fill="none" opacity="${num(flujo.flotante(.28,.76))}" stroke-linecap="round"/>`);
@@ -706,6 +718,7 @@ export function retrato(opciones = {}) {
     atmosferaRetrato(tonos, flujo, idFondo, idHalo),
 
     rasgoLinaje(tonos.rasgo, forma, tonos, flujo, 'detras'),
+    orejasAfiladas(raza, forma, tonos),
     cabelloExterior(forma, tonos, flujo),
     busto(forma, tonos, idTela),
 

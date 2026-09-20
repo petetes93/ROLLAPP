@@ -57,7 +57,14 @@ El arte viaja dentro: son unos kilobytes de código, no megas de imágenes.
 
 ## Pruebas
 
-La regresión web automatizada no necesita dependencias: arranca Chrome, crea un personaje con descripción y lore, juega 20 turnos y verifica la recarga offline. Se ejecuta con `node tools/regresion-app.mjs --capturas`. El guion ampliado sigue en [TESTING.md](TESTING.md).
+La regresión web automatizada no necesita dependencias: arranca Chrome, crea un personaje con descripción y lore, comprueba que el retrato interpreta sus rasgos y que el canon abre hilos de campaña, juega 20 turnos, vigila la gramática de acciones libres y verifica la recarga offline.
+
+```bash
+node tools/regresion-app.mjs --desktop --capturas
+node tools/regresion-app.mjs --mobile --capturas
+```
+
+El guion ampliado sigue en [TESTING.md](TESTING.md).
 
 ## Estructura
 
@@ -92,7 +99,7 @@ Nada de esto son archivos de imagen: los dibuja `src/art/` en el navegador.
 
 | Qué | De dónde salen las diferencias |
 |---|---|
-| 8 retratos de linaje | el campo `aspecto` de `races.data.js` |
+| Retratos personalizados | linaje, semilla y descripción libre (pelo, ojos, cicatriz, parche, barba y capucha) |
 | 13 criaturas | `tipo` y `tamano` de `enemies.data.js` |
 | 19 paisajes | `terreno` y `tipo` de `locations.data.js` |
 
@@ -115,7 +122,7 @@ cualquier pieza por un `.webp` sin tocar código.
 |---|---|---|
 | Procedural | nada | funcional, coherente, previsible |
 | Puente manual | copiar y pegar | alta |
-| Modelo local | un servidor de inferencia | media-alta |
+| Gemini por proxy local | `GEMINI_API_KEY` solo en el proceso del PC | alta |
 | API remota | una clave | alta |
 
 El procedural es el suelo del sistema: siempre está disponible y actúa como

@@ -1,7 +1,6 @@
 # Estado del paquete
 
-**El proyecto está completo.** Los 145 archivos de código están en este paquete;
-no queda nada por copiar del chat.
+**El proyecto está completo.** La web jugable, el motor, el arte procedural, el proxy local y las pruebas están en el repositorio; no queda código por copiar de una conversación.
 
 ## Contenido
 
@@ -22,9 +21,10 @@ no queda nada por copiar del chat.
 ## Verificación
 
 ```
-145 archivos JavaScript
-  0 errores de sintaxis
-480 imports comprobados, 0 rotos
+151 módulos analizados
+  0 importaciones rotas
+1088 piezas de arte generadas, 0 problemas
+regresión 1440×900 y 390×844: 20 turnos, 0 fallos, offline verificado
 ```
 
 ## Nota histórica: registro de sistemas

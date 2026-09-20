@@ -258,11 +258,16 @@ export class ProceduralProvider extends IDMProvider {
     if (plantillas[tipo]) return this._unico(plantillas[tipo]);
 
     const accion = String(intencion?.texto ?? intencion?.accion ?? '').trim();
+    // La entrada libre suele venir en primera persona ("anoto", "busco") o
+    // como infinitivo. No la cosemos detrás de "intentas": eso exigiría
+    // conjugar texto arbitrario y producía frases como "intentas anoto".
+    // La conservamos como cita de intención y la narración sigue en segunda persona.
+    const propuesta = accion.replace(/[.!?…]+$/u, '');
     const lugar = ctx.mundo?.lugar ?? ctx.mundo?.nombreLugar ?? 'este lugar';
     const abiertas = [
-      accion ? `Pones en práctica tu idea: ${accion}.` : 'Actúas según tu instinto.',
-      accion ? `Sin apartar la vista de ${lugar}, intentas ${accion.toLowerCase()}.` : `Tomas la iniciativa en ${lugar}.`,
-      accion ? `No dudas más. ${capitalizar(accion)}.` : 'Das el siguiente paso.',
+      propuesta ? `Pones en práctica tu idea: «${propuesta}».` : 'Actúas según tu instinto.',
+      propuesta ? `Sin apartar la vista de ${lugar}, decides actuar: «${propuesta}».` : `Tomas la iniciativa en ${lugar}.`,
+      propuesta ? `No dudas más. Tu intención está clara: «${propuesta}».` : 'Das el siguiente paso.',
       'Tu decisión rompe la quietud y obliga al mundo a responder.',
       'Te mueves con intención; alrededor, nada permanece del todo indiferente.',
     ];

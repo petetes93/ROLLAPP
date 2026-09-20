@@ -389,13 +389,13 @@ function pelo(forma, tonos, flujo) {
 
   // Brillo del pelo, arriba a la izquierda como todo lo demás.
   const pincel = [];
-  pincel.push(`<path d="M${num(cx-rx*.94)} ${num(OJOS_Y-ry*.63)} Q${num(cx-rx*.28)} ${num(OJOS_Y-ry*1.15)} ${num(cx+rx*.58)} ${num(OJOS_Y-ry*.78)}" stroke="${brillo(tonos.pelo,1.34)}" stroke-width="18" fill="none" opacity=".38" stroke-linecap="round"/>`);
-  pincel.push(`<path d="M${num(cx-rx*.82)} ${num(OJOS_Y-ry*.54)} Q${num(cx-rx*.14)} ${num(OJOS_Y-ry*1.02)} ${num(cx+rx*.68)} ${num(OJOS_Y-ry*.68)}" stroke="${brillo(tonos.pelo,.72)}" stroke-width="11" fill="none" opacity=".52" stroke-linecap="round"/>`);
+  pincel.push(`<path d="M${num(cx+rx*.22)} ${num(OJOS_Y-ry*.96)} C${num(cx-rx*.06)} ${num(OJOS_Y-ry*.83)} ${num(cx-rx*.46)} ${num(OJOS_Y-ry*.57)} ${num(cx-rx*.62)} ${num(OJOS_Y-ry*.05)}" stroke="${brillo(tonos.pelo,1.28)}" stroke-width="15" fill="none" opacity=".42" stroke-linecap="round"/>`);
+  pincel.push(`<path d="M${num(cx+rx*.37)} ${num(OJOS_Y-ry*.91)} C${num(cx+rx*.58)} ${num(OJOS_Y-ry*.64)} ${num(cx+rx*.70)} ${num(OJOS_Y-ry*.28)} ${num(cx+rx*.70)} ${num(OJOS_Y+ry*.46)}" stroke="${brillo(tonos.pelo,.70)}" stroke-width="12" fill="none" opacity=".48" stroke-linecap="round"/>`);
   pincel.push(`<path d="M${num(cx-rx*.10)} ${num(OJOS_Y-ry*.94)} Q${num(cx-rx*.72)} ${num(OJOS_Y-ry*.46)} ${num(cx-rx*.76)} ${num(OJOS_Y+ry*.78)}" stroke="${brillo(tonos.pelo,1.14)}" stroke-width="8" fill="none" opacity=".74" stroke-linecap="round"/>`);
 
-  const luz = `<path d="M${num(cx - rx * 0.8)} ${num(OJOS_Y - ry * 0.72)}`
-    + `Q${num(cx - rx * 0.2)} ${num(OJOS_Y - ry * 1.0)} ${num(cx + rx * 0.4)} `
-    + `${num(OJOS_Y - ry * 0.82)}" stroke="${brillo(tonos.pelo, 1.5)}" `
+  const luz = `<path d="M${num(cx + rx * 0.25)} ${num(OJOS_Y - ry * 0.97)}`
+    + `Q${num(cx - rx * 0.20)} ${num(OJOS_Y - ry * 0.76)} ${num(cx - rx * 0.62)} `
+    + `${num(OJOS_Y - ry * 0.18)}" stroke="${brillo(tonos.pelo, 1.5)}" `
     + 'stroke-width="6" fill="none" opacity="0.3" stroke-linecap="round"/>';
 
   for (let i=0;i<22;i++) {

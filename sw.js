@@ -1,5 +1,5 @@
 // Generado para que la primera visita deje toda la PWA lista sin conexión.
-const CACHE = 'arcanum-v5-living-world';
+const CACHE = 'arcanum-v6-lore-campaign';
 const SHELL = [
   './app/index.html',
   './app/app.js',

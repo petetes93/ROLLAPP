@@ -601,20 +601,20 @@ function detallesDescripcion(descripcion, forma, tonos) {
   if (/cicatriz|scar/.test(d)) {
     const lado = /izquierd/.test(d) ? -1 : 1;
     const x = cx + lado * rx * .43;
-    piezas.push(`<path d="M${num(x-9)} ${num(OJOS_Y-24)} L${num(x+7)} ${num(OJOS_Y+30)}" stroke="${brillo(tonos.pielSombra,.66)}" stroke-width="3" opacity=".82"/>`);
+    piezas.push(`<path class="retrato-rasgo retrato-rasgo--cicatriz" d="M${num(x-9)} ${num(OJOS_Y-24)} L${num(x+7)} ${num(OJOS_Y+30)}" stroke="${brillo(tonos.pielSombra,.66)}" stroke-width="3" opacity=".82"/>`);
     piezas.push(`<path d="M${num(x-5)} ${num(OJOS_Y-8)} l-7 5 M${num(x+1)} ${num(OJOS_Y+10)} l8 -3" stroke="${brillo(tonos.piel,1.22)}" stroke-width="1.4" opacity=".6"/>`);
   }
   if (/parche|eyepatch/.test(d)) {
     const lado = /izquierd/.test(d) ? -1 : 1;
     const x = cx + lado * rx * .44;
-    piezas.push(`<ellipse cx="${num(x)}" cy="${num(OJOS_Y)}" rx="19" ry="13" fill="#171313"/>`);
+    piezas.push(`<ellipse class="retrato-rasgo retrato-rasgo--parche" cx="${num(x)}" cy="${num(OJOS_Y)}" rx="19" ry="13" fill="#171313"/>`);
     piezas.push(`<path d="M${num(cx-rx*.92)} ${num(OJOS_Y-16)} L${num(cx+rx*.92)} ${num(OJOS_Y+5)}" stroke="#211B19" stroke-width="4"/>`);
   }
   if (/barba|barbudo|beard/.test(d)) {
-    piezas.push(`<path d="M${num(cx-rx*.68)} ${num(OJOS_Y+ry*.48)} Q${num(cx)} ${num(OJOS_Y+ry*1.22)} ${num(cx+rx*.64)} ${num(OJOS_Y+ry*.46)} Q${num(cx)} ${num(OJOS_Y+ry*.9)} ${num(cx-rx*.68)} ${num(OJOS_Y+ry*.48)}Z" fill="${tonos.pelo}" opacity=".9"/>`);
+    piezas.push(`<path class="retrato-rasgo retrato-rasgo--barba" d="M${num(cx-rx*.68)} ${num(OJOS_Y+ry*.48)} Q${num(cx)} ${num(OJOS_Y+ry*1.22)} ${num(cx+rx*.64)} ${num(OJOS_Y+ry*.46)} Q${num(cx)} ${num(OJOS_Y+ry*.9)} ${num(cx-rx*.68)} ${num(OJOS_Y+ry*.48)}Z" fill="${tonos.pelo}" opacity=".9"/>`);
   }
   if (/capucha|hood/.test(d)) {
-    piezas.push(`<path d="M${num(cx-rx*1.2)} ${num(OJOS_Y+ry*.35)} Q${num(cx-rx*1.25)} ${num(OJOS_Y-ry*1.18)} ${num(cx)} ${num(OJOS_Y-ry*1.3)} Q${num(cx+rx*1.25)} ${num(OJOS_Y-ry*1.18)} ${num(cx+rx*1.2)} ${num(OJOS_Y+ry*.35)}" fill="none" stroke="${brillo(BASE.hierro,.8)}" stroke-width="25" opacity=".8"/>`);
+    piezas.push(`<path class="retrato-rasgo retrato-rasgo--capucha" d="M${num(cx-rx*1.2)} ${num(OJOS_Y+ry*.35)} Q${num(cx-rx*1.25)} ${num(OJOS_Y-ry*1.18)} ${num(cx)} ${num(OJOS_Y-ry*1.3)} Q${num(cx+rx*1.25)} ${num(OJOS_Y-ry*1.18)} ${num(cx+rx*1.2)} ${num(OJOS_Y+ry*.35)}" fill="none" stroke="${brillo(BASE.hierro,.8)}" stroke-width="25" opacity=".8"/>`);
   }
   return piezas.join('');
 }

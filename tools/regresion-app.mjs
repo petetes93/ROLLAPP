@@ -98,6 +98,9 @@ try {
   await until('document.body.dataset.activeScreen === "creacion"');
   await evaluate(`(()=>{const fill=(q,v)=>{const n=document.querySelector(q);n.value=v;n.dispatchEvent(new Event('input',{bubbles:true}))};fill('#nombre','Lyra');document.querySelector('[data-clave="raza"][data-valor="albar"]').click();fill('#retrato-descripcion','exploradora de pelo plateado y cicatriz en la ceja');fill('#lore-personaje','Mi hermana cruzó el Umbral con nuestro medallón. La busco desde entonces.');})()`);
   await until('document.querySelector("#creacion-cara .arte")');
+  const retrato = await evaluate(`({cicatriz:Boolean(document.querySelector('#creacion-cara .retrato-rasgo--cicatriz')), loreVisible:document.querySelector('#lore-personaje').getBoundingClientRect().top < innerHeight})`);
+  if (!retrato.cicatriz) throw new Error('la descripción libre no dibujó la cicatriz');
+  if (viewport.label === '1440x900' && !retrato.loreVisible) throw new Error('el lore no es visible en la composición web');
   // La forja visual dura 720 ms; la captura valida el estado final nítido,
   // no un fotograma borroso de la transición procedural.
   await new Promise(resolve => setTimeout(resolve, 850));
@@ -120,6 +123,10 @@ try {
   }
   if (turns.at(-1).lines < 20) throw new Error(`la bitácora no avanzó: ${turns.at(-1).lines}`);
   await shot(`03-partida-20-turnos-${viewport.label}.png`);
+
+  const libre = await evaluate(`({texto:ARCANUM.ver('narrative.entradas',[]).map(e=>e.texto??'').join(' '), retrato:Boolean(document.querySelector('#retrato-pj .retrato-rasgo--cicatriz'))})`);
+  if (/intentas\s+anoto/i.test(libre.texto)) throw new Error('acción libre mal integrada');
+  if (!libre.retrato) throw new Error('el rasgo visual no llegó a la partida');
 
   const beforeOffline = await evaluate(`navigator.serviceWorker.ready.then(()=>({controlled:Boolean(navigator.serviceWorker.controller),lines:ARCANUM.ver('narrative.entradas',[]).length}))`);
   await wait(700);

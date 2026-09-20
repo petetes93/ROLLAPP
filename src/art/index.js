@@ -24,6 +24,7 @@
 import { paisaje, atmosfera } from './paisaje.js';
 import { retrato } from './retrato.js';
 import { criatura } from './criatura.js';
+import { mejorarRetratoLocal } from './retrato-local.js';
 
 export { paisaje, atmosfera, retrato, criatura };
 
@@ -248,15 +249,14 @@ export function pintarRetrato(nodo, personaje = {}) {
       raza: personaje.raza ?? 'valdes',
       nombre: personaje.nombre ?? '',
       // La descripción libre distingue rasgos de dos personajes del mismo
-      // linaje. Se guarda con el personaje, así que la vista previa y la
-      // partida producen exactamente el mismo retrato sin depender de red.
+      // linaje. Se guarda con el personaje y también gobierna el generador
+      // pictórico local cuando está disponible.
       semilla: personaje.descripcion ?? personaje.retrato ?? '',
       descripcion: personaje.descripcion ?? personaje.retrato ?? '',
-      // Una descripción personalizada debe producir su retrato propio, no
-      // reutilizar el retrato canónico del linaje incluido en el catálogo.
       sinRaster: Boolean((personaje.descripcion ?? personaje.retrato ?? '').trim()),
     },
   });
+  mejorarRetratoLocal(nodo, personaje);
 }
 
 /**

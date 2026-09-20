@@ -71,7 +71,8 @@ El guion ampliado sigue en [TESTING.md](TESTING.md).
 ```
 arcanum/
 ├── app/                    LA WEB QUE SE JUEGA: index.html + app.js
-├── index.html              Shell de tres paneles (interfaz original)
+├── index.html              Portada: redirige al juego
+├── clasico.html            Shell de tres paneles (interfaz original)
 ├── assets/                 Vacía; puerta para meter imágenes (ver su README)
 ├── styles/                 CSS por capas (@layer)
 ├── tools/                  servir · bundle · lamina-arte · auditar-*

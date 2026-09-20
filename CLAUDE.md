@@ -51,7 +51,8 @@ ver §9.
 ## 3 · Estructura
 
 ```
-index.html          shell de la interfaz original (fases 1-3)
+index.html          portada del sitio: redirige a app/
+clasico.html        shell de la interfaz original (fases 1-3)
 app/                LA APP QUE SE USA — index.html + app.js
 src/
   core/             Store, EventBus, Registry, SystemBase, RNG, Dice, Clock

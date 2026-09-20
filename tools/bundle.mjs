@@ -46,7 +46,11 @@ const AQUI = dirname(fileURLToPath(import.meta.url));
 const RAIZ = resolve(AQUI, '..');
 
 const ENTRADA = 'src/main.js';
-const HTML_BASE = 'index.html';
+
+// `index.html` es el redirector de la portada del sitio publicado, no una
+// interfaz: empaquetarlo daría un archivo único que solo sabe redirigir. La
+// plantilla de la interfaz original vive en `clasico.html`.
+const HTML_BASE = 'clasico.html';
 
 /** Hojas de estilo, en el orden en que deben cargarse. */
 const ESTILOS = [

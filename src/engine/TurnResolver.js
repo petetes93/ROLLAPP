@@ -40,6 +40,27 @@ import { VOCES } from '../config/ui.config.js';
 import { idEntidad, TIPO } from '../utils/id.js';
 import { evaluar } from '../core/Dice.js';
 
+/** Convierte la historia libre en varios hilos jugables sin inventar hechos. */
+function hilosDesdeLore(lore) {
+  const texto = String(lore ?? '').replace(/\s+/g, ' ').trim();
+  if (!texto) return [];
+  const partes = texto.split(/(?<=[.!?…;])\s+|,\s+(?=(?:pero|aunque|porque|y\s+(?:quiero|busco|debo|temo))\b)/iu)
+    .map(x => x.trim()).filter(x => x.length >= 8).slice(0, 5);
+  const clasificar = (x) => {
+    const n = x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (/prometi|promesa|jure|juramento|debo devolver|debo cumplir/.test(n)) return 'promesa';
+    if (/enemig|persigue|caza|amenaz|venganza|matar/.test(n)) return 'amenaza';
+    if (/herman|madre|padre|hij|amig|mentor|maestr|familia/.test(n)) return 'relacion';
+    if (/ciudad|pueblo|bosque|torre|templo|umbral|montana|rio|isla|reino/.test(n)) return 'lugar';
+    if (/medallon|anillo|espada|libro|mapa|llave|reliquia/.test(n)) return 'objeto';
+    return 'misterio';
+  };
+  return partes.map((textoHilo, i) => ({
+    tipo: clasificar(textoHilo), texto: `De su historia: ${textoHilo}`,
+    turno: 0, relacionadoCon: i === 0 ? 'player_lore' : `player_lore_${i + 1}`,
+  }));
+}
+
 /** Eventos del ciclo de turno. */
 export const EVENTOS_TURNO = Object.freeze({
   INICIO: 'turn:start',
@@ -104,14 +125,7 @@ export class TurnResolver extends SystemBase {
       // La historia libre no es decoración del prompt: nace como hilo real de
       // memoria incluso con el director procedural y sobrevive a los turnos.
       const lore = String(this.leer('player.lore', '') ?? '').trim();
-      if (lore) {
-        this.memoria.abrirHilo({
-          tipo: 'misterio',
-          texto: `Historia pendiente del personaje: ${lore}`,
-          turno: 0,
-          relacionadoCon: 'player_lore',
-        });
-      }
+      for (const hilo of hilosDesdeLore(lore)) this.memoria.abrirHilo(hilo);
       this.store.fijar('ai.memoria', this.memoria.serializar());
     });
 

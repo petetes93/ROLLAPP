@@ -110,6 +110,7 @@ try {
   const aperturaLore = await evaluate(`({texto:ARCANUM.ver('narrative.entradas',[]).map(e=>e.texto??'').join(' '), memoria:ARCANUM.ver('ai.memoria.hilos',[])})`);
   if (!/hermana|medallón|Umbral/i.test(aperturaLore.texto)) throw new Error('la apertura procedural ignoró el lore');
   if (!aperturaLore.memoria.some(h => h.relacionadoCon === 'player_lore')) throw new Error('el lore no abrió un hilo persistente');
+  if (!aperturaLore.memoria.some(h => h.tipo === 'relacion')) throw new Error('el lore no reconoció el hilo familiar');
 
   const acciones = [
     'miro alrededor','escucho tras la puerta','exploro con cuidado','examino las huellas',

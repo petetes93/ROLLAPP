@@ -285,18 +285,19 @@ function mirada(forma, tonos) {
     piezas.push(`<path d="M${num(x - a)} ${num(OJOS_Y + 1)}`
       + `Q${num(x)} ${num(OJOS_Y + a * 0.62)} ${num(x + a)} ${num(OJOS_Y - 1)}`
       + `Q${num(x)} ${num(OJOS_Y - a * 0.55)} ${num(x - a)} ${num(OJOS_Y + 1)}Z" `
-      + `fill="${brillo(tonos.pielSombra, 0.42)}"/>`);
+      + `fill="${brillo(tonos.pielSombra, 0.34)}"/>`);
+    piezas.push(`<path d="M${num(x-a*.88)} ${num(OJOS_Y)} Q${num(x)} ${num(OJOS_Y-a*.42)} ${num(x+a*.88)} ${num(OJOS_Y-1)} Q${num(x)} ${num(OJOS_Y+a*.34)} ${num(x-a*.88)} ${num(OJOS_Y)}Z" fill="#B8C6CA" opacity=".78"/>`);
 
     // Iris.
-    piezas.push(`<circle class="retrato-mirada" cx="${num(x + lado * 0.8)}" cy="${num(OJOS_Y + 1)}" `
-      + `r="${num(a * 0.48)}" fill="${tonos.ojo}" style="filter:drop-shadow(0 0 3px ${tonos.ojo})"/>`);
-    piezas.push(`<circle cx="${num(x+lado*.8)}" cy="${num(OJOS_Y+1)}" r="${num(a*.20)}" fill="#071016"/>`);
+    piezas.push(`<circle class="retrato-mirada" cx="${num(x + lado * 0.8)}" cy="${num(OJOS_Y)}" `
+      + `r="${num(a * 0.29)}" fill="${tonos.ojo}" style="filter:drop-shadow(0 0 2px ${tonos.ojo})"/>`);
+    piezas.push(`<circle cx="${num(x+lado*.8)}" cy="${num(OJOS_Y)}" r="${num(a*.12)}" fill="#071016"/>`);
     piezas.push(`<path d="M${num(x-a*.72)} ${num(OJOS_Y+1)} Q${num(x)} ${num(OJOS_Y+5)} ${num(x+a*.78)} ${num(OJOS_Y-1)}" stroke="${brillo(tonos.ojo,1.25)}" stroke-width="1.2" fill="none" opacity=".92"/>`);
 
     // Reflejo, siempre arriba a la izquierda: es la misma lámpara de todo el
     // juego, y ponerlo en otro sitio rompe la serie entera.
     piezas.push(`<circle cx="${num(x - a * 0.16)}" cy="${num(OJOS_Y - a * 0.14)}" `
-      + `r="${num(a * 0.11)}" fill="#FFF" opacity="0.6"/>`);
+      + `r="${num(a * 0.07)}" fill="#FFF" opacity="0.72"/>`);
 
     // Pestaña superior: sombra fina, no línea negra.
     piezas.push(`<path d="M${num(x - a)} ${num(OJOS_Y)}`
@@ -314,7 +315,7 @@ function mirada(forma, tonos) {
     const a = w * escala;
 
     piezas.push(`<path d="M${num(x - a * 1.25)} ${num(OJOS_Y - ry * 0.15)}`
-      + `Q${num(x)} ${num(OJOS_Y - ry * 0.20)} ${num(x + a * 1.15)} `
+      + `Q${num(x)} ${num(OJOS_Y - ry * 0.23)} ${num(x + a * 1.15)} `
       + `${num(OJOS_Y - ry * 0.14)}" stroke="${tonos.pelo}" `
       + `stroke-width="${num(4.6 * escala)}" fill="none" stroke-linecap="round" `
       + 'opacity="0.8"/>');

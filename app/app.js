@@ -250,6 +250,7 @@ const borrador = {
   clase: 'rastreador',
   trasfondo: 'errante',
   retrato: '',
+  lore: '',
 };
 
 function pintarCreacion() {
@@ -306,8 +307,20 @@ function pintarCreacion() {
     ),
   );
 
-  // ── Resto de elecciones ─────────────────────────────────────────────
+  // ── Historia propia ────────────────────────────────────────────────
+  // Va separada del aspecto: una describe cómo se ve; la otra explica de
+  // dónde viene y qué asuntos debe convertir la campaña en hilos vivos.
   caja.append(
+    el('div', { class: 'campo lore-personaje' },
+      el('label', { class: 'campo__eti', for: 'lore-personaje', text: 'Tu historia' }),
+      el('textarea', {
+        id: 'lore-personaje', class: 'campo__entrada campo__entrada--retrato campo__entrada--lore',
+        placeholder: 'Ej.: crecí junto al Umbral, mi hermana desapareció tras cruzarlo y llevo su medallón. Quiero encontrarla, aunque tema lo que haya al otro lado…',
+        maxlength: '1200', value: borrador.lore,
+        onInput: (e) => { borrador.lore = e.target.value; },
+      }),
+      el('p', { class: 'campo__ayuda', text: 'El narrador convertirá personas, promesas, lugares y conflictos de esta historia en la campaña.' }),
+    ),
     grupoEleccion('Oficio', CLASES, 'clase'),
     grupoEleccion('Pasado', TRASFONDOS, 'trasfondo'),
   );
@@ -536,7 +549,7 @@ function pintarPersonaje() {
 
   // El retrato depende del linaje y del nombre, así que solo se repinta al
   // crear el personaje o al cargar otra partida.
-  pintarRetrato($('#retrato-pj'), { raza: j.raza, nombre: j.nombre });
+  pintarRetrato($('#retrato-pj'), { raza: j.raza, nombre: j.nombre, descripcion: j.retrato });
 
   caja.append(
     el('div', { class: 'ficha-pj' },

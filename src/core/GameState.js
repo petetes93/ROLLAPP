@@ -175,6 +175,11 @@ export function crearJugador() {
      * teniendo efecto hoy.
      */
     flags: {},
+
+    // Identidad escrita por el jugador. Se conserva completa para que el
+    // director personalice la campaña y el arte procedural sea reproducible.
+    retrato: '',
+    lore: '',
   };
 }
 

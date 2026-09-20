@@ -110,6 +110,13 @@ export class ProceduralProvider extends IDMProvider {
     const eventos = [];
     const memoria = [];
 
+    // ─── 0. Canon personal ─────────────────────────────────────────────
+    // La apertura procedural debe demostrar que leyó la historia escrita por
+    // el jugador. No espera a un modelo remoto ni a que pasen veinte turnos.
+    if ((peticion.turno ?? ctx.turno) <= 1 && ctx.jugador?.lore) {
+      parrafos.push(this._abrirDesdeLore(ctx.jugador.lore));
+    }
+
     // ─── 1. Resultado de la acción ─────────────────────────────────────
     if (peticion.tirada) {
       parrafos.push(this._narrarResultado(peticion.tirada, peticion.intencion));
@@ -166,6 +173,18 @@ export class ProceduralProvider extends IDMProvider {
       memory: memoria,
       mood: this._tono(peticion, ctx),
     };
+  }
+
+  /** Abre la campaña desde una pieza concreta del canon del jugador. */
+  _abrirDesdeLore(lore) {
+    const limpio = String(lore).replace(/\s+/g, ' ').trim();
+    const primera = limpio.split(/(?<=[.!?…])\s+/u)[0].slice(0, 220).replace(/[.!?…]+$/u, '');
+    if (!primera) return '';
+    return this._unico([
+      `Tu pasado no te ha dejado llegar aquí por azar. ${capitalizar(primera)}. Hoy ese hilo vuelve a tensarse.`,
+      `Hay una razón personal detrás de cada paso que te trajo hasta aquí: ${primera.toLowerCase()}. Algo en este lugar promete removerla.`,
+      `Lo que dejaste atrás sigue viajando contigo. ${capitalizar(primera)}. Esta jornada podría acercarte a una respuesta.`,
+    ]);
   }
 
   /**

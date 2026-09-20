@@ -107,6 +107,9 @@ try {
   await shot(`02-creacion-${viewport.label}.png`);
   await evaluate(`document.querySelector('#creacion-empezar').click()`);
   await until('document.body.dataset.activeScreen === "juego" && !document.querySelector("#entrada").disabled && ARCANUM.sistema("turns").inspeccionar().ocupado === false && ARCANUM.ver("narrative.entradas",[]).length > 0 && ARCANUM.ver("player.lore","").includes("hermana")', 15000);
+  const aperturaLore = await evaluate(`({texto:ARCANUM.ver('narrative.entradas',[]).map(e=>e.texto??'').join(' '), memoria:ARCANUM.ver('ai.memoria.hilos',[])})`);
+  if (!/hermana|medallón|Umbral/i.test(aperturaLore.texto)) throw new Error('la apertura procedural ignoró el lore');
+  if (!aperturaLore.memoria.some(h => h.relacionadoCon === 'player_lore')) throw new Error('el lore no abrió un hilo persistente');
 
   const acciones = [
     'miro alrededor','escucho tras la puerta','exploro con cuidado','examino las huellas',

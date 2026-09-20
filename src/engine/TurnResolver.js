@@ -101,6 +101,17 @@ export class TurnResolver extends SystemBase {
     // Al empezar partida, la memoria se vacía.
     this.escuchar('player:created', () => {
       this.memoria.limpiar();
+      // La historia libre no es decoración del prompt: nace como hilo real de
+      // memoria incluso con el director procedural y sobrevive a los turnos.
+      const lore = String(this.leer('player.lore', '') ?? '').trim();
+      if (lore) {
+        this.memoria.abrirHilo({
+          tipo: 'misterio',
+          texto: `Historia pendiente del personaje: ${lore}`,
+          turno: 0,
+          relacionadoCon: 'player_lore',
+        });
+      }
       this.store.fijar('ai.memoria', this.memoria.serializar());
     });
 

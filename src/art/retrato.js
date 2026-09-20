@@ -164,6 +164,33 @@ function busto(forma, tonos, idTela) {
   return cuello + ropa + sombra;
 }
 
+/** Pelo exterior: masa y mechones que caen fuera del recorte de la cara. */
+function cabelloExterior(forma, tonos, flujo) {
+  const rx = RX * forma.ancho;
+  const ry = RY * forma.largo;
+  const cx = CX + GIRO;
+  const base = OJOS_Y - ry * 0.28;
+  const largo = OJOS_Y + ry * flujo.flotante(1.45, 1.9);
+  const piezas = [];
+
+  piezas.push(`<path d="M${num(cx-rx*.98)} ${num(base)}`
+    + `C${num(cx-rx*1.34)} ${num(OJOS_Y+ry*.25)} ${num(cx-rx*1.3)} ${num(largo)} ${num(cx-rx*.62)} ${num(largo+42)}`
+    + `L${num(cx-rx*.30)} ${num(largo+10)}`
+    + `C${num(cx-rx*.78)} ${num(OJOS_Y+ry*.42)} ${num(cx-rx*.76)} ${num(base+10)} ${num(cx-rx*.98)} ${num(base)}Z" fill="${brillo(tonos.pelo,.72)}"/>`);
+  piezas.push(`<path d="M${num(cx+rx*.98)} ${num(base)}`
+    + `C${num(cx+rx*1.34)} ${num(OJOS_Y+ry*.22)} ${num(cx+rx*1.34)} ${num(largo)} ${num(cx+rx*.68)} ${num(largo+46)}`
+    + `L${num(cx+rx*.34)} ${num(largo+8)}`
+    + `C${num(cx+rx*.84)} ${num(OJOS_Y+ry*.40)} ${num(cx+rx*.76)} ${num(base+10)} ${num(cx+rx*.98)} ${num(base)}Z" fill="${brillo(tonos.pelo,.64)}"/>`);
+
+  for (const lado of [-1, 1]) {
+    for (let i=0;i<4;i++) {
+      const x=cx+lado*(rx*(.72+i*.12));
+      piezas.push(`<path d="M${num(x)} ${num(base+18+i*5)} Q${num(x+lado*flujo.flotante(12,28))} ${num(OJOS_Y+ry*.68)} ${num(x+lado*flujo.flotante(-8,18))} ${num(largo+i*7)}" stroke="${brillo(tonos.pelo,1.25+i*.08)}" stroke-width="${num(2.2+i*.45)}" fill="none" opacity=".5" stroke-linecap="round"/>`);
+    }
+  }
+  return piezas.join('');
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    VOLUMEN DE LA CARA
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -593,6 +620,7 @@ export function retrato(opciones = {}) {
     `<rect width="${ANCHO}" height="${ALTO}" fill="url(#${idFondo})"/>`,
 
     rasgoLinaje(tonos.rasgo, forma, tonos, flujo, 'detras'),
+    cabelloExterior(forma, tonos, flujo),
     busto(forma, tonos, idTela),
 
     // La cabeza y todo lo que la modela, recortado contra su propia silueta.
@@ -609,6 +637,8 @@ export function retrato(opciones = {}) {
       + 'stroke-width="2.2" opacity="0.30"/>',
 
     rasgoLinaje(tonos.rasgo, forma, tonos, flujo, 'delante'),
+    `<path d="M${num(CX-78)} 410 Q${num(CX)} 374 ${num(CX+78)} 410" stroke="${tonos.acento}" stroke-width="2" fill="none" opacity=".52"/>`,
+    `<circle cx="${num(CX)}" cy="398" r="10" fill="${brillo(tonos.acento,.7)}" stroke="${brillo(tonos.acento,1.3)}" stroke-width="2"/>`,
   ].join('');
 
   return lienzo({

@@ -92,7 +92,7 @@ export class LocalLLMProvider extends IDMProvider {
     if (!this._url) {
       return {
         disponible: false,
-        motivo: 'Falta la dirección del servidor. Suele ser http://localhost:11434 en Ollama o http://localhost:1234 en LM Studio.',
+        motivo: 'Falta la dirección del proxy local. Para Gemini usa http://127.0.0.1:11435.',
       };
     }
 
@@ -103,7 +103,7 @@ export class LocalLLMProvider extends IDMProvider {
     if (!this._modelo) {
       return {
         disponible: false,
-        motivo: 'Falta el nombre del modelo. En Ollama se ve con «ollama list».',
+        motivo: 'Falta el nombre del modelo. Con el proxy de ROLLAPP usa gemini-3.5-flash.',
       };
     }
 

@@ -66,10 +66,10 @@ export const CATALOGO = Object.freeze([
 
   {
     id: PROVEEDORES.LOCAL,
-    nombre: 'Modelo local',
+    nombre: 'Gemini desde tu PC',
     clase: LocalLLMProvider,
-    descripcion: 'Se conecta a Ollama o LM Studio en tu equipo. Nada sale de tu máquina.',
-    requisitos: ['Un servidor local arrancado', 'La dirección y el nombre del modelo'],
+    descripcion: 'Usa el proxy local de ROLLAPP: la clave nunca entra en el navegador ni en la partida.',
+    requisitos: ['El lanzador local de Gemini arrancado', 'Conexión a internet desde el proxy'],
     sinRed: false,
     sinCredencial: true,
   },

@@ -1,5 +1,5 @@
 // Generado para que la primera visita deje toda la PWA lista sin conexión.
-const CACHE = 'arcanum-v3-complete-offline';
+const CACHE = 'arcanum-v4-procedural-web';
 const SHELL = [
   './app/index.html',
   './app/app.js',

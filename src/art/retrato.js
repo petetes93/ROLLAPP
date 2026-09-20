@@ -2,17 +2,12 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * ARCANUM · src/art/retrato.js
  * ---------------------------------------------------------------------------
- * Retrato de busto generado a partir del linaje.
+ * Retrato procedural de fantasía oscura, con acabado de concept art.
  *
- * El encuadre es IDÉNTICO en los ocho linajes —misma caja, mismos hombros, ojos
- * a un tercio de la altura del cuadro— y lo único que cambia es lo que el
- * catálogo dice que cambia: piel, pelo y un rasgo propio. Ese encuadre fijo es
- * lo que impide que ocho retratos parezcan de ocho juegos distintos.
- *
- * La cara NO se dibuja con líneas. Se modela con sombras recortadas contra la
- * silueta de la cabeza, más un filo de luz en el borde iluminado. Dibujar ojos,
- * nariz y boca con trazos da una carita de tebeo; quitar los trazos y dejar
- * solo el volumen es lo que se parece a «pintura al óleo apagada».
+ * Los ocho linajes comparten encuadre cercano, contraluz fría, fondo con
+ * atmósfera y silueta afilada. La descripción libre gobierna pelo, ojos y
+ * marcas. El volumen se construye por veladuras y después recibe pinceladas,
+ * filos de luz y hebras: debe sentirse pintado, no como un icono vectorial.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -30,11 +25,11 @@ const ALTO = 480;
    se quiere. Cambiarla para un solo linaje es lo que rompe la serie.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const OJOS_Y = ALTO / 3;      // 160. La línea de ojos del ancla de estilo.
+const OJOS_Y = 178;           // Primer plano: ojos cerca del tercio superior.
 const CX = ANCHO * 0.5;
-const RX = 76;                // Media anchura del pómulo.
-const RY = 104;               // Media altura, de coronilla a mentón.
-const GIRO = 7;               // Desplazamiento de tres cuartos.
+const RX = 94;                // Rostro cercano, pómulos dominantes.
+const RY = 126;               // Cráneo largo y mandíbula afilada.
+const GIRO = 9;               // Tres cuartos muy leve.               // Desplazamiento de tres cuartos.
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PROPORCIONES POR LINAJE
@@ -294,7 +289,8 @@ function mirada(forma, tonos) {
 
     // Iris.
     piezas.push(`<circle class="retrato-mirada" cx="${num(x + lado * 0.8)}" cy="${num(OJOS_Y + 1)}" `
-      + `r="${num(a * 0.36)}" fill="${tonos.ojo}"/>`);
+      + `r="${num(a * 0.42)}" fill="${tonos.ojo}" style="filter:drop-shadow(0 0 5px ${tonos.ojo})"/>`);
+    piezas.push(`<path d="M${num(x-a*.72)} ${num(OJOS_Y+1)} Q${num(x)} ${num(OJOS_Y+5)} ${num(x+a*.78)} ${num(OJOS_Y-1)}" stroke="${brillo(tonos.ojo,1.25)}" stroke-width="1.2" fill="none" opacity=".92"/>`);
 
     // Reflejo, siempre arriba a la izquierda: es la misma lámpara de todo el
     // juego, y ponerlo en otro sitio rompe la serie entera.
@@ -583,8 +579,9 @@ function tonosDescripcion(base, descripcion) {
   else if (/pelo (negro|azabache)|cabello (negro|azabache)/.test(d)) pelo = '#171519';
   else if (/pelo (blanco|plateado)|cabello (blanco|plateado)/.test(d)) pelo = '#D8D8D2';
   else if (/pelo (dorado|rubio)|cabello (dorado|rubio)/.test(d)) pelo = '#B99A5C';
-  if (/ojos? verdes?/.test(d)) ojo = '#65846B';
-  else if (/ojos? azules?/.test(d)) ojo = '#6588A0';
+  if (/ojos? (rojos?|carmesi|escarlata)/.test(d)) ojo = '#FF334E';
+  else if (/ojos? (azules?|celestes?|cian)/.test(d)) ojo = '#55C8FF';
+  else if (/ojos? verdes?/.test(d)) ojo = '#64C991';
   else if (/ojos? (dorados?|ambar)/.test(d)) ojo = '#C29A3A';
   else if (/ojos? (violetas?|morados?)/.test(d)) ojo = '#8170A2';
   return { ...base, pelo, ojo };
@@ -619,6 +616,45 @@ function detallesDescripcion(descripcion, forma, tonos) {
   return piezas.join('');
 }
 
+/** Fondo de niebla, contraluz y motas, derivado de la misma semilla. */
+function atmosferaRetrato(tonos, flujo, idFondo, idHalo) {
+  const piezas = [
+    `<rect width="${ANCHO}" height="${ALTO}" fill="url(#${idFondo})"/>`,
+    `<ellipse cx="${num(CX-70)}" cy="92" rx="150" ry="190" fill="url(#${idHalo})"/>`,
+    '<path d="M-30 420 C75 330 78 165 22 0 L160 0 C111 164 126 340 220 500Z" fill="#BFD4DB" opacity=".045"/>',
+  ];
+  for (let i=0;i<22;i++) {
+    const x=flujo.flotante(0,ANCHO), y=flujo.flotante(0,ALTO), r=flujo.flotante(.5,2.2);
+    piezas.push(`<circle cx="${num(x)}" cy="${num(y)}" r="${num(r)}" fill="${tonos.ojo}" opacity="${num(flujo.flotante(.08,.28))}"/>`);
+  }
+  return piezas.join('');
+}
+
+/** Pinceladas de concept art: planos afilados, pelo filamentoso y luz de borde. */
+function acabadoPictorico(forma, tonos, flujo, dCabeza, idRecorte, idResplandor) {
+  const rx=RX*forma.ancho, ry=RY*forma.largo, cx=CX+GIRO;
+  const piezas=[`<g clip-path="url(#${idRecorte})">`];
+  // Planos de luz quebrados sobre frente, nariz y pómulos.
+  piezas.push(`<path d="M${num(cx-rx*.82)} ${num(OJOS_Y-ry*.48)} Q${num(cx-rx*.35)} ${num(OJOS_Y-ry*.75)} ${num(cx+3)} ${num(OJOS_Y-ry*.54)} L${num(cx-10)} ${num(OJOS_Y+ry*.36)} Q${num(cx-rx*.5)} ${num(OJOS_Y+ry*.54)} ${num(cx-rx*.82)} ${num(OJOS_Y+ry*.18)}Z" fill="${brillo(tonos.piel,1.22)}" opacity=".22"/>`);
+  piezas.push(`<path d="M${num(cx+4)} ${num(OJOS_Y-ry*.42)} Q${num(cx+rx*.82)} ${num(OJOS_Y-ry*.18)} ${num(cx+rx*.72)} ${num(OJOS_Y+ry*.43)} Q${num(cx+rx*.42)} ${num(OJOS_Y+ry*.65)} ${num(cx+8)} ${num(OJOS_Y+ry*.48)}Z" fill="#05070B" opacity=".23"/>`);
+  // Trazos cortos como pincel seco en las mejillas.
+  for (const lado of [-1,1]) for(let i=0;i<5;i++) {
+    const x=cx+lado*rx*flujo.flotante(.42,.78), y=OJOS_Y+ry*flujo.flotante(.18,.53);
+    piezas.push(`<path d="M${num(x)} ${num(y)} l${num(lado*flujo.flotante(10,25))} ${num(flujo.flotante(-5,5))}" stroke="${brillo(tonos.pielSombra,.62)}" stroke-width="${num(flujo.flotante(.7,1.8))}" opacity=".34"/>`);
+  }
+  piezas.push('</g>');
+  // Silueta de tinta irregular y contraluz de plata.
+  piezas.push(`<path d="${dCabeza}" fill="none" stroke="#090B0F" stroke-width="4.5" opacity=".8"/>`);
+  piezas.push(`<path d="${dCabeza}" fill="none" stroke="${brillo(tonos.pelo,1.42)}" stroke-width="2.1" opacity=".72" filter="url(#${idResplandor})"/>`);
+  // Hebras largas que cruzan el rostro, como las referencias.
+  for(let i=0;i<18;i++) {
+    const x=cx+flujo.flotante(-rx*.9,rx*.9), y=OJOS_Y-ry*flujo.flotante(.35,.94);
+    const deriva=flujo.flotante(-70,70);
+    piezas.push(`<path class="retrato-mechon" style="--mechon-fase:${num(flujo.flotante(-3,0))}s" d="M${num(x)} ${num(y)} Q${num(x+deriva*.42)} ${num(y+ry*.65)} ${num(x+deriva)} ${num(y+ry*1.32)}" stroke="${brillo(tonos.pelo,flujo.flotante(.72,1.38))}" stroke-width="${num(flujo.flotante(.65,2.5))}" fill="none" opacity="${num(flujo.flotante(.28,.76))}" stroke-linecap="round"/>`);
+  }
+  return piezas.join('');
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    PRINCIPAL
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -645,16 +681,21 @@ export function retrato(opciones = {}) {
   const idPiel = idUnico('piel');
   const idTela = idUnico('tela');
   const idRecorte = idUnico('rec');
+  const idHalo = idUnico('halo');
+  const idResplandor = idUnico('glow');
 
   const dCabeza = siluetaCabeza(forma);
 
   // Fondo plano, como pide el ancla, con un halo muy corto detrás de la cabeza
   // para que la silueta se despegue sin dibujar un escenario.
-  const defs = `<radialGradient id="${idFondo}" cx="0.5" cy="0.34" r="0.75">`
-    + `<stop offset="0" stop-color="${mezclar(BASE.ceniza, tonos.acento, 0.16)}"/>`
-    + `<stop offset="1" stop-color="${BASE.tinta}"/>`
+  const defs = `<radialGradient id="${idFondo}" cx="0.42" cy="0.28" r="0.9">`
+    + `<stop offset="0" stop-color="${mezclar('#5E7180', tonos.ojo, 0.16)}"/>`
+    + `<stop offset="0.46" stop-color="#202A33"/>`
+    + `<stop offset="1" stop-color="#07090D"/>`
     + '</radialGradient>'
-    + degradadoLuz(idPiel, tonos.piel, tonos.pielSombra)
+    + `<radialGradient id="${idHalo}"><stop offset="0" stop-color="#E5F3F5" stop-opacity=".38"/><stop offset="1" stop-color="#B7D2DD" stop-opacity="0"/></radialGradient>`
+    + `<filter id="${idResplandor}" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`
+    + degradadoLuz(idPiel, brillo(tonos.piel, 1.10), brillo(tonos.pielSombra, .66))
     // La tela tiene que despegarse del fondo. Con los grises de `ceniza` a
     // `tinta` el busto salía del mismo color que el fondo y la cabeza parecía
     // flotar sobre un palo.
@@ -662,7 +703,7 @@ export function retrato(opciones = {}) {
     + `<clipPath id="${idRecorte}"><path d="${dCabeza}"/></clipPath>`;
 
   const cuerpo = [
-    `<rect width="${ANCHO}" height="${ALTO}" fill="url(#${idFondo})"/>`,
+    atmosferaRetrato(tonos, flujo, idFondo, idHalo),
 
     rasgoLinaje(tonos.rasgo, forma, tonos, flujo, 'detras'),
     cabelloExterior(forma, tonos, flujo),
@@ -681,6 +722,7 @@ export function retrato(opciones = {}) {
     `<path d="${dCabeza}" fill="none" stroke="${brillo(tonos.piel, 1.3)}" `
       + 'stroke-width="2.2" opacity="0.30"/>',
 
+    acabadoPictorico(forma, tonos, flujo, dCabeza, idRecorte, idResplandor),
     rasgoLinaje(tonos.rasgo, forma, tonos, flujo, 'delante'),
     detallesDescripcion(descripcion, forma, tonos),
     `<path d="M${num(CX-78)} 410 Q${num(CX)} 374 ${num(CX+78)} 410" stroke="${tonos.acento}" stroke-width="2" fill="none" opacity=".52"/>`,
@@ -691,7 +733,7 @@ export function retrato(opciones = {}) {
     ancho: ANCHO, alto: ALTO,
     etiqueta: nombre ? `Retrato de ${nombre}` : 'Retrato',
     semilla, defs, cuerpo,
-    vineta: 0.60, grano: 0.12, clase: 'arte arte--retrato',
+    vineta: 0.72, grano: 0.18, clase: 'arte arte--retrato arte--retrato-concept',
     // Anclado arriba: en un hueco más apaisado que 5:6 se pierde el pecho,
     // no la coronilla. Los cuernos del griscuerno y los rizos del menudo
     // salen del cráneo hacia arriba y son la mitad de su identidad.

@@ -21,11 +21,12 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import { paisaje } from './paisaje.js';
+import { paisaje, atmosfera } from './paisaje.js';
 import { retrato } from './retrato.js';
 import { criatura } from './criatura.js';
+import { mejorarRetratoLocal } from './retrato-local.js';
 
-export { paisaje, retrato, criatura };
+export { paisaje, atmosfera, retrato, criatura };
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MANIFIESTO
@@ -172,7 +173,7 @@ export function pintarArte(nodo, peticion) {
   nodo.innerHTML = generar(familia, opciones);
 
   /* ── Mejora a imagen, si la hay ───────────────────────────────────────── */
-  const ruta = rutaRaster(familia, clave);
+  const ruta = opciones.sinRaster ? null : rutaRaster(familia, clave);
   if (!ruta) return;
 
   const img = new Image();
@@ -183,6 +184,15 @@ export function pintarArte(nodo, peticion) {
 
     img.className = 'arte arte--imagen';
     img.alt = opciones.nombre ?? '';
+
+    if (familia === 'paisajes' && opciones.hibrido) {
+      // La ilustración da el impacto de un momento clave; la capa SVG mantiene
+      // la hora, el clima y las partículas vivas encima de ella.
+      nodo.innerHTML = atmosfera(opciones);
+      nodo.prepend(img);
+      return;
+    }
+
     nodo.replaceChildren(img);
   });
 
@@ -219,6 +229,8 @@ export function pintarLugar(nodo, lugar, mundo = {}) {
       nombre: lugar.nombre,
       franja: mundo.franja ?? 'manana',
       clima: mundo.clima ?? 'despejado',
+      hibrido: Boolean(mundo.momentoClave),
+      sinRaster: !mundo.momentoClave,
     },
   });
 }
@@ -236,13 +248,15 @@ export function pintarRetrato(nodo, personaje = {}) {
     opciones: {
       raza: personaje.raza ?? 'valdes',
       nombre: personaje.nombre ?? '',
-      // La semilla es SOLO el linaje, no el nombre. Sembrar con el nombre daba
-      // más variedad, pero la vista previa de la creación —donde aún no hay
-      // nombre escrito— habría enseñado una cara y la partida otra distinta.
-      // Que el jugador reciba el rostro que eligió importa más que la variedad.
-      semilla: '',
+      // La descripción libre distingue rasgos de dos personajes del mismo
+      // linaje. Se guarda con el personaje y también gobierna el generador
+      // pictórico local cuando está disponible.
+      semilla: personaje.descripcion ?? personaje.retrato ?? '',
+      descripcion: personaje.descripcion ?? personaje.retrato ?? '',
+      sinRaster: Boolean((personaje.descripcion ?? personaje.retrato ?? '').trim()),
     },
   });
+  mejorarRetratoLocal(nodo, personaje);
 }
 
 /**
@@ -260,6 +274,7 @@ export function pintarCriatura(nodo, enemigo = {}) {
       tipo: enemigo.tipo,
       tamano: enemigo.tamano,
       nombre: enemigo.nombre ?? '',
+      sinRaster: !enemigo.momentoClave,
     },
   });
 }

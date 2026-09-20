@@ -27,3 +27,6 @@ credenciales.*
 # Salida del empaquetador
 dist/
 .gstack/
+
+.rollapp-images/
+.rollapp-image-config.json

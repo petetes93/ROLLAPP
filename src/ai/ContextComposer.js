@@ -413,6 +413,7 @@ export class ContextComposer {
         raza: jugador.raza,
         clase: jugador.clase,
         retrato: jugador.retrato,
+        lore: jugador.lore,
         gancho: jugador.gancho,
         motivacion: jugador.motivacion,
         flags: jugador.flags,

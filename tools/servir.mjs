@@ -43,6 +43,7 @@ const TIPOS = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
 };
 
 const servidor = createServer(async (peticion, respuesta) => {

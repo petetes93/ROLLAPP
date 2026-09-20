@@ -110,6 +110,13 @@ export class ProceduralProvider extends IDMProvider {
     const eventos = [];
     const memoria = [];
 
+    // ─── 0. Canon personal ─────────────────────────────────────────────
+    // La apertura procedural debe demostrar que leyó la historia escrita por
+    // el jugador. No espera a un modelo remoto ni a que pasen veinte turnos.
+    if ((peticion.turno ?? ctx.turno) <= 1 && ctx.jugador?.lore) {
+      parrafos.push(this._abrirDesdeLore(ctx.jugador.lore));
+    }
+
     // ─── 1. Resultado de la acción ─────────────────────────────────────
     if (peticion.tirada) {
       parrafos.push(this._narrarResultado(peticion.tirada, peticion.intencion));
@@ -166,6 +173,18 @@ export class ProceduralProvider extends IDMProvider {
       memory: memoria,
       mood: this._tono(peticion, ctx),
     };
+  }
+
+  /** Abre la campaña desde una pieza concreta del canon del jugador. */
+  _abrirDesdeLore(lore) {
+    const limpio = String(lore).replace(/\s+/g, ' ').trim();
+    const primera = limpio.split(/(?<=[.!?…])\s+/u)[0].slice(0, 220).replace(/[.!?…]+$/u, '');
+    if (!primera) return '';
+    return this._unico([
+      `Tu pasado no te ha dejado llegar aquí por azar. ${capitalizar(primera)}. Hoy ese hilo vuelve a tensarse.`,
+      `Hay una razón personal detrás de cada paso que te trajo hasta aquí: ${primera.toLowerCase()}. Algo en este lugar promete removerla.`,
+      `Lo que dejaste atrás sigue viajando contigo. ${capitalizar(primera)}. Esta jornada podría acercarte a una respuesta.`,
+    ]);
   }
 
   /**
@@ -255,8 +274,23 @@ export class ProceduralProvider extends IDMProvider {
       ],
     };
 
-    const opciones = plantillas[tipo] ?? ['Haces lo que has decidido hacer.'];
-    return this._unico(opciones);
+    if (plantillas[tipo]) return this._unico(plantillas[tipo]);
+
+    const accion = String(intencion?.texto ?? intencion?.accion ?? '').trim();
+    // La entrada libre suele venir en primera persona ("anoto", "busco") o
+    // como infinitivo. No la cosemos detrás de "intentas": eso exigiría
+    // conjugar texto arbitrario y producía frases como "intentas anoto".
+    // La conservamos como cita de intención y la narración sigue en segunda persona.
+    const propuesta = accion.replace(/[.!?…]+$/u, '');
+    const lugar = ctx.mundo?.lugar ?? ctx.mundo?.nombreLugar ?? 'este lugar';
+    const abiertas = [
+      propuesta ? `Pones en práctica tu idea: «${propuesta}».` : 'Actúas según tu instinto.',
+      propuesta ? `Sin apartar la vista de ${lugar}, decides actuar: «${propuesta}».` : `Tomas la iniciativa en ${lugar}.`,
+      propuesta ? `No dudas más. Tu intención está clara: «${propuesta}».` : 'Das el siguiente paso.',
+      'Tu decisión rompe la quietud y obliga al mundo a responder.',
+      'Te mueves con intención; alrededor, nada permanece del todo indiferente.',
+    ];
+    return this._unico(abiertas);
   }
 
   /* ═══════════════════════════════════════════════════════════════════════

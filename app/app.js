@@ -57,6 +57,7 @@ import { CLASES } from '../src/data/classes.data.js';
 import { TRASFONDOS } from '../src/data/backgrounds.data.js';
 import { obtenerLugar } from '../src/data/locations.data.js';
 import * as Comb from '../src/combat/Combatant.js';
+import { PROVEEDORES } from '../src/config/ai.config.js';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    UTILIDADES DE DOM
@@ -88,6 +89,17 @@ function el(tag, attrs = {}, ...hijos) {
 
 function vaciar(nodo) {
   if (nodo) nodo.innerHTML = '';
+}
+
+/** Señala que una pieza procedural se está recomponiendo, sin bloquear la UI. */
+function animarGeneracion(nodo, etiqueta = 'Tejiendo rasgos') {
+  if (!nodo) return;
+  nodo.dataset.generando = etiqueta;
+  nodo.classList.remove('se-esta-generando');
+  void nodo.offsetWidth;
+  nodo.classList.add('se-esta-generando');
+  clearTimeout(nodo._finGeneracion);
+  nodo._finGeneracion = setTimeout(() => nodo.classList.remove('se-esta-generando'), 720);
 }
 
 /** Muestra un fallo en pantalla en vez de dejar la página muda. */
@@ -192,6 +204,13 @@ function mostrar(pantalla) {
   }
 
   document.body.setAttribute('data-active-screen', pantalla);
+
+  const activa = document.querySelector(`section[data-pantalla="${pantalla}"]`);
+  if (activa) {
+    activa.classList.remove('pantalla-entrando');
+    void activa.offsetWidth;
+    activa.classList.add('pantalla-entrando');
+  }
 }
 
 /* ── inicio ───────────────────────────────────────────────────────────── */
@@ -241,6 +260,8 @@ const borrador = {
   raza: 'valdes',
   clase: 'rastreador',
   trasfondo: 'errante',
+  retrato: '',
+  lore: '',
 };
 
 function pintarCreacion() {
@@ -271,10 +292,47 @@ function pintarCreacion() {
     ),
   );
 
-  pintarRetrato(cara, { raza: borrador.raza, nombre: RAZAS[borrador.raza]?.nombre });
+  pintarRetrato(cara, {
+    raza: borrador.raza,
+    nombre: RAZAS[borrador.raza]?.nombre,
+    descripcion: borrador.retrato,
+  });
 
-  // ── Resto de elecciones ─────────────────────────────────────────────
   caja.append(
+    el('div', { class: 'campo retrato-descripcion' },
+      el('label', { class: 'campo__eti', for: 'retrato-descripcion', text: 'Describe a tu personaje' }),
+      el('textarea', {
+        id: 'retrato-descripcion', class: 'campo__entrada campo__entrada--retrato',
+        placeholder: 'Ej.: exploradora de pelo plateado, cicatriz en la ceja, capa violeta y brújula de bronce…',
+        maxlength: '360', value: borrador.retrato,
+        onInput: (e) => {
+          borrador.retrato = e.target.value;
+          animarGeneracion(cara, 'Interpretando descripción');
+          pintarRetrato(cara, {
+            raza: borrador.raza,
+            nombre: RAZAS[borrador.raza]?.nombre,
+            descripcion: borrador.retrato,
+          });
+        },
+      }),
+      el('p', { class: 'campo__ayuda', text: 'El retrato local interpreta tu descripción. La IA también la usará para narrar quién eres.' }),
+    ),
+  );
+
+  // ── Historia propia ────────────────────────────────────────────────
+  // Va separada del aspecto: una describe cómo se ve; la otra explica de
+  // dónde viene y qué asuntos debe convertir la campaña en hilos vivos.
+  caja.append(
+    el('div', { class: 'campo lore-personaje' },
+      el('label', { class: 'campo__eti', for: 'lore-personaje', text: 'Tu historia' }),
+      el('textarea', {
+        id: 'lore-personaje', class: 'campo__entrada campo__entrada--retrato campo__entrada--lore',
+        placeholder: 'Ej.: crecí junto al Umbral, mi hermana desapareció tras cruzarlo y llevo su medallón. Quiero encontrarla, aunque tema lo que haya al otro lado…',
+        maxlength: '1200', value: borrador.lore,
+        onInput: (e) => { borrador.lore = e.target.value; },
+      }),
+      el('p', { class: 'campo__ayuda', text: 'El narrador convertirá personas, promesas, lugares y conflictos de esta historia en la campaña.' }),
+    ),
     grupoEleccion('Oficio', CLASES, 'clase'),
     grupoEleccion('Pasado', TRASFONDOS, 'trasfondo'),
   );
@@ -296,6 +354,7 @@ function grupoEleccion(titulo, catalogo, clave) {
         onClick: protegido('elección', () => {
           borrador[clave] = o.refId;
           pintarCreacion();
+          if (clave === 'raza') animarGeneracion($('#creacion-cara'), 'Forjando linaje');
         }),
       },
         el('span', { class: 'ficha__nombre', text: o.nombre }),
@@ -392,8 +451,16 @@ function pintarEscena() {
 
   const t = ver('world.tiempo', {}) ?? {};
   const clima = ver('world.clima.actual', 'despejado');
+  // Las entradas de región son ilustraciones clave. El resto del viaje usa
+  // paisaje 100% procedural; en estas seis, el raster recibe encima la misma
+  // hora, clima y partículas del mundo vivo.
+  const hitosRegion = new Set([
+    'vado_yunque', 'arboleda_madre', 'forja_alta',
+    'pilotes_brumal', 'umbral_albar', 'oasis_sal',
+  ]);
+  const momentoClave = hitosRegion.has(lugar.refId);
 
-  pintarLugar($('#escena-lienzo'), lugar, { franja: t.franja, clima });
+  pintarLugar($('#escena-lienzo'), lugar, { franja: t.franja, clima, momentoClave });
 
   const rotulo = $('#escena-rotulo');
   if (!rotulo) return;
@@ -419,9 +486,14 @@ function pintarBitacora() {
   const entradas = ver('narrative.entradas', []) ?? [];
   vaciar(caja);
 
-  for (const e of entradas.slice(-60)) {
+  const visibles = entradas.slice(-60);
+  const desdeReciente = Math.max(0, visibles.length - 3);
+
+  for (const [indice, e] of visibles.entries()) {
     if (e.voz === 'tirada') {
-      caja.append(fichaTirada(e.meta?.tirada));
+      const ficha = fichaTirada(e.meta?.tirada);
+      if (indice >= desdeReciente) ficha.classList.add('es-reciente');
+      caja.append(ficha);
       continue;
     }
 
@@ -435,7 +507,7 @@ function pintarBitacora() {
 
     for (const parrafo of String(e.texto ?? '').split('\n')) {
       if (!parrafo.trim()) continue;
-      caja.append(el('p', { class: clase, text: parrafo }));
+      caja.append(el('p', { class: clase + (indice >= desdeReciente ? ' es-reciente' : ''), text: parrafo }));
     }
   }
 
@@ -490,7 +562,7 @@ function pintarPersonaje() {
 
   // El retrato depende del linaje y del nombre, así que solo se repinta al
   // crear el personaje o al cargar otra partida.
-  pintarRetrato($('#retrato-pj'), { raza: j.raza, nombre: j.nombre });
+  pintarRetrato($('#retrato-pj'), { raza: j.raza, nombre: j.nombre, descripcion: j.retrato });
 
   caja.append(
     el('div', { class: 'ficha-pj' },
@@ -498,6 +570,20 @@ function pintarPersonaje() {
       el('span', { class: 'ficha-pj__clase', text: `nivel ${j.nivel ?? 1}` }),
     ),
   );
+
+  const atributos = j.atributos ?? {};
+  const nombresAtributo = { fuerza:'FUE', destreza:'DES', constitucion:'CON', inteligencia:'INT', sabiduria:'SAB', carisma:'CAR' };
+  caja.append(el('div', { class: 'medallones-atributos' },
+    ...Object.entries(nombresAtributo).map(([clave, eti]) => {
+      const valor = atributos[clave] ?? 10;
+      const mod = Math.floor((valor - 10) / 2);
+      return el('div', { class: 'medallon-atributo' },
+        el('span', { class: 'medallon-atributo__eti', text: eti }),
+        el('strong', { text: String(valor) }),
+        el('span', { class: 'medallon-atributo__mod', text: mod >= 0 ? `+${mod}` : String(mod) }),
+      );
+    }),
+  ));
 
   const barras = [
     ['Vida', j.vida?.actual ?? 0, j.vida?.max ?? 1, 'vida'],
@@ -541,6 +627,7 @@ function pintarPersonaje() {
 /* ── lateral: inventario, mapa, misiones ──────────────────────────────── */
 
 let pestanaActiva = 'inventario';
+let mercaderActivo = null;
 
 function pintarLateral() {
   const caja = $('#panel-lateral');
@@ -695,6 +782,15 @@ function pintarMisiones(caja) {
         class: 'mision__obj' + (o.hecho ? ' es-hecho' : ''),
         text: (o.hecho ? '✓ ' : '· ') + o.texto,
       })),
+      el('p', { class: 'mision__recompensa', text: `${m.recompensa?.xp ?? 0} XP · ${m.recompensa?.oro ?? 0} oro` }),
+      m.objetivos.every((o) => o.hecho) ? el('button', {
+        class: 'btn btn--pequeno', text: 'Entregar encargo',
+        onClick: protegido('entregar misión', () => {
+          const r = quests.completar(m.refId);
+          avisar(r.aplicada ? 'Encargo completado' : r.motivo, r.aplicada ? 'exito' : 'aviso');
+          refrescarTodo();
+        }),
+      }) : null,
     ));
   }
 }
@@ -712,16 +808,62 @@ function pintarGente(caja) {
     caja.append(el('div', { class: 'persona' },
       el('p', { class: 'persona__nombre', text: n.nombre }),
       el('p', { class: 'persona__rol', text: `${n.rol} · ${n.etiquetaActitud}` }),
-      el('button', {
-        class: 'btn btn--pequeno',
-        onClick: protegido('hablar', () => enviar(`Hablo con ${n.nombre}`)),
-        text: 'Hablar',
-      }),
+      el('div', { class: 'persona__acciones' },
+        el('button', {
+          class: 'btn btn--pequeno',
+          onClick: protegido('hablar', () => enviar(`Hablo con ${n.nombre}`)),
+          text: 'Hablar',
+        }),
+        n.esMercader ? el('button', {
+          class: 'btn btn--pequeno',
+          onClick: protegido('comerciar', () => abrirComercio(n.refId)),
+          text: 'Comerciar',
+        }) : null,
+      ),
     ));
   }
 }
 
 /* ── opciones sugeridas ───────────────────────────────────────────────── */
+
+function abrirComercio(refId) {
+  mercaderActivo = refId;
+  sistema('merchants')?.abrir(refId);
+  pintarComercio();
+  $('#comercio-modal').hidden = false;
+}
+
+function pintarComercio() {
+  const caja = $('#comercio-cuerpo');
+  const mercado = sistema('merchants');
+  const economia = sistema('economy');
+  const catalogo = mercado?.catalogoParaInterfaz(mercaderActivo);
+  if (!caja || !catalogo) return;
+  vaciar(caja);
+  $('#comercio-titulo').textContent = catalogo.mercader.nombre;
+  $('#comercio-nota').textContent = `Tu oro: ${ver('player.oro', 0)} · Su oro: ${catalogo.oro}`;
+  const compra = el('section', { class: 'comercio__seccion' }, el('h3', { text: 'Comprar' }));
+  for (const o of catalogo.objetos) compra.append(el('div', { class: 'comercio__fila' },
+    el('span', { class: 'comercio__nombre', text: `${o.nombre}${o.stock > 1 ? ` ×${o.stock}` : ''}` }),
+    el('span', { class: 'comercio__precio', text: `${o.precio} oro` }),
+    el('button', { class: 'btn btn--pequeno', text: 'Comprar', onClick: protegido('comprar', () => {
+      const r = economia.comprar({ refIdMercader: mercaderActivo, objeto: o, cantidad: 1, stock: o.stock });
+      avisar(r.exito ? `Comprado: ${o.nombre}` : r.mensaje, r.exito ? 'exito' : 'aviso'); pintarComercio(); refrescarTodo();
+    }) })));
+  caja.append(compra);
+  const vendibles = mercado.vendibleA(mercaderActivo);
+  if (vendibles.length) {
+    const venta = el('section', { class: 'comercio__seccion' }, el('h3', { text: 'Vender' }));
+    for (const o of vendibles) venta.append(el('div', { class: 'comercio__fila' },
+      el('span', { class: 'comercio__nombre', text: `${o.nombre}${o.cantidad > 1 ? ` ×${o.cantidad}` : ''}` }),
+      el('span', { class: 'comercio__precio', text: `${o.precio} oro` }),
+      el('button', { class: 'btn btn--pequeno', text: 'Vender', onClick: protegido('vender', () => {
+        const r = economia.vender({ refIdMercader: mercaderActivo, idObjeto: o.id, cantidad: 1 });
+        avisar(r.exito ? `Vendido: ${o.nombre}` : r.mensaje, r.exito ? 'exito' : 'aviso'); pintarComercio(); refrescarTodo();
+      }) })));
+    caja.append(venta);
+  }
+}
 
 function pintarOpciones() {
   const caja = $('#opciones');
@@ -731,12 +873,20 @@ function pintarOpciones() {
 
   const opciones = ver('narrative.opciones', []) ?? [];
 
-  for (const o of opciones.slice(0, 4)) {
+  const glifos = { ataque: '⚔', combate: '⚔', explorar: '⌖', observar: '◉', hablar: '✦', social: '✦', viajar: '➶', huir: '➶', objeto: '◆', magia: '✧' };
+  for (const [indice, o] of opciones.slice(0, 4).entries()) {
+    const intencion = String(o.intent ?? o.intencion ?? '').toLowerCase();
     caja.append(el('button', {
       class: 'opcion',
+      dataset: { risk: o.risk ?? 'low', intent: intencion || 'accion' },
       onClick: protegido('opción', () => enviar(o.label, o.intent)),
-      text: o.label,
-    }));
+    },
+      el('span', { class: 'opcion__glifo', text: glifos[intencion] ?? '✦' }),
+      el('span', { class: 'opcion__contenido' },
+        el('small', { class: 'opcion__orden', text: `ACCIÓN ${indice + 1}` }),
+        el('span', { class: 'opcion__texto', text: o.label }),
+      ),
+    ));
   }
 }
 
@@ -824,7 +974,8 @@ function pintarCombate() {
         ),
       ));
 
-      pintarCriatura(marco, plantilla);
+      const jefes = new Set(['devorador_de_brumas', 'guardian_de_la_puerta', 'senora_del_pantano']);
+      pintarCriatura(marco, { ...plantilla, momentoClave: jefes.has(plantilla.refId) });
     }
   }
 
@@ -850,6 +1001,11 @@ function pintarCombate() {
   capa.append(lista);
 
   if (manager.esperandoJugador) {
+    capa.append(el('div', { class: 'combate__libre' },
+      el('input', { id: 'combate-entrada', class: 'entrada', type: 'text', placeholder: 'Describe cómo actúas…', maxlength: '180', onKeydown: (e) => { if (e.key === 'Enter') accionCombateLibre(); } }),
+      el('button', { class: 'btn', onClick: protegido('acción libre de combate', accionCombateLibre) }, 'Hacerlo'),
+    ));
+    capa.append(el('p', { class: 'combate__ayuda', text: 'También puedes escribir tu movimiento con tus propias palabras.' }));
     capa.append(el('div', { class: 'combate__acciones' },
       el('button', { class: 'btn btn--peligro', onClick: protegido('atacar', () => accionCombate('atacar')) }, 'Atacar'),
       el('button', { class: 'btn', onClick: protegido('defender', () => accionCombate('defender')) }, 'Defender'),
@@ -858,6 +1014,16 @@ function pintarCombate() {
   } else {
     capa.append(el('p', { class: 'combate__espera', text: 'El enemigo actúa…' }));
   }
+}
+
+async function accionCombateLibre() {
+  const texto = ($('#combate-entrada')?.value ?? '').trim();
+  if (!texto) return;
+  const normal = texto.toLocaleLowerCase('es');
+  const tipo = /huir|escap|retir|correr/.test(normal) ? 'huir'
+    : /defiend|bloque|cubrir|esquiv|proteg/.test(normal) ? 'defender' : 'atacar';
+  bus.emit('narrative:direct', { texto: `Intentas: ${texto}`, voz: 'player' });
+  await accionCombate(tipo);
 }
 
 async function accionCombate(tipo) {
@@ -889,7 +1055,81 @@ function avisar(mensaje, tipo = 'info') {
    ARRANQUE
    ═══════════════════════════════════════════════════════════════════════════ */
 
+
+async function probarIALocal() {
+  const url = ($('#ia-url')?.value ?? '').trim();
+  const modelo = ($('#ia-modelo')?.value ?? '').trim();
+  const estado = $('#ia-estado'); const activar = $('#ia-activar');
+  const dm = sistema('dungeonmaster'); const local = dm?.proveedor(PROVEEDORES.LOCAL);
+  local?.configurar({ url, modelo });
+  if (!url || !modelo) { estado.textContent = 'Indica la dirección y el modelo instalados.'; activar.disabled = true; return; }
+  estado.textContent = 'Comprobando el modelo local…'; activar.disabled = true;
+  const r = await local.probar();
+  if (!r.ok) { estado.textContent = r.motivo; return; }
+  estado.textContent = r.modelos.includes(modelo) ? `Conectado a ${modelo}.` : `Servidor conectado. Modelos: ${r.modelos.join(', ') || 'ninguno'}`;
+  activar.disabled = !r.modelos.includes(modelo);
+}
+
+function activarIALocal() {
+  const dm = sistema('dungeonmaster');
+  const url = ($('#ia-url')?.value ?? '').trim(); const modelo = ($('#ia-modelo')?.value ?? '').trim();
+  dm?.proveedor(PROVEEDORES.LOCAL)?.configurar({ url, modelo });
+  const r = dm?.cambiar(PROVEEDORES.LOCAL);
+  if (!r?.exito || r.motivo) { avisar(r?.motivo ?? 'No se pudo activar la IA local', 'aviso'); return; }
+  store.fijar('settings.urlLocal', url); store.fijar('settings.modeloLocal', modelo); store.fijar('settings.proveedor', PROVEEDORES.LOCAL);
+  avisar('IA local activa: cada acción pasará por el modelo', 'exito'); $('#director-modal').hidden = true;
+}
+
+function pintarDirectores() {
+  const dm = sistema('dungeonmaster');
+  const caja = $('#director-opciones');
+  if (!dm || !caja) return;
+  vaciar(caja);
+  for (const opcion of dm.catalogo()) {
+    const id = opcion.id ?? opcion.refId;
+    caja.append(el('button', {
+      class: 'director-opcion' + (dm.inspeccionar().elegido === id ? ' es-activo' : ''),
+      onClick: protegido('cambiar narrador', () => {
+        const r = dm.cambiar(id);
+        store.fijar('settings.proveedor', id);
+        avisar(r.motivo ?? `Narrador: ${opcion.nombre}`, r.motivo ? 'aviso' : 'exito');
+        pintarDirectores();
+        $('#director-modal').hidden = true;
+      }),
+    }, el('strong', { text: opcion.nombre }), el('span', { text: opcion.resumen ?? opcion.detalle ?? '' })))
+  }
+}
+
+function abrirPuente({ prompt }) {
+  $('#puente-prompt').value = prompt ?? '';
+  $('#puente-respuesta').value = '';
+  $('#puente-error').hidden = true;
+  $('#puente-modal').hidden = false;
+}
+
+function aplicarPuente() {
+  const dm = sistema('dungeonmaster');
+  const puente = dm?.proveedor(PROVEEDORES.PUENTE);
+  const r = puente?.recibir($('#puente-respuesta')?.value ?? '');
+  if (!r?.aceptada) {
+    const error = $('#puente-error'); error.textContent = r?.motivo ?? 'La respuesta no es válida.'; error.hidden = false;
+    return;
+  }
+  $('#puente-modal').hidden = true;
+}
+
 function conectarEventos() {
+  $('#comercio-cerrar')?.addEventListener('click', () => { $('#comercio-modal').hidden = true; mercaderActivo = null; });
+  $('#director')?.addEventListener('click', () => { pintarDirectores(); $('#ia-url').value = ver('settings.urlLocal', 'http://127.0.0.1:11435'); $('#ia-modelo').value = ver('settings.modeloLocal', 'gemini-3.5-flash'); $('#director-modal').hidden = false; });
+  $('#ia-probar')?.addEventListener('click', protegido('probar IA local', probarIALocal));
+  $('#ia-activar')?.addEventListener('click', protegido('activar IA local', activarIALocal));
+  $('#director-cerrar')?.addEventListener('click', () => { $('#director-modal').hidden = true; });
+  $('#puente-copiar')?.addEventListener('click', async () => { await navigator.clipboard.writeText($('#puente-prompt').value); avisar('Encargo copiado', 'exito'); });
+  $('#puente-aplicar')?.addEventListener('click', protegido('respuesta del puente', aplicarPuente));
+  $('#puente-cancelar')?.addEventListener('click', () => sistema('dungeonmaster')?.proveedor(PROVEEDORES.PUENTE)?.cancelar());
+  bus.on('bridge:open', abrirPuente);
+  bus.on('bridge:close', () => { $('#puente-modal').hidden = true; });
+
   // Entrada de texto.
   $('#enviar')?.addEventListener('click', protegido('enviar', () => enviar()));
 
@@ -966,6 +1206,9 @@ function arranqueFallido(donde, error) {
 }
 
 async function arrancar() {
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('../sw.js').catch((e) => console.warn('[arcanum] modo offline no disponible', e));
+  }
   // Si algo se cuelga, a los ocho segundos se dice en pantalla en vez de
   // dejar al jugador mirando un rótulo eterno.
   const vigilante = setTimeout(() => {

@@ -1,7 +1,6 @@
 # Estado del paquete
 
-**El proyecto está completo.** Los 145 archivos de código están en este paquete;
-no queda nada por copiar del chat.
+**El proyecto está completo.** La web jugable, el motor, el arte procedural, el proxy local y las pruebas están en el repositorio; no queda código por copiar de una conversación.
 
 ## Contenido
 
@@ -22,15 +21,15 @@ no queda nada por copiar del chat.
 ## Verificación
 
 ```
-145 archivos JavaScript
-  0 errores de sintaxis
-480 imports comprobados, 0 rotos
+151 módulos analizados
+  0 importaciones rotas
+1088 piezas de arte generadas, 0 problemas
+regresión 1440×900 y 390×844: 20 turnos, 0 fallos, offline verificado
 ```
 
-## Lo único que queda: registrar los sistemas
+## Nota histórica: registro de sistemas
 
-`src/main.js` sigue siendo el de la fase 1 y solo registra el núcleo. Para que
-el juego arranque completo hay que añadir el registro de los demás sistemas.
+La app web actual (`app/app.js`) ya registra los sistemas en este orden. Esta lista queda como referencia de arquitectura:
 
 **Orden obligatorio** — `TurnResolver` siempre el último, `World` después de sus
 subsistemas:

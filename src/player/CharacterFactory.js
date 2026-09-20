@@ -140,6 +140,7 @@ export function crearPersonaje(borrador) {
   // El texto original del jugador se conserva íntegro. Es lo que hace que la
   // partida sea suya y no de una plantilla: viaja al director en cada prompt.
   jugador.retrato = borrador.retrato ?? '';
+  jugador.lore = borrador.lore ?? '';
   jugador.motivacion = borrador.motivacion ?? null;
   jugador.gancho = borrador.gancho ?? null;
   jugador.detalle = borrador.detalle ?? null;
@@ -267,6 +268,10 @@ export function fichaParaDirector(jugador) {
   // Lo que escribió el jugador, íntegro y primero.
   if (jugador.retrato) {
     bloques.push(`El jugador describió así a su personaje: «${jugador.retrato}»`);
+  }
+  if (jugador.lore) {
+    bloques.push(`HISTORIA ESCRITA POR EL JUGADOR (canon prioritario): «${jugador.lore}»`);
+    bloques.push('Convierte personas, promesas, lugares, enemigos y preguntas de esa historia en hilos recurrentes. No la contradigas ni la resuelvas toda de golpe.');
   }
 
   bloques.push(

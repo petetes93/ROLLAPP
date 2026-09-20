@@ -1,11 +1,48 @@
 {
   "paisajes": {
-    "forja_alta": "paisajes/forja_alta.jpg"
+    "arboleda_madre": "paisajes/arboleda_madre.webp",
+    "camino_norte": "paisajes/camino_norte.webp",
+    "claro_quemado": "paisajes/claro_quemado.webp",
+    "espejo_negro": "paisajes/espejo_negro.webp",
+    "forja_alta": "paisajes/forja_alta.webp",
+    "galerias_hondas": "paisajes/galerias_hondas.webp",
+    "linde_cenizo": "paisajes/linde_cenizo.webp",
+    "mina_abandonada": "paisajes/mina_abandonada.webp",
+    "oasis_sal": "paisajes/oasis_sal.webp",
+    "paso_yunque": "paisajes/paso_yunque.webp",
+    "pilotes_brumal": "paisajes/pilotes_brumal.webp",
+    "pozos_hondos": "paisajes/pozos_hondos.webp",
+    "puerto_lodo": "paisajes/puerto_lodo.webp",
+    "sala_sellada": "paisajes/sala_sellada.webp",
+    "saucedo": "paisajes/saucedo.webp",
+    "senda_raices": "paisajes/senda_raices.webp",
+    "tumbas_bajas": "paisajes/tumbas_bajas.webp",
+    "umbral_albar": "paisajes/umbral_albar.webp",
+    "vado_yunque": "paisajes/vado_yunque.webp"
   },
   "retratos": {
-    "griscuerno": "retratos/griscuerno.jpg"
+    "albar": "retratos/albar.webp",
+    "brumal": "retratos/brumal.webp",
+    "crisol": "retratos/crisol.webp",
+    "ferrano": "retratos/ferrano.webp",
+    "griscuerno": "retratos/griscuerno.webp",
+    "menudo": "retratos/menudo.webp",
+    "sombracorteza": "retratos/sombracorteza.webp",
+    "valdes": "retratos/valdes.webp"
   },
   "criaturas": {
-    "lobo_ceniciento": "criaturas/lobo_ceniciento.jpg"
+    "bruto_griscuerno": "criaturas/bruto_griscuerno.webp",
+    "carronero": "criaturas/carronero.webp",
+    "cazadora_silente": "criaturas/cazadora_silente.webp",
+    "devorador_de_brumas": "criaturas/devorador_de_brumas.webp",
+    "ejecutor_albar": "criaturas/ejecutor_albar.webp",
+    "espectro_menor": "criaturas/espectro_menor.webp",
+    "guardia_corrupto": "criaturas/guardia_corrupto.webp",
+    "guardian_de_la_puerta": "criaturas/guardian_de_la_puerta.webp",
+    "lobo_ceniciento": "criaturas/lobo_ceniciento.webp",
+    "rata_gigante": "criaturas/rata_gigante.webp",
+    "saqueador": "criaturas/saqueador.webp",
+    "senora_del_pantano": "criaturas/senora_del_pantano.webp",
+    "tejedora_de_umbral": "criaturas/tejedora_de_umbral.webp"
   }
 }

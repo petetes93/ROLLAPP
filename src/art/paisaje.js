@@ -383,13 +383,17 @@ function velo(clima, flujo) {
     const y = flujo.flotante(0, ALTO);
 
     if (clima === 'nieve') {
-      piezas.push(`<circle cx="${num(x)}" cy="${num(y)}" `
-        + `r="${num(flujo.flotante(0.8, 2))}" fill="#E8EDF0" opacity="0.7"/>`);
+      piezas.push(`<circle class="clima-particula clima-particula--nieve" `
+        + `style="--clima-retardo:${num(-flujo.flotante(0, 6))}s;--clima-duracion:${num(flujo.flotante(4.5, 8))}s" `
+        + `cx="${num(x)}" cy="${num(y)}" r="${num(flujo.flotante(0.8, 2))}" `
+        + 'fill="#E8EDF0" opacity="0.7"/>');
     } else {
       const largo = clima === 'tormenta' ? flujo.flotante(14, 30) : flujo.flotante(8, 18);
       const sesgo = clima === 'viento' ? 14 : clima === 'tormenta' ? 7 : 3;
 
-      piezas.push(`<line x1="${num(x)}" y1="${num(y)}" x2="${num(x + sesgo)}" `
+      piezas.push(`<line class="clima-particula clima-particula--${clima}" `
+        + `style="--clima-retardo:${num(-flujo.flotante(0, 2.4))}s;--clima-duracion:${num(flujo.flotante(1.2, 2.8))}s" `
+        + `x1="${num(x)}" y1="${num(y)}" x2="${num(x + sesgo)}" `
         + `y2="${num(y + largo)}" stroke="#C4CDD4" stroke-width="0.8" opacity="0.35"/>`);
     }
   }
@@ -579,6 +583,27 @@ export function paisaje(opciones = {}) {
     ancho: ANCHO, alto: ALTO, etiqueta, semilla, defs,
     cuerpo: piezas.join(''),
     vineta: 0.5, grano: 0.11, clase: 'arte arte--paisaje',
+  });
+}
+
+/**
+ * Capa transparente para fundir una ilustración raster con el estado vivo.
+ * Conserva hora, clima y partículas sin volver a dibujar el lugar debajo.
+ */
+export function atmosfera(opciones = {}) {
+  const { refId = 'lugar', nombre = '', franja = 'manana', clima = 'despejado' } = opciones;
+  const hora = FRANJAS[franja] ?? FRANJA_POR_DEFECTO;
+  const semilla = hashSemilla(`paisaje:${refId}`);
+  const flujo = new Flujo(semilla, 'atmosfera');
+  const etiqueta = nombre ? `Atmósfera de ${nombre}` : 'Atmósfera';
+  const cuerpo = [
+    velo(clima, flujo),
+    `<rect width="${ANCHO}" height="${ALTO}" fill="${hora.tinte}" `
+      + `opacity="${num(Math.max(0.05, hora.velo * 0.72))}" style="mix-blend-mode:soft-light"/>`,
+  ].join('');
+  return lienzo({
+    ancho: ANCHO, alto: ALTO, etiqueta, semilla, cuerpo,
+    vineta: 0.34, grano: 0.06, clase: 'arte arte--atmosfera',
   });
 }
 

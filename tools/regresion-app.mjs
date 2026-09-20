@@ -94,11 +94,11 @@ try {
 
   await evaluate(`document.querySelector('#inicio-acciones .btn--grande').click()`);
   await until('document.body.dataset.activeScreen === "creacion"');
-  await evaluate(`(()=>{const n=document.querySelector('#nombre');n.value='Lyra';n.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[data-clave="raza"][data-valor="albar"]').click()})()`);
-  await until('document.querySelector("#creacion-cara img")?.complete');
+  await evaluate(`(()=>{const fill=(q,v)=>{const n=document.querySelector(q);n.value=v;n.dispatchEvent(new Event('input',{bubbles:true}))};fill('#nombre','Lyra');document.querySelector('[data-clave="raza"][data-valor="albar"]').click();fill('#retrato-descripcion','exploradora de pelo plateado y cicatriz en la ceja');fill('#lore-personaje','Mi hermana cruzó el Umbral con nuestro medallón. La busco desde entonces.');})()`);
+  await until('document.querySelector("#creacion-cara .arte")');
   await shot('02-creacion-elfa-390x844.png');
   await evaluate(`document.querySelector('#creacion-empezar').click()`);
-  await until('document.body.dataset.activeScreen === "juego" && !document.querySelector("#entrada").disabled && ARCANUM.sistema("turns").inspeccionar().ocupado === false && ARCANUM.ver("narrative.entradas",[]).length > 0', 15000);
+  await until('document.body.dataset.activeScreen === "juego" && !document.querySelector("#entrada").disabled && ARCANUM.sistema("turns").inspeccionar().ocupado === false && ARCANUM.ver("narrative.entradas",[]).length > 0 && ARCANUM.ver("player.lore","").includes("hermana")', 15000);
 
   const acciones = [
     'miro alrededor','escucho tras la puerta','exploro con cuidado','examino las huellas',

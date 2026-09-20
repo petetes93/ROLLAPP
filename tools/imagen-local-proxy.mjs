@@ -8,7 +8,16 @@ import { join } from 'node:path';
 
 const PORT = Number(process.env.ROLLAPP_IMAGE_PORT || 11436);
 const COMFY = process.env.COMFY_URL || 'http://127.0.0.1:8188';
-const CHECKPOINT = process.env.ROLLAPP_IMAGE_MODEL || 'sd_xl_base_1.0.safetensors';
+const CONFIG_PATH = join(process.cwd(), '.rollapp-image-config.json');
+const CONFIG = existsSync(CONFIG_PATH) ? JSON.parse(await readFile(CONFIG_PATH, 'utf8')) : {};
+const CHECKPOINT = process.env.ROLLAPP_IMAGE_MODEL || CONFIG.model || 'sd_xl_base_1.0.safetensors';
+const WIDTH = Number(CONFIG.width || 768);
+const HEIGHT = Number(CONFIG.height || 960);
+const STEPS = Number(CONFIG.steps || 28);
+const CFG = Number(CONFIG.cfg || 6.5);
+const SAMPLER = CONFIG.sampler || 'dpmpp_2m';
+const SCHEDULER = CONFIG.scheduler || 'karras';
+const ARCH = CONFIG.architecture || 'sdxl';
 const CACHE = join(process.cwd(), '.rollapp-images');
 await mkdir(CACHE, { recursive: true });
 
@@ -30,8 +39,8 @@ function graph(prompt, seed) {
     1: { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: CHECKPOINT } },
     2: { class_type: 'CLIPTextEncode', inputs: { text: prompt, clip: ['1', 1] } },
     3: { class_type: 'CLIPTextEncode', inputs: { text: negative, clip: ['1', 1] } },
-    4: { class_type: 'EmptyLatentImage', inputs: { width: 768, height: 960, batch_size: 1 } },
-    5: { class_type: 'KSampler', inputs: { seed, steps: 28, cfg: 6.5, sampler_name: 'dpmpp_2m', scheduler: 'karras', denoise: 1, model: ['1', 0], positive: ['2', 0], negative: ['3', 0], latent_image: ['4', 0] } },
+    4: { class_type: 'EmptyLatentImage', inputs: { width: WIDTH, height: HEIGHT, batch_size: 1 } },
+    5: { class_type: 'KSampler', inputs: { seed, steps: STEPS, cfg: CFG, sampler_name: SAMPLER, scheduler: SCHEDULER, denoise: 1, model: ['1', 0], positive: ['2', 0], negative: ['3', 0], latent_image: ['4', 0] } },
     6: { class_type: 'VAEDecode', inputs: { samples: ['5', 0], vae: ['1', 2] } },
     7: { class_type: 'SaveImage', inputs: { filename_prefix: 'ROLLAPP/portrait', images: ['6', 0] } },
   };
@@ -47,7 +56,8 @@ async function generate(body) {
   const cached = join(CACHE, `${key}.png`);
   if (existsSync(cached)) return readFile(cached);
   const words = String(body.description || '').slice(0, 600);
-  const prompt = `${lineage[body.lineage] || lineage.valdes}, ${words}, ${style}`;
+  const fluxStyle = ARCH === 'flux' ? ', photographically believable volume, intricate oil-brush texture' : '';
+  const prompt = `${lineage[body.lineage] || lineage.valdes}, ${words}, ${style}${fluxStyle}`;
   const seed = parseInt(createHash('sha256').update(String(body.seed || words)).digest('hex').slice(0, 12), 16) % 2147483647;
   const queued = await json(`${COMFY}/prompt`, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ prompt: graph(prompt, seed) }) });
   const deadline = Date.now() + 10 * 60_000;
@@ -76,4 +86,4 @@ const server = http.createServer(async (req,res) => {
     const image=await generate(body); res.writeHead(200,headers('image/png')); res.end(image);
   } catch (e) { res.writeHead(502,headers()); res.end(JSON.stringify({error:String(e.message)})); }
 });
-server.listen(PORT,'127.0.0.1',()=>console.log(`ROLLAPP imagen local: http://127.0.0.1:${PORT} -> ${COMFY} (${CHECKPOINT})`));
+server.listen(PORT,'127.0.0.1',()=>console.log(`ROLLAPP imagen local: http://127.0.0.1:${PORT} -> ${COMFY} (${CHECKPOINT}, ${ARCH}, ${WIDTH}x${HEIGHT})`));

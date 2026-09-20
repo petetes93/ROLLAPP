@@ -13,9 +13,12 @@ if (!process.env.GEMINI_API_KEY?.trim()) {
 }
 
 const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const puertoApp = process.env.ROLLAPP_PORT || '8080';
+const origin = `http://localhost:${puertoApp}`;
+const entorno = { ...process.env, ROLLAPP_ORIGIN: process.env.ROLLAPP_ORIGIN || origin };
 const procesos = [
-  spawn(process.execPath, ['tools/gemini-proxy.mjs'], { cwd: raiz, env: process.env, stdio: 'inherit' }),
-  spawn(process.execPath, ['tools/servir.mjs', '--puerto', process.env.ROLLAPP_PORT || '8080'], { cwd: raiz, env: process.env, stdio: 'inherit' }),
+  spawn(process.execPath, ['tools/gemini-proxy.mjs'], { cwd: raiz, env: entorno, stdio: 'inherit' }),
+  spawn(process.execPath, ['tools/servir.mjs', '--puerto', puertoApp], { cwd: raiz, env: entorno, stdio: 'inherit' }),
 ];
 
 let cerrando = false;
@@ -41,6 +44,5 @@ for (const proceso of procesos) {
 
 process.on('SIGINT', () => cerrar(0));
 process.on('SIGTERM', () => cerrar(0));
-const puertoApp = process.env.ROLLAPP_PORT || '8080';
 console.log(`ROLLAPP estará en http://localhost:${puertoApp}/app/index.html`);
 console.log('Pulsa Ctrl+C para cerrar la app y el proxy.');

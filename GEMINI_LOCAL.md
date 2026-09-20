@@ -32,7 +32,9 @@ Abre `http://localhost:8080/app/index.html`. En **Narrador > IA local** usa:
 - Dirección: `http://127.0.0.1:11435`
 - Modelo: `gemini-3.5-flash`
 
-Pulsa **Probar conexión** y después **Usar IA local**. Cuando termines, pulsa `Ctrl+C`; al cerrar la terminal la clave desaparece del proceso.
+La web ya propone esos dos valores. Abre **Narrador**, pulsa **Probar conexión** y después **Usar IA local**. Cuando termines, pulsa `Ctrl+C`; al cerrar la terminal la clave desaparece del proceso.
+
+Si cambias el puerto con `ROLLAPP_PORT`, el lanzador configura también el origen permitido del proxy. Para servir la web desde otro host, fija `ROLLAPP_ORIGIN` de forma explícita.
 
 ## Seguridad y capa gratuita
 

@@ -13,7 +13,7 @@ solo qué hacer. Sin eso, un guion de pruebas se convierte en una lista de clics
 ## Antes de empezar
 
 ```bash
-python -m http.server 8080
+node tools/servir.mjs
 ```
 
 Abre `http://localhost:8080` y ten la consola del navegador visible. **Cualquier

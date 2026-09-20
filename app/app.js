@@ -1106,7 +1106,7 @@ function aplicarPuente() {
 
 function conectarEventos() {
   $('#comercio-cerrar')?.addEventListener('click', () => { $('#comercio-modal').hidden = true; mercaderActivo = null; });
-  $('#director')?.addEventListener('click', () => { pintarDirectores(); $('#ia-url').value = ver('settings.urlLocal', 'http://localhost:11434'); $('#ia-modelo').value = ver('settings.modeloLocal', ''); $('#director-modal').hidden = false; });
+  $('#director')?.addEventListener('click', () => { pintarDirectores(); $('#ia-url').value = ver('settings.urlLocal', 'http://127.0.0.1:11435'); $('#ia-modelo').value = ver('settings.modeloLocal', 'gemini-3.5-flash'); $('#director-modal').hidden = false; });
   $('#ia-probar')?.addEventListener('click', protegido('probar IA local', probarIALocal));
   $('#ia-activar')?.addEventListener('click', protegido('activar IA local', activarIALocal));
   $('#director-cerrar')?.addEventListener('click', () => { $('#director-modal').hidden = true; });

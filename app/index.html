@@ -723,10 +723,10 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
     <p class="modal__nota">Elige cómo se narra la aventura. El motor siempre conserva las reglas y las tiradas.</p>
     <div id="director-opciones"></div>
     <section class="ia-local" id="ia-local">
-      <h3>IA local · gratis</h3>
-      <p>Conecta Ollama o LM Studio para que una IA real responda a cada acción sin enviar la partida fuera del equipo.</p>
-      <label class="sub-eti" for="ia-url">Dirección</label><input class="entrada" id="ia-url" value="http://localhost:11434">
-      <label class="sub-eti" for="ia-modelo">Modelo</label><input class="entrada" id="ia-modelo" placeholder="Ejemplo: qwen3:4b">
+      <h3>Gemini desde tu PC · gratis</h3>
+      <p>ROLLAPP habla con el proxy local. La clave se queda en el proceso de tu PC y nunca entra en el navegador ni en la partida.</p>
+      <label class="sub-eti" for="ia-url">Proxy local</label><input class="entrada" id="ia-url" value="http://127.0.0.1:11435">
+      <label class="sub-eti" for="ia-modelo">Modelo</label><input class="entrada" id="ia-modelo" value="gemini-3.5-flash" placeholder="gemini-3.5-flash">
       <div class="modal__acciones"><button class="btn" id="ia-probar">Probar conexión</button><button class="btn btn--grande" id="ia-activar" disabled>Usar IA local</button></div>
       <p class="modal__error" id="ia-estado"></p>
     </section>

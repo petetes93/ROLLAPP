@@ -205,6 +205,8 @@ function modeladoPiel(forma, tonos, idRecorte, idSuave, idTextura) {
     + `<path d="M${num(cx-rx*.74)} ${num(OJOS_Y-ry*.55)} Q${num(cx-rx*.12)} ${num(OJOS_Y-ry*.92)} ${num(cx+rx*.64)} ${num(OJOS_Y-ry*.50)}" stroke="#E8F0F2" stroke-width="8" fill="none" opacity=".13" filter="url(#${idSuave})"/>`
     + `<ellipse cx="${num(cx-rx*.18)}" cy="${num(OJOS_Y+ry*.48)}" rx="${num(rx*.44)}" ry="${num(ry*.20)}" fill="#5C3242" opacity=".09" filter="url(#${idSuave})"/>`
     + `<ellipse cx="${num(cx-rx*.53)}" cy="${num(OJOS_Y+ry*.08)}" rx="${num(rx*.22)}" ry="${num(ry*.28)}" fill="#DCEAF0" opacity=".12" filter="url(#${idSuave})"/>`
+    + `<path d="M${num(cx-rx*.82)} ${num(OJOS_Y-ry*.02)} Q${num(cx-rx*.66)} ${num(OJOS_Y+ry*.14)} ${num(cx-rx*.26)} ${num(OJOS_Y+ry*.23)}" stroke="#EEF6F5" stroke-width="10" fill="none" opacity=".15" filter="url(#${idSuave})"/>`
+    + `<path d="M${num(cx+rx*.16)} ${num(OJOS_Y+ry*.16)} Q${num(cx+rx*.54)} ${num(OJOS_Y+ry*.12)} ${num(cx+rx*.80)} ${num(OJOS_Y+ry*.34)}" stroke="#070B11" stroke-width="13" fill="none" opacity=".18" filter="url(#${idSuave})"/>`
     + `<rect x="${num(cx-rx)}" y="${num(OJOS_Y-ry)}" width="${num(rx*2)}" height="${num(ry*2)}" filter="url(#${idTextura})" opacity=".28" style="mix-blend-mode:soft-light"/>`
     + '</g>';
 }
@@ -358,7 +360,8 @@ function pelo(forma, tonos, flujo) {
     + `fill="${tonos.pelo}"/>`;
 
   const raices = [];
-  raices.push(`<path d="M${num(cx-rx*.90)} ${num(nacimiento+18)} C${num(cx-rx*.72)} ${num(OJOS_Y-ry*.92)} ${num(cx-rx*.08)} ${num(OJOS_Y-ry*1.10)} ${num(cx+rx*.62)} ${num(nacimiento+5)} C${num(cx+rx*.42)} ${num(nacimiento-4)} ${num(cx+rx*.16)} ${num(nacimiento-2)} ${num(cx-rx*.10)} ${num(nacimiento+4)} C${num(cx-rx*.46)} ${num(nacimiento+8)} ${num(cx-rx*.70)} ${num(nacimiento+20)} ${num(cx-rx*.90)} ${num(nacimiento+18)}Z" fill="${brillo(tonos.pelo,.60)}" opacity=".62"/>`);
+  raices.push(`<path d="M${num(cx-rx*.94)} ${num(nacimiento+28)} C${num(cx-rx*.84)} ${num(OJOS_Y-ry*.76)} ${num(cx-rx*.30)} ${num(OJOS_Y-ry*1.13)} ${num(cx+rx*.36)} ${num(OJOS_Y-ry*.96)} C${num(cx+rx*.02)} ${num(OJOS_Y-ry*.73)} ${num(cx-rx*.26)} ${num(OJOS_Y-ry*.48)} ${num(cx-rx*.34)} ${num(OJOS_Y-ry*.03)} C${num(cx-rx*.54)} ${num(nacimiento+20)} ${num(cx-rx*.76)} ${num(nacimiento+36)} ${num(cx-rx*.94)} ${num(nacimiento+28)}Z" fill="${brillo(tonos.pelo,.62)}" opacity=".92"/>`);
+  raices.push(`<path d="M${num(cx+rx*.34)} ${num(OJOS_Y-ry*.96)} C${num(cx+rx*.92)} ${num(OJOS_Y-ry*.84)} ${num(cx+rx*1.03)} ${num(OJOS_Y-ry*.23)} ${num(cx+rx*.88)} ${num(OJOS_Y+ry*.94)} C${num(cx+rx*.73)} ${num(OJOS_Y+ry*.58)} ${num(cx+rx*.62)} ${num(OJOS_Y-ry*.12)} ${num(cx+rx*.34)} ${num(OJOS_Y-ry*.96)}Z" fill="${brillo(tonos.pelo,.46)}" opacity=".78"/>`);
   raices.push(`<path d="M${num(cx-rx*.78)} ${num(nacimiento+8)} C${num(cx-rx*.52)} ${num(OJOS_Y-ry*.92)} ${num(cx+rx*.10)} ${num(OJOS_Y-ry*1.02)} ${num(cx+rx*.70)} ${num(nacimiento+10)}" stroke="${brillo(tonos.pelo,1.34)}" stroke-width="13" fill="none" opacity=".32" stroke-linecap="round"/>`);
   raices.push(`<path d="M${num(cx+rx*.68)} ${num(nacimiento+9)} C${num(cx+rx*.92)} ${num(OJOS_Y-ry*.10)} ${num(cx+rx*.86)} ${num(OJOS_Y+ry*.74)} ${num(cx+rx*.70)} ${num(OJOS_Y+ry*1.12)}" stroke="${brillo(tonos.pelo,.54)}" stroke-width="27" fill="none" opacity=".58" stroke-linecap="round"/>`);
   for (let i=0;i<14;i++) {

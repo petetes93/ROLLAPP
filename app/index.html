@@ -557,6 +557,14 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
 @keyframes eleccionPulso{45%{transform:scale(1.025);box-shadow:0 0 0 4px rgba(143,124,255,.12),inset 3px 0 var(--bronce)}}
 .escena__lienzo>.arte{animation:escenaRespira 14s ease-in-out infinite alternate}
 @keyframes escenaRespira{from{transform:scale(1.01) translate3d(-.3%,0,0)}to{transform:scale(1.08) translate3d(.8%,-.5%,0)}}
+/* El clima no es una textura inmóvil: las marcas generadas por el estado del
+   mundo viajan dentro del SVG, cada una con su fase procedural. */
+.clima-particula{transform-box:fill-box;transform-origin:center;animation:climaCae var(--clima-duracion,2s) linear var(--clima-retardo,0s) infinite}
+.clima-particula--viento{animation-name:climaViento}
+.clima-particula--nieve{animation-name:climaNieve}
+@keyframes climaCae{to{transform:translate(12px,34px);opacity:.06}}
+@keyframes climaViento{to{transform:translate(70px,7px);opacity:.04}}
+@keyframes climaNieve{50%{transform:translate(-6px,18px)}to{transform:translate(8px,38px);opacity:.08}}
 
 .escena::after{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(108deg,transparent 15%,rgba(240,213,138,.09) 42%,transparent 66%);mix-blend-mode:screen;animation:luzViajera 8s ease-in-out infinite}
 @keyframes luzViajera{0%,100%{transform:translateX(-55%);opacity:.25}55%{transform:translateX(48%);opacity:.85}}
@@ -580,7 +588,7 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
 .modal:not([hidden]){animation:veloEntra .28s ease both}.modal:not([hidden]) .modal__panel{animation:panelEntra .42s cubic-bezier(.2,.9,.2,1) both}
 @keyframes veloEntra{from{opacity:0}to{opacity:1}}@keyframes panelEntra{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
 .opcion,.btn{transition:transform .16s ease,background .16s,border-color .16s,box-shadow .16s}.opcion:active,.btn:active{transform:scale(.96)}
-@media(prefers-reduced-motion:reduce){body::before,.escena::after,.inicio__marca,.eleccion__cara,.eleccion__cara::after,.retrato-pj::after,.eleccion__cara::before,.retrato-pj::before,.eleccion__cara>.arte,.retrato-pj>.arte,.escena__lienzo>.arte,.barra__relleno::after,.combate__criatura{animation:none!important}.pantalla-entrando,.linea.es-reciente,.tirada.es-reciente,.modal:not([hidden]),.modal:not([hidden]) .modal__panel{animation-duration:.01ms!important}}
+@media(prefers-reduced-motion:reduce){body::before,.escena::after,.clima-particula,.inicio__marca,.eleccion__cara,.eleccion__cara::after,.retrato-pj::after,.eleccion__cara::before,.retrato-pj::before,.eleccion__cara>.arte,.retrato-pj>.arte,.escena__lienzo>.arte,.barra__relleno::after,.combate__criatura{animation:none!important}.pantalla-entrando,.linea.es-reciente,.tirada.es-reciente,.modal:not([hidden]),.modal:not([hidden]) .modal__panel{animation-duration:.01ms!important}}
 </style>
 
 <style id="fantasy-chrome-final">

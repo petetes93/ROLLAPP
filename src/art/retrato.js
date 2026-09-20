@@ -25,7 +25,7 @@ const ALTO = 480;
    se quiere. Cambiarla para un solo linaje es lo que rompe la serie.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const OJOS_Y = 178;           // Primer plano: ojos cerca del tercio superior.
+const OJOS_Y = 184;           // Primer plano: ojos cerca del tercio superior.
 const CX = ANCHO * 0.5;
 const RX = 94;                // Rostro cercano, pómulos dominantes.
 const RY = 126;               // Cráneo largo y mandíbula afilada.
@@ -156,7 +156,10 @@ function busto(forma, tonos, idTela) {
   const sombra = `<ellipse cx="${num(CX)}" cy="${num(cuelloAlto + 10)}" `
     + `rx="${num(anchoCuello * 2.1)}" ry="14" fill="#000" opacity="0.28"/>`;
 
-  return cuello + ropa + sombra;
+  const armadura = `<path d="M${num(CX-180)} ${num(hombroY+2)} Q${num(CX-126)} ${num(hombroY-34)} ${num(CX-60)} ${num(hombroY-18)} L${num(CX-86)} ${num(ALTO)} L${num(CX-194)} ${num(ALTO)}Z" fill="#242C34" stroke="#788690" stroke-width="2" opacity=".82"/>`
+    + `<path d="M${num(CX+58)} ${num(hombroY-18)} Q${num(CX+128)} ${num(hombroY-34)} ${num(CX+182)} ${num(hombroY+4)} L${num(CX+194)} ${num(ALTO)} L${num(CX+84)} ${num(ALTO)}Z" fill="#171D24" stroke="#596773" stroke-width="2" opacity=".84"/>`
+    + `<path d="M${num(CX-148)} ${num(hombroY+20)} l72 76 M${num(CX+145)} ${num(hombroY+20)} l-68 76" stroke="#8FA0A9" stroke-width="1.2" opacity=".32"/>`;
+  return cuello + ropa + armadura + sombra;
 }
 
 /** Pelo exterior: masa y mechones que caen fuera del recorte de la cara. */
@@ -171,11 +174,11 @@ function cabelloExterior(forma, tonos, flujo) {
   piezas.push(`<path d="M${num(cx-rx*.98)} ${num(base)}`
     + `C${num(cx-rx*1.34)} ${num(OJOS_Y+ry*.25)} ${num(cx-rx*1.3)} ${num(largo)} ${num(cx-rx*.62)} ${num(largo+42)}`
     + `L${num(cx-rx*.30)} ${num(largo+10)}`
-    + `C${num(cx-rx*.78)} ${num(OJOS_Y+ry*.42)} ${num(cx-rx*.76)} ${num(base+10)} ${num(cx-rx*.98)} ${num(base)}Z" fill="${brillo(tonos.pelo,.72)}"/>`);
+    + `C${num(cx-rx*.78)} ${num(OJOS_Y+ry*.42)} ${num(cx-rx*.76)} ${num(base+10)} ${num(cx-rx*.98)} ${num(base)}Z" fill="${brillo(tonos.pelo,.72)}" opacity=".76"/>`);
   piezas.push(`<path d="M${num(cx+rx*.98)} ${num(base)}`
     + `C${num(cx+rx*1.34)} ${num(OJOS_Y+ry*.22)} ${num(cx+rx*1.34)} ${num(largo)} ${num(cx+rx*.68)} ${num(largo+46)}`
     + `L${num(cx+rx*.34)} ${num(largo+8)}`
-    + `C${num(cx+rx*.84)} ${num(OJOS_Y+ry*.40)} ${num(cx+rx*.76)} ${num(base+10)} ${num(cx+rx*.98)} ${num(base)}Z" fill="${brillo(tonos.pelo,.64)}"/>`);
+    + `C${num(cx+rx*.84)} ${num(OJOS_Y+ry*.40)} ${num(cx+rx*.76)} ${num(base+10)} ${num(cx+rx*.98)} ${num(base)}Z" fill="${brillo(tonos.pelo,.64)}" opacity=".76"/>`);
 
   for (const lado of [-1, 1]) {
     for (let i=0;i<4;i++) {
@@ -221,10 +224,9 @@ function volumenRostro(forma, tonos) {
   }
 
   // Hueso de la ceja: una franja clara justo encima de las cuencas.
-  piezas.push(`<path d="M${num(cx - rx * 0.86)} ${num(OJOS_Y - ry * 0.22)}`
-    + `Q${num(cx)} ${num(OJOS_Y - ry * 0.30)} ${num(cx + rx * 0.86)} `
-    + `${num(OJOS_Y - ry * 0.22)}" stroke="${brillo(tonos.piel, 1.12)}" `
-    + 'stroke-width="9" fill="none" opacity="0.30" stroke-linecap="round"/>');
+  for (const lado of [-1,1]) {
+    piezas.push(`<path d="M${num(cx+lado*rx*.10)} ${num(OJOS_Y-ry*.22)} Q${num(cx+lado*rx*.48)} ${num(OJOS_Y-ry*.32)} ${num(cx+lado*rx*.82)} ${num(OJOS_Y-ry*.20)}" stroke="${brillo(tonos.piel,1.14)}" stroke-width="6" fill="none" opacity=".22" stroke-linecap="round"/>`);
+  }
 
   // Lateral de la nariz: una sola sombra, del lado contrario a la luz.
   // Medida en fracciones de `ry` y no en píxeles: los linajes de cara larga
@@ -240,9 +242,7 @@ function volumenRostro(forma, tonos) {
 
   // Pómulos: dos manchas que hunden las mejillas.
   for (const lado of [-1, 1]) {
-    piezas.push(`<ellipse cx="${num(cx + lado * rx * 0.72)}" `
-      + `cy="${num(OJOS_Y + ry * 0.34)}" rx="${num(rx * 0.30)}" `
-      + `ry="${num(ry * 0.22)}" fill="${sombra}" opacity="0.30"/>`);
+    piezas.push(`<path d="M${num(cx+lado*rx*.30)} ${num(OJOS_Y+ry*.24)} Q${num(cx+lado*rx*.76)} ${num(OJOS_Y+ry*.10)} ${num(cx+lado*rx*.91)} ${num(OJOS_Y+ry*.38)} Q${num(cx+lado*rx*.66)} ${num(OJOS_Y+ry*.61)} ${num(cx+lado*rx*.26)} ${num(OJOS_Y+ry*.46)}Z" fill="${sombra}" opacity=".31"/>`);
   }
 
   // Hueco bajo el labio inferior. Insinúa la boca sin dibujarla.
@@ -373,7 +373,14 @@ function pelo(forma, tonos, flujo) {
     + `${num(OJOS_Y - ry * 0.82)}" stroke="${brillo(tonos.pelo, 1.5)}" `
     + 'stroke-width="6" fill="none" opacity="0.3" stroke-linecap="round"/>';
 
-  return masa + mechones.join('') + luz;
+  const pincel = [];
+  for (let i=0;i<18;i++) {
+    const lado=i%2===0?-1:1;
+    const x=cx+lado*flujo.flotante(rx*.08,rx*.9);
+    const y=OJOS_Y-ry*flujo.flotante(.48,.92);
+    pincel.push(`<path d="M${num(x)} ${num(y)} Q${num(x+lado*flujo.flotante(8,24))} ${num(y+ry*.42)} ${num(x+lado*flujo.flotante(4,34))} ${num(y+ry*1.05)}" stroke="${brillo(tonos.pelo,flujo.flotante(.68,1.42))}" stroke-width="${num(flujo.flotante(2.2,6.4))}" fill="none" opacity="${num(flujo.flotante(.28,.72))}" stroke-linecap="round"/>`);
+  }
+  return masa + pincel.join('') + mechones.join('') + luz;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -738,8 +745,6 @@ export function retrato(opciones = {}) {
     acabadoPictorico(forma, tonos, flujo, dCabeza, idRecorte, idResplandor),
     rasgoLinaje(tonos.rasgo, forma, tonos, flujo, 'delante'),
     detallesDescripcion(descripcion, forma, tonos),
-    `<path d="M${num(CX-78)} 410 Q${num(CX)} 374 ${num(CX+78)} 410" stroke="${tonos.acento}" stroke-width="2" fill="none" opacity=".52"/>`,
-    `<circle cx="${num(CX)}" cy="398" r="10" fill="${brillo(tonos.acento,.7)}" stroke="${brillo(tonos.acento,1.3)}" stroke-width="2"/>`,
   ].join('');
 
   return lienzo({

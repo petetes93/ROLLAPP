@@ -27,10 +27,9 @@ no queda nada por copiar del chat.
 480 imports comprobados, 0 rotos
 ```
 
-## Lo único que queda: registrar los sistemas
+## Nota histórica: registro de sistemas
 
-`src/main.js` sigue siendo el de la fase 1 y solo registra el núcleo. Para que
-el juego arranque completo hay que añadir el registro de los demás sistemas.
+La app web actual (`app/app.js`) ya registra los sistemas en este orden. Esta lista queda como referencia de arquitectura:
 
 **Orden obligatorio** — `TurnResolver` siempre el último, `World` después de sus
 subsistemas:

@@ -1,6 +1,6 @@
-# ARCANUM
+# ROLLAPP · ARCANUM
 
-Motor de rol narrativo web. Alta fantasía clásica, sin servidor y sin base de datos.
+Juego de rol narrativo para navegador web. Alta fantasía clásica, sin servidor y sin base de datos.
 
 Se abre en el navegador, se juega escribiendo. Un director de juego narra, y el
 motor resuelve las reglas.
@@ -10,9 +10,7 @@ motor resuelve las reglas.
 - **100 % local.** No hay backend, ni Docker, ni base de datos. Los archivos se
   sirven estáticos y todo corre en el navegador.
 - **HTML + CSS + JavaScript.** Módulos ES6, sin frameworks ni dependencias.
-- **Con arte, y sin un solo archivo de imagen.** El paisaje de cada lugar, el
-  retrato de cada linaje y la silueta de cada criatura los dibuja código. El
-  paisaje cambia con la hora y con el tiempo que hace.
+- **El mundo parece crearse mientras juegas.** Retratos personalizados, escenas corrientes, clima, luz, partículas y criaturas se dibujan de forma procedural a partir del personaje y del estado vivo. Las ilustraciones originales solo refuerzan hitos de campaña.
 - **Cuatro directores de juego** intercambiables: uno procedural que funciona sin
   red ni claves, un puente manual para copiar y pegar en cualquier asistente, un
   modelo local y una API remota.
@@ -59,15 +57,13 @@ El arte viaja dentro: son unos kilobytes de código, no megas de imágenes.
 
 ## Pruebas
 
-No hay pruebas automáticas — habría exigido una dependencia de desarrollo y el
-proyecto se define por no tener ninguna. El guion de comprobación manual está en
-[TESTING.md](TESTING.md), ordenado para que los fallos aparezcan pronto.
+La regresión web automatizada no necesita dependencias: arranca Chrome, crea un personaje con descripción y lore, juega 20 turnos y verifica la recarga offline. Se ejecuta con `node tools/regresion-app.mjs --capturas`. El guion ampliado sigue en [TESTING.md](TESTING.md).
 
 ## Estructura
 
 ```
 arcanum/
-├── app/                    LA APP QUE SE JUEGA: index.html + app.js
+├── app/                    LA WEB QUE SE JUEGA: index.html + app.js
 ├── index.html              Shell de tres paneles (interfaz original)
 ├── assets/                 Vacía; puerta para meter imágenes (ver su README)
 ├── styles/                 CSS por capas (@layer)

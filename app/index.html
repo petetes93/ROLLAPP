@@ -126,6 +126,23 @@ button{font-family:inherit;cursor:pointer}
 .campo__ayuda{margin:.4rem 0 0;color:var(--texto-3);font-size:.73rem}
 .retrato-descripcion{margin-top:1.2rem}
 
+/* En escritorio, identidad visual y canon personal se leen de un vistazo.
+   El orden DOM no cambia: móvil conserva el formulario vertical natural. */
+@media(min-width:900px){
+  #creacion-cuerpo{display:grid;grid-template-columns:minmax(22rem,.92fr) minmax(25rem,1.08fr);grid-template-rows:auto auto auto;gap:0 1.5rem;align-items:start}
+  #creacion-cuerpo>.campo:first-child{grid-column:2;grid-row:1;margin-bottom:1rem}
+  #creacion-cuerpo>.eleccion{grid-column:1;grid-row:1/span 3;display:flex;flex-direction:column;gap:.8rem;padding-right:.25rem}
+  #creacion-cuerpo>.retrato-descripcion{grid-column:2;grid-row:2;margin:.1rem 0 1rem}
+  #creacion-cuerpo>.lore-personaje{grid-column:2;grid-row:3;margin:0 0 1.4rem}
+  #creacion-cuerpo>.eleccion .eleccion__cara{position:relative;width:10.2rem;height:12.2rem;min-height:0;margin:0 auto}
+  #creacion-cuerpo>.eleccion .fichas{grid-template-columns:repeat(2,minmax(0,1fr));gap:.38rem}
+  #creacion-cuerpo>.eleccion .ficha{min-height:0;padding:.44rem .6rem}
+  #creacion-cuerpo>.eleccion .ficha__nota{font-size:.61rem;line-height:1.2}
+  #creacion-cuerpo>.grupo,#creacion-cuerpo>.resumen{grid-column:1/-1}
+  .campo__entrada--retrato{min-height:5.4rem}
+  .campo__entrada--lore{min-height:7.3rem}
+}
+
 .grupo{margin-bottom:1.75rem}
 .fichas{display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:.5rem}
 .ficha{

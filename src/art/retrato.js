@@ -244,7 +244,7 @@ function volumenRostro(forma, tonos) {
 
   // Pómulos: dos manchas que hunden las mejillas.
   for (const lado of [-1, 1]) {
-    piezas.push(`<path d="M${num(cx+lado*rx*.30)} ${num(OJOS_Y+ry*.24)} Q${num(cx+lado*rx*.76)} ${num(OJOS_Y+ry*.10)} ${num(cx+lado*rx*.91)} ${num(OJOS_Y+ry*.38)} Q${num(cx+lado*rx*.66)} ${num(OJOS_Y+ry*.61)} ${num(cx+lado*rx*.26)} ${num(OJOS_Y+ry*.46)}Z" fill="${sombra}" opacity=".31"/>`);
+    piezas.push(`<path d="M${num(cx+lado*rx*.30)} ${num(OJOS_Y+ry*.24)} Q${num(cx+lado*rx*.76)} ${num(OJOS_Y+ry*.10)} ${num(cx+lado*rx*.91)} ${num(OJOS_Y+ry*.38)} Q${num(cx+lado*rx*.66)} ${num(OJOS_Y+ry*.61)} ${num(cx+lado*rx*.26)} ${num(OJOS_Y+ry*.46)}Z" fill="${sombra}" opacity=".26" filter="blur(2.6px)"/>`);
   }
 
   // Hueco bajo el labio inferior. Insinúa la boca sin dibujarla.
@@ -681,7 +681,7 @@ function acabadoPictorico(forma, tonos, flujo, dCabeza, idRecorte, idResplandor)
   }
   piezas.push('</g>');
   // Silueta de tinta irregular y contraluz de plata.
-  piezas.push(`<path d="${dCabeza}" fill="none" stroke="#090B0F" stroke-width="1.8" opacity=".46"/>`);
+  piezas.push(`<path d="${dCabeza}" fill="none" stroke="#090B0F" stroke-width="1.2" opacity=".34"/>`);
   piezas.push(`<path d="${dCabeza}" fill="none" stroke="${brillo(tonos.pelo,1.42)}" stroke-width="2.1" opacity=".72" filter="url(#${idResplandor})"/>`);
   // Hebras largas que cruzan el rostro, como las referencias.
   for(let i=0;i<5;i++) {
@@ -724,6 +724,7 @@ export function retrato(opciones = {}) {
   const idSuave = idUnico('soft');
   const idTextura = idUnico('skin');
   const idPintura = idUnico('paint');
+  const idRelieve = idUnico('relief');
 
   const dCabeza = siluetaCabeza(forma);
 
@@ -739,6 +740,7 @@ export function retrato(opciones = {}) {
     + `<filter id="${idSuave}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="10"/></filter>`
     + `<filter id="${idTextura}" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency=".025 .16" numOctaves="3" seed="${semilla}"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope=".34"/></feComponentTransfer></filter>`
     + `<filter id="${idPintura}" x="-12%" y="-12%" width="124%" height="124%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".018 .055" numOctaves="4" seed="${semilla}" result="fibra"/><feDisplacementMap in="SourceGraphic" in2="fibra" scale="2.6" xChannelSelector="R" yChannelSelector="B" result="ondulado"/><feGaussianBlur in="SourceGraphic" stdDeviation="5" result="veladura"/><feBlend in="ondulado" in2="veladura" mode="soft-light" result="pintado"/><feComposite in="pintado" in2="SourceGraphic" operator="in"/></filter>`
+    + `<filter id="${idRelieve}" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".012 .035" numOctaves="3" seed="${semilla+17}" result="bump"/><feDiffuseLighting in="bump" surfaceScale="5" diffuseConstant=".72" lighting-color="#DCE7EA" result="luz"><feDistantLight azimuth="225" elevation="48"/></feDiffuseLighting><feSpecularLighting in="bump" surfaceScale="3" specularConstant=".34" specularExponent="18" lighting-color="#ECF7FA" result="brillo"><feDistantLight azimuth="225" elevation="56"/></feSpecularLighting><feBlend in="SourceGraphic" in2="luz" mode="soft-light" result="volumen"/><feBlend in="volumen" in2="brillo" mode="screen"/><feComposite in2="SourceGraphic" operator="in"/></filter>`
     + degradadoLuz(idPiel, brillo(tonos.piel, 1.10), brillo(tonos.pielSombra, .66))
     // La tela tiene que despegarse del fondo. Con los grises de `ceniza` a
     // `tinta` el busto salía del mismo color que el fondo y la cabeza parecía
@@ -756,6 +758,7 @@ export function retrato(opciones = {}) {
 
     // La cabeza y todo lo que la modela, recortado contra su propia silueta.
     `<path d="${dCabeza}" fill="url(#${idPiel})" filter="url(#${idPintura})"/>`,
+    `<path d="${dCabeza}" fill="${tonos.piel}" filter="url(#${idRelieve})" opacity=".44"/>`,
     modeladoPiel(forma, tonos, idRecorte, idSuave, idTextura),
     `<g clip-path="url(#${idRecorte})" style="filter:drop-shadow(0 1px 1px rgba(0,0,0,.18))">`,
     volumenRostro(forma, tonos),

@@ -571,6 +571,20 @@ function pintarPersonaje() {
     ),
   );
 
+  const atributos = j.atributos ?? {};
+  const nombresAtributo = { fuerza:'FUE', destreza:'DES', constitucion:'CON', inteligencia:'INT', sabiduria:'SAB', carisma:'CAR' };
+  caja.append(el('div', { class: 'medallones-atributos' },
+    ...Object.entries(nombresAtributo).map(([clave, eti]) => {
+      const valor = atributos[clave] ?? 10;
+      const mod = Math.floor((valor - 10) / 2);
+      return el('div', { class: 'medallon-atributo' },
+        el('span', { class: 'medallon-atributo__eti', text: eti }),
+        el('strong', { text: String(valor) }),
+        el('span', { class: 'medallon-atributo__mod', text: mod >= 0 ? `+${mod}` : String(mod) }),
+      );
+    }),
+  ));
+
   const barras = [
     ['Vida', j.vida?.actual ?? 0, j.vida?.max ?? 1, 'vida'],
     j.mana?.max ? ['Ánima', j.mana.actual, j.mana.max, 'mana'] : null,

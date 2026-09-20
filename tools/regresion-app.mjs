@@ -10,6 +10,8 @@ const PORT = 8765;
 const DEBUG = 9228;
 const URL_APP = `http://127.0.0.1:${PORT}/app/index.html`;
 const out = process.argv.includes('--capturas') ? resolve('dist/regresion') : null;
+const desktop = process.argv.includes('--desktop');
+const viewport = desktop ? { width: 1440, height: 900, label: '1440x900' } : { width: 390, height: 844, label: '390x844' };
 const profile = await mkdtemp(join(tmpdir(), 'rollapp-chrome-'));
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 const children = [];
@@ -38,7 +40,7 @@ const server = launch(process.execPath, ['tools/servir.mjs', '--puerto', String(
 let serverErr = ''; server.stderr.on('data', d => { serverErr += d; });
 const chrome = launch('google-chrome', [
   '--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars',
-  '--window-size=390,844', `--remote-debugging-port=${DEBUG}`,
+  `--window-size=${viewport.width},${viewport.height}`, `--remote-debugging-port=${DEBUG}`,
   `--user-data-dir=${profile}`, 'about:blank',
 ]);
 let chromeErr = ''; chrome.stderr.on('data', d => { chromeErr += d; });
@@ -90,13 +92,13 @@ try {
   await until('window.ARCANUM?.motor?.listo && document.body.classList.contains("esta-listo")');
   const boot = await evaluate(`({screen:document.body.dataset.activeScreen, systems:ARCANUM.inspeccionar().total, failures:document.querySelectorAll('#fallos').length})`);
   if (boot.screen !== 'inicio' || boot.failures) throw new Error(`arranque invÃ¡lido ${JSON.stringify(boot)}`);
-  await shot('01-inicio-390x844.png');
+  await shot(`01-inicio-${viewport.label}.png`);
 
   await evaluate(`document.querySelector('#inicio-acciones .btn--grande').click()`);
   await until('document.body.dataset.activeScreen === "creacion"');
   await evaluate(`(()=>{const fill=(q,v)=>{const n=document.querySelector(q);n.value=v;n.dispatchEvent(new Event('input',{bubbles:true}))};fill('#nombre','Lyra');document.querySelector('[data-clave="raza"][data-valor="albar"]').click();fill('#retrato-descripcion','exploradora de pelo plateado y cicatriz en la ceja');fill('#lore-personaje','Mi hermana cruzó el Umbral con nuestro medallón. La busco desde entonces.');})()`);
   await until('document.querySelector("#creacion-cara .arte")');
-  await shot('02-creacion-elfa-390x844.png');
+  await shot(`02-creacion-${viewport.label}.png`);
   await evaluate(`document.querySelector('#creacion-empezar').click()`);
   await until('document.body.dataset.activeScreen === "juego" && !document.querySelector("#entrada").disabled && ARCANUM.sistema("turns").inspeccionar().ocupado === false && ARCANUM.ver("narrative.entradas",[]).length > 0 && ARCANUM.ver("player.lore","").includes("hermana")', 15000);
 
@@ -114,7 +116,7 @@ try {
     if (result.disabled || result.failures) throw new Error(`turno fallido: ${a}`);
   }
   if (turns.at(-1).lines < 20) throw new Error(`la bitácora no avanzó: ${turns.at(-1).lines}`);
-  await shot('03-partida-20-turnos-390x844.png');
+  await shot(`03-partida-20-turnos-${viewport.label}.png`);
 
   const beforeOffline = await evaluate(`navigator.serviceWorker.ready.then(()=>({controlled:Boolean(navigator.serviceWorker.controller),lines:ARCANUM.ver('narrative.entradas',[]).length}))`);
   await wait(700);
@@ -122,11 +124,11 @@ try {
   await cdp('Page.reload', { ignoreCache: false });
   await until('window.ARCANUM?.motor?.listo && document.body.classList.contains("esta-listo")', 15000);
   const offline = await evaluate(`({screen:document.body.dataset.activeScreen, title:document.title, failures:document.querySelectorAll('#fallos .fallos__linea').length})`);
-  await shot('04-offline-390x844.png');
+  await shot(`04-offline-${viewport.label}.png`);
   if (offline.title !== 'ARCANUM' || offline.failures) throw new Error(`offline invÃ¡lido ${JSON.stringify(offline)}`);
 
   const report = {
-    viewport: '390x844', systems: boot.systems, turns: turns.length,
+    viewport: viewport.label, systems: boot.systems, turns: turns.length,
     maxLogLines: Math.max(...turns.map(t => t.lines)),
     exceptions: exceptions.length, serviceWorkerControlled: beforeOffline.controlled,
     offlineScreen: offline.screen, failures: offline.failures,

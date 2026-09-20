@@ -91,6 +91,17 @@ function vaciar(nodo) {
   if (nodo) nodo.innerHTML = '';
 }
 
+/** Señala que una pieza procedural se está recomponiendo, sin bloquear la UI. */
+function animarGeneracion(nodo, etiqueta = 'Tejiendo rasgos') {
+  if (!nodo) return;
+  nodo.dataset.generando = etiqueta;
+  nodo.classList.remove('se-esta-generando');
+  void nodo.offsetWidth;
+  nodo.classList.add('se-esta-generando');
+  clearTimeout(nodo._finGeneracion);
+  nodo._finGeneracion = setTimeout(() => nodo.classList.remove('se-esta-generando'), 720);
+}
+
 /** Muestra un fallo en pantalla en vez de dejar la página muda. */
 function avisarFallo(donde, error) {
   console.error('[arcanum] ' + donde, error);
@@ -296,6 +307,7 @@ function pintarCreacion() {
         maxlength: '360', value: borrador.retrato,
         onInput: (e) => {
           borrador.retrato = e.target.value;
+          animarGeneracion(cara, 'Interpretando descripción');
           pintarRetrato(cara, {
             raza: borrador.raza,
             nombre: RAZAS[borrador.raza]?.nombre,
@@ -342,6 +354,7 @@ function grupoEleccion(titulo, catalogo, clave) {
         onClick: protegido('elección', () => {
           borrador[clave] = o.refId;
           pintarCreacion();
+          if (clave === 'raza') animarGeneracion($('#creacion-cara'), 'Forjando linaje');
         }),
       },
         el('span', { class: 'ficha__nombre', text: o.nombre }),

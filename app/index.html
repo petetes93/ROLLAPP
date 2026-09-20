@@ -522,6 +522,15 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 .eleccion__cara::after,.retrato-pj::after{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(110deg,transparent 25%,rgba(195,185,255,.14) 45%,transparent 65%);transform:translateX(-130%);animation:destelloRetrato 6s ease-in-out infinite}
 @keyframes retratoEntra{from{opacity:0;transform:translateX(-18px) rotate(-1.5deg)}to{opacity:1;transform:none}}
 @keyframes destelloRetrato{0%,72%{transform:translateX(-130%)}88%,100%{transform:translateX(130%)}}
+
+/* El arte local no aparece de golpe: el marco enseña que el mundo se está
+   calculando a partir de las palabras del jugador. */
+.eleccion__cara::before,.retrato-pj::before{content:attr(data-generando);position:absolute;left:8px;right:8px;bottom:8px;z-index:4;padding:.3rem .45rem;font:600 .56rem/1.2 var(--mono);letter-spacing:.12em;text-align:center;text-transform:uppercase;color:#F0D58A;background:linear-gradient(90deg,transparent,#120D0BE8 18% 82%,transparent);opacity:0;transform:translateY(8px);pointer-events:none}
+.eleccion__cara.se-esta-generando::before,.retrato-pj.se-esta-generando::before{animation:estadoGeneracion .72s ease both}
+.eleccion__cara.se-esta-generando>.arte,.retrato-pj.se-esta-generando>.arte{animation:piezaSeForja .72s cubic-bezier(.2,.8,.2,1) both}
+.eleccion__cara.se-esta-generando{box-shadow:0 0 0 1px #D7AD55,0 0 32px rgba(206,157,58,.3),inset 0 0 28px rgba(239,196,91,.14)}
+@keyframes estadoGeneracion{0%,100%{opacity:0;transform:translateY(8px)}18%,78%{opacity:1;transform:none}}
+@keyframes piezaSeForja{0%{opacity:.25;filter:sepia(1) brightness(1.8) blur(5px);transform:scale(1.08)}48%{opacity:.82;filter:sepia(.55) brightness(1.25) blur(1px)}100%{opacity:1;filter:none;transform:none}}
 .ficha{transition:transform .2s ease,border-color .2s ease,background .2s ease,box-shadow .2s ease}
 .ficha:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(0,0,0,.28)}
 .ficha.es-elegida{animation:eleccionPulso .42s cubic-bezier(.2,.9,.25,1)}
@@ -547,7 +556,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 .modal:not([hidden]){animation:veloEntra .28s ease both}.modal:not([hidden]) .modal__panel{animation:panelEntra .42s cubic-bezier(.2,.9,.2,1) both}
 @keyframes veloEntra{from{opacity:0}to{opacity:1}}@keyframes panelEntra{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
 .opcion,.btn{transition:transform .16s ease,background .16s,border-color .16s,box-shadow .16s}.opcion:active,.btn:active{transform:scale(.96)}
-@media(prefers-reduced-motion:reduce){.inicio__marca,.eleccion__cara,.eleccion__cara::after,.retrato-pj::after,.escena__lienzo>.arte,.barra__relleno::after,.combate__criatura{animation:none!important}.pantalla-entrando,.linea.es-reciente,.tirada.es-reciente,.modal:not([hidden]),.modal:not([hidden]) .modal__panel{animation-duration:.01ms!important}}
+@media(prefers-reduced-motion:reduce){.inicio__marca,.eleccion__cara,.eleccion__cara::after,.retrato-pj::after,.eleccion__cara::before,.retrato-pj::before,.eleccion__cara>.arte,.retrato-pj>.arte,.escena__lienzo>.arte,.barra__relleno::after,.combate__criatura{animation:none!important}.pantalla-entrando,.linea.es-reciente,.tirada.es-reciente,.modal:not([hidden]),.modal:not([hidden]) .modal__panel{animation-duration:.01ms!important}}
 </style>
 
 <style id="fantasy-chrome-final">

@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 
 const clave = process.env.GEMINI_API_KEY?.trim();
 const puerto = Number(process.env.GEMINI_PROXY_PORT) || 11435;
-const hostApp = process.env.ROLLAPP_ORIGIN?.trim() || 'http://localhost:8080';
+const hostApp = process.env.ARCANVEIL_ORIGIN?.trim() || 'http://localhost:8080';
 if (!clave) {
   console.error('Falta GEMINI_API_KEY. Define la variable antes de arrancar.');
   process.exit(1);

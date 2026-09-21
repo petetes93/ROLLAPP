@@ -103,9 +103,9 @@ sin conexión.
 
 Desde la consola del navegador:
 
-## Catálogo ilustrado original de ROLLAPP
+## Catálogo ilustrado original de ARCANVEIL
 
 Los 40 archivos WebP de `assets/retratos`, `assets/paisajes` y `assets/criaturas`
-fueron creados específicamente para ROLLAPP. No derivan del ejemplo de Pixabay
+fueron creados específicamente para ARCANVEIL. No derivan del ejemplo de Pixabay
 ni incorporan personajes, logotipos o activos de Wizards of the Coast u otras
 obras de terceros. El control visual aplicado está documentado en `ART_QC.md`.

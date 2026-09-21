@@ -13,7 +13,7 @@ La app sigue ejecutándose en el equipo. El proxy local guarda la clave fuera de
 
 ### Windows PowerShell
 
-Reemplaza `PEGA_AQUI_TU_CLAVE` y ejecuta esta línea desde la carpeta de ROLLAPP:
+Reemplaza `PEGA_AQUI_TU_CLAVE` y ejecuta esta línea desde la carpeta de ARCANVEIL:
 
 ```powershell
 $env:GEMINI_API_KEY='PEGA_AQUI_TU_CLAVE'; node tools/iniciar-gemini.mjs
@@ -21,7 +21,7 @@ $env:GEMINI_API_KEY='PEGA_AQUI_TU_CLAVE'; node tools/iniciar-gemini.mjs
 
 ### macOS o Linux
 
-Reemplaza `PEGA_AQUI_TU_CLAVE` y ejecuta esta línea desde la carpeta de ROLLAPP:
+Reemplaza `PEGA_AQUI_TU_CLAVE` y ejecuta esta línea desde la carpeta de ARCANVEIL:
 
 ```bash
 GEMINI_API_KEY='PEGA_AQUI_TU_CLAVE' node tools/iniciar-gemini.mjs
@@ -34,7 +34,7 @@ Abre `http://localhost:8080/app/index.html`. En **Narrador > IA local** usa:
 
 La web ya propone esos dos valores. Abre **Narrador**, pulsa **Probar conexión** y después **Usar IA local**. Cuando termines, pulsa `Ctrl+C`; al cerrar la terminal la clave desaparece del proceso.
 
-Si cambias el puerto con `ROLLAPP_PORT`, el lanzador configura también el origen permitido del proxy. Para servir la web desde otro host, fija `ROLLAPP_ORIGIN` de forma explícita.
+Si cambias el puerto con `ARCANVEIL_PORT`, el lanzador configura también el origen permitido del proxy. Para servir la web desde otro host, fija `ARCANVEIL_ORIGIN` de forma explícita.
 
 ## Seguridad y capa gratuita
 

@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-/** Puente local ROLLAPP -> ComfyUI. Sin nube, cuenta ni coste por imagen. */
+/** Puente local ARCANVEIL -> ComfyUI. Sin nube, cuenta ni coste por imagen. */
 import http from 'node:http';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-const PORT = Number(process.env.ROLLAPP_IMAGE_PORT || 11436);
+const PORT = Number(process.env.ARCANVEIL_IMAGE_PORT || 11436);
 const COMFY = process.env.COMFY_URL || 'http://127.0.0.1:8188';
-const CONFIG_PATH = join(process.cwd(), '.rollapp-image-config.json');
+const CONFIG_PATH = join(process.cwd(), '.arcanveil-image-config.json');
 const CONFIG = existsSync(CONFIG_PATH) ? JSON.parse(await readFile(CONFIG_PATH, 'utf8')) : {};
-const CHECKPOINT = process.env.ROLLAPP_IMAGE_MODEL || CONFIG.model || 'sd_xl_base_1.0.safetensors';
+const CHECKPOINT = process.env.ARCANVEIL_IMAGE_MODEL || CONFIG.model || 'sd_xl_base_1.0.safetensors';
 const WIDTH = Number(CONFIG.width || 768);
 const HEIGHT = Number(CONFIG.height || 960);
 const STEPS = Number(CONFIG.steps || 28);
@@ -18,7 +18,7 @@ const CFG = Number(CONFIG.cfg || 6.5);
 const SAMPLER = CONFIG.sampler || 'dpmpp_2m';
 const SCHEDULER = CONFIG.scheduler || 'karras';
 const ARCH = CONFIG.architecture || 'sdxl';
-const CACHE = join(process.cwd(), '.rollapp-images');
+const CACHE = join(process.cwd(), '.arcanveil-images');
 await mkdir(CACHE, { recursive: true });
 
 const lineage = {
@@ -42,7 +42,7 @@ function graph(prompt, seed) {
     4: { class_type: 'EmptyLatentImage', inputs: { width: WIDTH, height: HEIGHT, batch_size: 1 } },
     5: { class_type: 'KSampler', inputs: { seed, steps: STEPS, cfg: CFG, sampler_name: SAMPLER, scheduler: SCHEDULER, denoise: 1, model: ['1', 0], positive: ['2', 0], negative: ['3', 0], latent_image: ['4', 0] } },
     6: { class_type: 'VAEDecode', inputs: { samples: ['5', 0], vae: ['1', 2] } },
-    7: { class_type: 'SaveImage', inputs: { filename_prefix: 'ROLLAPP/portrait', images: ['6', 0] } },
+    7: { class_type: 'SaveImage', inputs: { filename_prefix: 'ARCANVEIL/portrait', images: ['6', 0] } },
   };
 }
 function headers(type='application/json') {
@@ -86,4 +86,4 @@ const server = http.createServer(async (req,res) => {
     const image=await generate(body); res.writeHead(200,headers('image/png')); res.end(image);
   } catch (e) { res.writeHead(502,headers()); res.end(JSON.stringify({error:String(e.message)})); }
 });
-server.listen(PORT,'127.0.0.1',()=>console.log(`ROLLAPP imagen local: http://127.0.0.1:${PORT} -> ${COMFY} (${CHECKPOINT}, ${ARCH}, ${WIDTH}x${HEIGHT})`));
+server.listen(PORT,'127.0.0.1',()=>console.log(`ARCANVEIL imagen local: http://127.0.0.1:${PORT} -> ${COMFY} (${CHECKPOINT}, ${ARCH}, ${WIDTH}x${HEIGHT})`));

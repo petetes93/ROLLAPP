@@ -28,5 +28,5 @@ credenciales.*
 dist/
 .gstack/
 
-.rollapp-images/
-.rollapp-image-config.json
+.arcanveil-images/
+.arcanveil-image-config.json

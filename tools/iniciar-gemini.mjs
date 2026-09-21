@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Arranca ROLLAPP y el proxy seguro de Gemini con un solo comando.
+ * Arranca ARCANVEIL y el proxy seguro de Gemini con un solo comando.
  * La clave se hereda desde GEMINI_API_KEY y no se escribe en disco.
  */
 import { spawn } from 'node:child_process';
@@ -44,5 +44,5 @@ for (const proceso of procesos) {
 
 process.on('SIGINT', () => cerrar(0));
 process.on('SIGTERM', () => cerrar(0));
-console.log(`ROLLAPP estará en http://localhost:${puertoApp}/app/index.html`);
+console.log(`ARCANVEIL estará en http://localhost:${puertoApp}/app/index.html`);
 console.log('Pulsa Ctrl+C para cerrar la app y el proxy.');

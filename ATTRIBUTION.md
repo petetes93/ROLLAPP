@@ -1,4 +1,4 @@
-# Atribuciones y licencias · ARCANUM
+# Atribuciones y licencias · ARCANVEIL
 
 Este documento cumple las obligaciones de atribución de las licencias abiertas
 utilizadas en el proyecto. **No lo elimines ni lo modifiques al distribuir la
@@ -74,7 +74,7 @@ conexión.
 
 ---
 
-## 4. Contenido original de ARCANUM
+## 4. Contenido original de ARCANVEIL
 
 Todo lo que no proceda de las fuentes anteriores es obra original de este
 proyecto y no deriva de material protegido. En particular:
@@ -103,9 +103,9 @@ sin conexión.
 
 Desde la consola del navegador:
 
-## Catálogo ilustrado original de ROLLAPP
+## Catálogo ilustrado original de ARCANVEIL
 
 Los 40 archivos WebP de `assets/retratos`, `assets/paisajes` y `assets/criaturas`
-fueron creados específicamente para ROLLAPP. No derivan del ejemplo de Pixabay
+fueron creados específicamente para ARCANVEIL. No derivan del ejemplo de Pixabay
 ni incorporan personajes, logotipos o activos de Wizards of the Coast u otras
 obras de terceros. El control visual aplicado está documentado en `ART_QC.md`.

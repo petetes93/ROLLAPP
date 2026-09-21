@@ -38,7 +38,7 @@ export const APP = congelar({
   id: 'arcanum',
 
   /** Nombre visible en portada y cabecera. */
-  nombre: 'ARCANUM',
+  nombre: 'ARCANVEIL',
 
   /** Subtítulo de portada. */
   lema: 'Crónicas de los Reinos Quebrados',

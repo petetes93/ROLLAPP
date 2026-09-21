@@ -313,7 +313,8 @@ function exponerGlobal() {
     diagnostico: () => Logger.volcar(),
   };
 
-  log.info('Consola de depuración disponible en window.ARCANUM');
+  window.ARCANVEIL = window.ARCANUM;
+  log.info('Consola de depuración disponible en window.ARCANVEIL (alias heredado: window.ARCANUM)');
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

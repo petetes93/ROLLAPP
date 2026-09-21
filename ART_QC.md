@@ -1,6 +1,6 @@
 # Control de calidad de arte
 
-Todo el catálogo raster es original de ROLLAPP. No usa el ejemplo de Pixabay ni activos, logos, monstruos o personajes de terceros.
+Todo el catálogo raster es original de ARCANVEIL. No usa el ejemplo de Pixabay ni activos, logos, monstruos o personajes de terceros.
 
 ## Gate antes de publicar
 

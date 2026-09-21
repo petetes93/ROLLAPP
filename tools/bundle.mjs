@@ -65,7 +65,7 @@ const ESTILOS = [
 
 function leerArgumentos(argv) {
   const opciones = {
-    salida: 'dist/arcanum.html',
+    salida: 'dist/arcanveil.html',
     entrada: ENTRADA,
     html: HTML_BASE,
     sinEstilos: false,
@@ -642,7 +642,7 @@ async function ensamblarHTML(datos) {
 async function principal() {
   const opciones = leerArgumentos(process.argv);
 
-  console.log('ARCANUM · empaquetando\n');
+  console.log('ARCANVEIL · empaquetando\n');
 
   // ─── Grafo de módulos ───────────────────────────────────────────────────
   console.log('Módulos:');

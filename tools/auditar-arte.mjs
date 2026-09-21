@@ -120,7 +120,7 @@ function comprobar(etiqueta, svg) {
   }
 }
 
-console.log('ARCANUM · auditoría de arte\n');
+console.log('ARCANVEIL · auditoría de arte\n');
 
 /* ── Retratos ─────────────────────────────────────────────────────────────── */
 for (const r of Object.values(RAZAS)) {

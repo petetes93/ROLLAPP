@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Puente local ROLLAPP -> ComfyUI. Sin nube, cuenta ni coste por imagen. */
+/** Puente local ARCANVEIL -> ComfyUI. Sin nube, cuenta ni coste por imagen. */
 import http from 'node:http';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -42,7 +42,7 @@ function graph(prompt, seed) {
     4: { class_type: 'EmptyLatentImage', inputs: { width: WIDTH, height: HEIGHT, batch_size: 1 } },
     5: { class_type: 'KSampler', inputs: { seed, steps: STEPS, cfg: CFG, sampler_name: SAMPLER, scheduler: SCHEDULER, denoise: 1, model: ['1', 0], positive: ['2', 0], negative: ['3', 0], latent_image: ['4', 0] } },
     6: { class_type: 'VAEDecode', inputs: { samples: ['5', 0], vae: ['1', 2] } },
-    7: { class_type: 'SaveImage', inputs: { filename_prefix: 'ROLLAPP/portrait', images: ['6', 0] } },
+    7: { class_type: 'SaveImage', inputs: { filename_prefix: 'ARCANVEIL/portrait', images: ['6', 0] } },
   };
 }
 function headers(type='application/json') {
@@ -86,4 +86,4 @@ const server = http.createServer(async (req,res) => {
     const image=await generate(body); res.writeHead(200,headers('image/png')); res.end(image);
   } catch (e) { res.writeHead(502,headers()); res.end(JSON.stringify({error:String(e.message)})); }
 });
-server.listen(PORT,'127.0.0.1',()=>console.log(`ROLLAPP imagen local: http://127.0.0.1:${PORT} -> ${COMFY} (${CHECKPOINT}, ${ARCH}, ${WIDTH}x${HEIGHT})`));
+server.listen(PORT,'127.0.0.1',()=>console.log(`ARCANVEIL imagen local: http://127.0.0.1:${PORT} -> ${COMFY} (${CHECKPOINT}, ${ARCH}, ${WIDTH}x${HEIGHT})`));

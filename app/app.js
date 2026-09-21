@@ -1262,6 +1262,7 @@ async function arrancar() {
     jugar: (t) => enviar(t),
     inspeccionar: (n) => (n ? sistema(n)?.inspeccionar?.() : motor.registry?.inspeccionar?.()),
   };
+  window.ARCANVEIL = window.ARCANUM;
 }
 
 if (document.readyState === 'loading') {

@@ -71,7 +71,7 @@ $config = [ordered]@{
 }
 $config | ConvertTo-Json -Depth 5 | Set-Content -Encoding UTF8 $ConfigPath
 Write-Host "GPU: $($gpu.Name) | VRAM detectada: $([math]::Round($gpu.VramMB/1024,1)) GB | RAM: $ramGB GB"
-Write-Host "Perfil ROLLAPP: $Perfil - $($p.label)"
+Write-Host "Perfil ARCANVEIL: $Perfil - $($p.label)"
 Write-Host "Configuración: $ConfigPath"
 
 if ($InstalarModelo) {
@@ -80,7 +80,7 @@ if ($InstalarModelo) {
   if (Test-Path $modelPath) { Write-Host "El modelo ya existe: $modelPath" }
   else {
     Write-Host "Descargando $($p.label). Puede tardar; no cierres esta ventana."
-    Start-BitsTransfer -Source $p.url -Destination $modelPath -DisplayName "Modelo ROLLAPP $Perfil"
+    Start-BitsTransfer -Source $p.url -Destination $modelPath -DisplayName "Modelo ARCANVEIL $Perfil"
     Write-Host "Modelo instalado: $modelPath"
   }
 }

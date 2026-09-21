@@ -1,4 +1,4 @@
-# ARCANUM · guía para Claude Code
+# ARCANVEIL · guía para Claude Code
 
 Motor de rol narrativo web. **145 módulos, 66.000 líneas, cero dependencias.**
 Todo en español: nombres de función, variables, comentarios y comunicación.
@@ -391,7 +391,7 @@ toda conexión apunte a algo que existe y que ningún estado quede aislado.
 
 ## 11 · Repositorio
 
-`https://github.com/petetes93/ROLLAPP`
+`https://github.com/petetes93/arcanveil`
 
 Ver `SUBIR.md` para los comandos. `TESTING.md` tiene 15 bloques de prueba
 manual ordenados para que los fallos salgan pronto; el bloque 15 —cuarenta

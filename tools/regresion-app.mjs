@@ -139,7 +139,7 @@ try {
   await until('window.ARCANUM?.motor?.listo && document.body.classList.contains("esta-listo")', 15000);
   const offline = await evaluate(`({screen:document.body.dataset.activeScreen, title:document.title, failures:document.querySelectorAll('#fallos .fallos__linea').length})`);
   await shot(`04-offline-${viewport.label}.png`);
-  if (offline.title !== 'ARCANUM' || offline.failures) throw new Error(`offline invÃ¡lido ${JSON.stringify(offline)}`);
+  if (offline.title !== 'ARCANVEIL' || offline.failures) throw new Error(`offline invÃ¡lido ${JSON.stringify(offline)}`);
 
   const report = {
     viewport: viewport.label, systems: boot.systems, turns: turns.length,

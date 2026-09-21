@@ -68,7 +68,7 @@ export const CATALOGO = Object.freeze([
     id: PROVEEDORES.LOCAL,
     nombre: 'Gemini desde tu PC',
     clase: LocalLLMProvider,
-    descripcion: 'Usa el proxy local de ROLLAPP: la clave nunca entra en el navegador ni en la partida.',
+    descripcion: 'Usa el proxy local de ARCANVEIL: la clave nunca entra en el navegador ni en la partida.',
     requisitos: ['El lanzador local de Gemini arrancado', 'Conexión a internet desde el proxy'],
     sinRed: false,
     sinCredencial: true,

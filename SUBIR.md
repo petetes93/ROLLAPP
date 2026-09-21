@@ -7,7 +7,7 @@ git init
 git add .
 git commit -m "ARCANUM: motor de rol narrativo web"
 git branch -M main
-git remote add origin https://github.com/petetes93/ROLLAPP.git
+git remote add origin https://github.com/petetes93/arcanveil.git
 git push -u origin main
 ```
 
@@ -25,4 +25,4 @@ compilación: son archivos estáticos.
 
 En el repositorio → **Settings → Pages → Source: main / (root)**.
 
-En unos minutos estará en `https://petetes93.github.io/ROLLAPP/`.
+En unos minutos estará en `https://petetes93.github.io/arcanveil/`.

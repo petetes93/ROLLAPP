@@ -392,7 +392,7 @@ toda conexión apunte a algo que existe y que ningún estado quede aislado.
 
 ## 11 · Repositorio
 
-`https://github.com/petetes93/ROLLAPP`
+`https://github.com/petetes93/arcanveil`
 
 Ver `SUBIR.md` para los comandos. `TESTING.md` tiene 15 bloques de prueba
 manual ordenados para que los fallos salgan pronto; el bloque 15 —cuarenta

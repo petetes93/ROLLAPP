@@ -12,7 +12,7 @@ const URL_APP = `http://127.0.0.1:${PORT}/app/index.html`;
 const out = process.argv.includes('--capturas') ? resolve('dist/regresion') : null;
 const desktop = process.argv.includes('--desktop');
 const viewport = desktop ? { width: 1440, height: 900, label: '1440x900' } : { width: 390, height: 844, label: '390x844' };
-const profile = await mkdtemp(join(tmpdir(), 'rollapp-chrome-'));
+const profile = await mkdtemp(join(tmpdir(), 'arcanveil-chrome-'));
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 const children = [];
 const stop = async () => {

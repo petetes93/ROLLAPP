@@ -103,7 +103,7 @@ export class LocalLLMProvider extends IDMProvider {
     if (!this._modelo) {
       return {
         disponible: false,
-        motivo: 'Falta el nombre del modelo. Con el proxy de ROLLAPP usa gemini-3.5-flash.',
+        motivo: 'Falta el nombre del modelo. Con el proxy de ARCANVEIL usa gemini-3.5-flash.',
       };
     }
 

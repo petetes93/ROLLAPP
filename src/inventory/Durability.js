@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · inventory/Durability.js
+ * ARCANVEIL · inventory/Durability.js
  * ---------------------------------------------------------------------------
  * Desgaste y reparación de objetos.
  *

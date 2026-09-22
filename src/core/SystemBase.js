@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · core/SystemBase.js
+ * ARCANVEIL · core/SystemBase.js
  * ---------------------------------------------------------------------------
  * Clase base de todo sistema del motor.
  *

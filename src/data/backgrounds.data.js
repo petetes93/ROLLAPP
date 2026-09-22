@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · data/backgrounds.data.js
+ * ARCANVEIL · data/backgrounds.data.js
  * ---------------------------------------------------------------------------
  * Trasfondos: qué hacía el personaje antes de que empezara la crónica.
  *

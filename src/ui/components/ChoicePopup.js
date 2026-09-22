@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/ChoicePopup.js
+ * ARCANVEIL · ui/components/ChoicePopup.js
  * ---------------------------------------------------------------------------
  * Popup de opciones sugeridas por el director.
  *

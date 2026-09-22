@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · inventory/LootGenerator.js
+ * ARCANVEIL · inventory/LootGenerator.js
  * ---------------------------------------------------------------------------
  * Generación de botín: enemigos, contenedores y hallazgos.
  *

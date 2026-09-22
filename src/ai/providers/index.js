@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ai/providers/index.js
+ * ARCANVEIL · ai/providers/index.js
  * ---------------------------------------------------------------------------
  * Catálogo y fábrica de proveedores.
  *
@@ -125,7 +125,7 @@ export function crearTodos(opciones = {}) {
       mapa.set(entrada.id, new entrada.clase(opciones));
     } catch (e) {
       // Un proveedor que no se puede construir no debe impedir el arranque.
-      console.warn(`[arcanum] no se pudo crear el proveedor ${entrada.id}`, e);
+      console.warn(`[arcanveil] no se pudo crear el proveedor ${entrada.id}`, e);
     }
   }
 

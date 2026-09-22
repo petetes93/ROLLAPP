@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · progression/AchievementSystem.js
+ * ARCANVEIL · progression/AchievementSystem.js
  * ---------------------------------------------------------------------------
  * Detección y desbloqueo de hazañas.
  *

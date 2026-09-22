@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · tools/lamina-arte.mjs
+ * ARCANVEIL · tools/lamina-arte.mjs
  * ---------------------------------------------------------------------------
  * Lámina de contacto de todo el arte generado.
  *
@@ -109,7 +109,7 @@ if (porHoras) {
 
 const html = `<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8">
-<title>ARCANUM · lámina de arte</title>
+<title>ARCANVEIL · lámina de arte</title>
 <style>
   body{margin:0;padding:2rem;background:#14161A;color:#DED8CB;
        font:15px/1.5 system-ui,sans-serif}
@@ -132,7 +132,7 @@ const html = `<!DOCTYPE html>
              display:flex;justify-content:space-between;gap:.5rem}
   figcaption span{color:#6E6961;font-family:ui-monospace,monospace;font-size:.66rem}
 </style></head><body>
-<h1>ARCANUM · lámina de arte</h1>
+<h1>ARCANVEIL · lámina de arte</h1>
 <p>Todo generado por código desde <code>src/art/</code>. Ninguna imagen externa.</p>
 ${secciones.join('\n')}
 </body></html>`;

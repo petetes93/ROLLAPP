@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · combat/DamageCalculator.js
+ * ARCANVEIL · combat/DamageCalculator.js
  * ---------------------------------------------------------------------------
  * Cálculo del daño, desde la tirada hasta la vida perdida.
  *

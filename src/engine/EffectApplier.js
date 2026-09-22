@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · engine/EffectApplier.js
+ * ARCANVEIL · engine/EffectApplier.js
  * ---------------------------------------------------------------------------
  * Aplicación de los efectos propuestos por el director.
  *

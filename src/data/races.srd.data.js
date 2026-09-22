@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · data/races.srd.data.js
+ * ARCANVEIL · data/races.srd.data.js
  * ---------------------------------------------------------------------------
  * Paquete de linajes basado en el System Reference Document.
  *

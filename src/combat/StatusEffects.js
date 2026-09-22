@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · combat/StatusEffects.js
+ * ARCANVEIL · combat/StatusEffects.js
  * ---------------------------------------------------------------------------
  * Aplicación, acumulación y resolución de estados alterados.
  *

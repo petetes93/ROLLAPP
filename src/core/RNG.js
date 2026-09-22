@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · core/RNG.js
+ * ARCANVEIL · core/RNG.js
  * ---------------------------------------------------------------------------
  * Generador de números pseudoaleatorios determinista, con semilla.
  *

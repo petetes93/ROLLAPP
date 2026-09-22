@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · inventory/Inventory.js
+ * ARCANVEIL · inventory/Inventory.js
  * ---------------------------------------------------------------------------
  * Sistema coordinador del inventario.
  *

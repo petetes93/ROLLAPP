@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · player/Progression.js
+ * ARCANVEIL · player/Progression.js
  * ---------------------------------------------------------------------------
  * Experiencia, niveles y recompensas de progresión.
  *

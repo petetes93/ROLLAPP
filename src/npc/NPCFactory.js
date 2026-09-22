@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · npc/NPCFactory.js
+ * ARCANVEIL · npc/NPCFactory.js
  * ---------------------------------------------------------------------------
  * Generación de personajes coherentes con el sitio donde aparecen.
  *

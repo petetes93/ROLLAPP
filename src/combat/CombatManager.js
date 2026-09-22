@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · combat/CombatManager.js
+ * ARCANVEIL · combat/CombatManager.js
  * ---------------------------------------------------------------------------
  * Orquestador del combate.
  *

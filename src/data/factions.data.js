@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · data/factions.data.js
+ * ARCANVEIL · data/factions.data.js
  * ---------------------------------------------------------------------------
  * Facciones de los Reinos Quebrados. Contenido original.
  *

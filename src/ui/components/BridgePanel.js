@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/BridgePanel.js
+ * ARCANVEIL · ui/components/BridgePanel.js
  * ---------------------------------------------------------------------------
  * Panel del puente manual.
  *

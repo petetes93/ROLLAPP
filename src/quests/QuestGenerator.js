@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · quests/QuestGenerator.js
+ * ARCANVEIL · quests/QuestGenerator.js
  * ---------------------------------------------------------------------------
  * Generación de misiones a partir del mundo.
  *

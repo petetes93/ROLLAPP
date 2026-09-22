@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · combat/EnemyAI.js
+ * ARCANVEIL · combat/EnemyAI.js
  * ---------------------------------------------------------------------------
  * Decisiones de los enemigos en combate.
  *

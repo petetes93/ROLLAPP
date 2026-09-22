@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · inventory/ItemFactory.js
+ * ARCANVEIL · inventory/ItemFactory.js
  * ---------------------------------------------------------------------------
  * Construcción de objetos: desde el catálogo, aleatorios y desde el director.
  *

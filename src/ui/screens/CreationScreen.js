@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/screens/CreationScreen.js
+ * ARCANVEIL · ui/screens/CreationScreen.js
  * ---------------------------------------------------------------------------
  * Creación de personaje como conversación, no como formulario.
  *

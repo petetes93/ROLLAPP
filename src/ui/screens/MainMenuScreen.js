@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/screens/MainMenuScreen.js
+ * ARCANVEIL · ui/screens/MainMenuScreen.js
  * ---------------------------------------------------------------------------
  * Menú principal: la portada.
  *

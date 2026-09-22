@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/Panel.js
+ * ARCANVEIL · ui/components/Panel.js
  * ---------------------------------------------------------------------------
  * Bloque de panel con cabecera: título, icono, contador y cuerpo.
  *

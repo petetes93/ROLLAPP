@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · npc/FactionSystem.js
+ * ARCANVEIL · npc/FactionSystem.js
  * ---------------------------------------------------------------------------
  * Coordinador de personajes y facciones.
  *

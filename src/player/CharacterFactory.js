@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · player/CharacterFactory.js
+ * ARCANVEIL · player/CharacterFactory.js
  * ---------------------------------------------------------------------------
  * Ensamblado del personaje a partir del borrador de la entrevista.
  *

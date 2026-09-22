@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · npc/RelationshipSystem.js
+ * ARCANVEIL · npc/RelationshipSystem.js
  * ---------------------------------------------------------------------------
  * Relaciones individuales con los personajes.
  *

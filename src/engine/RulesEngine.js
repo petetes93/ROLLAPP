@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · engine/RulesEngine.js
+ * ARCANVEIL · engine/RulesEngine.js
  * ---------------------------------------------------------------------------
  * Resolución de pruebas del Sistema Núcleo d20.
  *

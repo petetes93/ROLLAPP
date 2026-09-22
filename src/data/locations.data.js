@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · data/locations.data.js
+ * ARCANVEIL · data/locations.data.js
  * ---------------------------------------------------------------------------
  * Geografía de los Reinos Quebrados. Contenido original.
  *

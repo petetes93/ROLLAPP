@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · persistence/SaveManager.js
+ * ARCANVEIL · persistence/SaveManager.js
  * ---------------------------------------------------------------------------
  * Gestión de partidas guardadas.
  *
@@ -41,7 +41,7 @@ export const EVENTOS_GUARDADO = Object.freeze({
 });
 
 /** Prefijo de las claves en LocalStorage. */
-const PREFIJO = 'arcanum:partida:';
+const PREFIJO = 'arcanveil:partida:';
 
 /** Ranura reservada al autoguardado. Nunca pisa las manuales. */
 const RANURA_AUTO = 'auto';
@@ -67,6 +67,15 @@ export class SaveManager extends SystemBase {
 
   alIniciar() {
     this._disponible = this._comprobarDisponibilidad();
+
+    // Antes de leer nada: rescatar lo guardado bajo el nombre anterior.
+    //
+    // Va SIN condicionar a `_disponible` a propósito. Esa bandera dice si se
+    // puede guardar AHORA, y es falsa mientras la persistencia esté desactivada
+    // —que es como viene de fábrica—. Pero copiar claves que ya están escritas
+    // no es guardar: es rescatar. Colgarlo de `_disponible` dejaba las partidas
+    // antiguas invisibles justo para quien no había tocado los ajustes.
+    this._migrarClavesHeredadas();
 
     this.escuchar('game:save', ({ ranura, nota }) => this.guardar(ranura, { nota }));
     this.escuchar('game:load', ({ ranura }) => this.cargar(ranura));
@@ -132,6 +141,71 @@ export class SaveManager extends SystemBase {
     } catch {
       this.log.aviso('LocalStorage no está disponible: la partida no se guardará');
       return false;
+    }
+  }
+
+  /**
+   * Copia a `arcanveil:` lo que quedó escrito bajo el prefijo `arcanum:`.
+   *
+   * El juego se llamó ARCANUM hasta el 22-09-2026, y todas sus claves de
+   * LocalStorage empezaban por `arcanum:`. Al renombrar el proyecto, un jugador
+   * que ya tuviera partidas habría abierto el juego y no habría encontrado
+   * ninguna: los datos siguen ahí, pero nadie los busca con ese nombre. Una
+   * partida perdida en silencio es el peor resultado posible de un cambio de
+   * nombre, que para el jugador no cambia nada.
+   *
+   * Decisiones deliberadas:
+   *
+   * - **No se borra el original.** Ocupa unos kilobytes y es la red de
+   *   seguridad si la copia sale mal. Que sobre un dato es barato; que falte,
+   *   no tiene arreglo.
+   * - **No se pisa lo que ya exista** en el prefijo nuevo. Si el jugador ya ha
+   *   jugado tras el renombrado, su partida reciente manda sobre la antigua.
+   * - **Se recorren las claves antes de tocarlas.** Escribir mientras se
+   *   itera `localStorage` corre los índices y se saltaría entradas.
+   *
+   * Esto puede retirarse cuando no quede nadie con guardados anteriores al
+   * renombrado, que en la práctica es nunca: vale lo mismo que la regla de oro
+   * de `Migrations.js`, una migración no se borra.
+   *
+   * @private
+   */
+  _migrarClavesHeredadas() {
+    const VIEJO = 'arcanum:';
+    const NUEVO = 'arcanveil:';
+
+    try {
+      const pendientes = [];
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const clave = localStorage.key(i);
+        if (clave?.startsWith(VIEJO)) pendientes.push(clave);
+      }
+
+      if (!pendientes.length) return;
+
+      let copiadas = 0;
+
+      for (const clave of pendientes) {
+        const destino = NUEVO + clave.slice(VIEJO.length);
+
+        // Ya hay algo más reciente ahí: no se toca.
+        if (localStorage.getItem(destino) !== null) continue;
+
+        const valor = localStorage.getItem(clave);
+        if (valor === null) continue;
+
+        localStorage.setItem(destino, valor);
+        copiadas += 1;
+      }
+
+      if (copiadas) {
+        this.log.info(`${copiadas} claves de guardado migradas de ARCANUM a ARCANVEIL`);
+      }
+    } catch (e) {
+      // El almacén puede llenarse a mitad de la copia o estar bloqueado. No es
+      // motivo para impedir jugar: lo antiguo sigue intacto y se avisa.
+      this.log.aviso(`No se pudieron migrar los guardados anteriores: ${e?.message ?? e}`);
     }
   }
 
@@ -440,7 +514,7 @@ export class SaveManager extends SystemBase {
   }
 
   /**
-   * Borra todo lo que ARCANUM haya escrito en el navegador.
+   * Borra todo lo que ARCANVEIL haya escrito en el navegador.
    *
    * Es la contrapartida de haber escrito algo: el jugador puede deshacerlo por
    * completo cuando quiera.
@@ -456,7 +530,7 @@ export class SaveManager extends SystemBase {
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const clave = localStorage.key(i);
 
-        if (clave?.startsWith('arcanum:')) {
+        if (clave?.startsWith('arcanveil:')) {
           localStorage.removeItem(clave);
           borradas++;
         }
@@ -611,7 +685,7 @@ export class SaveManager extends SystemBase {
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const clave = localStorage.key(i);
-        if (!clave?.startsWith('arcanum:')) continue;
+        if (!clave?.startsWith('arcanveil:')) continue;
 
         bytes += (localStorage.getItem(clave) ?? '').length * 2;
         claves++;

@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · src/art/paisaje.js
+ * ARCANVEIL · src/art/paisaje.js
  * ---------------------------------------------------------------------------
  * Paisaje generado para un lugar del mapa.
  *

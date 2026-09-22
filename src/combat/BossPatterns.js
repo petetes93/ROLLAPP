@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · combat/BossPatterns.js
+ * ARCANVEIL · combat/BossPatterns.js
  * ---------------------------------------------------------------------------
  * Comportamiento de jefes: fases, invocaciones y acciones legendarias.
  *

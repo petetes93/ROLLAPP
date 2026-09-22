@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/VitalsWidget.js
+ * ARCANVEIL · ui/components/VitalsWidget.js
  * ---------------------------------------------------------------------------
  * Las seis barras de estado: vida, maná, hambre, sed, vigor y moral.
  *

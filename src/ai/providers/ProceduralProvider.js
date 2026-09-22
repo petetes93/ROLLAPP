@@ -1,10 +1,10 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ai/providers/ProceduralProvider.js
+ * ARCANVEIL · ai/providers/ProceduralProvider.js
  * ---------------------------------------------------------------------------
  * Director de juego interno. Sin IA, sin red, sin claves.
  *
- * Es la pieza que garantiza que ARCANUM sea un juego completo por sí mismo.
+ * Es la pieza que garantiza que ARCANVEIL sea un juego completo por sí mismo.
  * También es el respaldo al que caen todos los demás proveedores cuando fallan.
  *
  * Cómo narra: no elige frases de una lista, COMPONE. Cada turno se ensambla a

@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · main.js
+ * ARCANVEIL · main.js
  * ---------------------------------------------------------------------------
  * Punto de entrada. Ensambla el núcleo, arranca los sistemas y entrega el
  * control a la interfaz.
@@ -120,7 +120,7 @@ function mostrarPantalla(pantalla) {
  * @param {string} [detalle]
  */
 function fatal(mensaje, detalle = '') {
-  const mostrar = /** @type {any} */ (window).__ARCANUM_FATAL__;
+  const mostrar = /** @type {any} */ (window).__ARCANVEIL_FATAL__;
   if (typeof mostrar === 'function') mostrar(mensaje, detalle);
   else console.error(mensaje, detalle);
 }
@@ -277,13 +277,13 @@ async function arrancar() {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /**
- * Publica el motor en window.ARCANUM para poder inspeccionarlo y toquetearlo
+ * Publica el motor en window.ARCANVEIL para poder inspeccionarlo y toquetearlo
  * desde la consola del navegador. Sólo en desarrollo.
  */
 function exponerGlobal() {
   if (!DEPURACION.exponerGlobal) return;
 
-  /** @type {any} */ (window).ARCANUM = {
+  /** @type {any} */ (window).ARCANVEIL = {
     version: APP.version,
     store,
     bus,
@@ -294,11 +294,11 @@ function exponerGlobal() {
 
     /** Estado completo. */
     estado: () => store.getState(),
-    /** Lectura por ruta: ARCANUM.ver('player.vida') */
+    /** Lectura por ruta: ARCANVEIL.ver('player.vida') */
     ver: (ruta) => store.select(ruta),
-    /** Ejecuta un turno: ARCANUM.turno() */
+    /** Ejecuta un turno: ARCANVEIL.turno() */
     turno: (opciones) => motor.registry?.exigir('clock').turno(opciones),
-    /** Tirada rápida de prueba: ARCANUM.dado('2d6+3') */
+    /** Tirada rápida de prueba: ARCANVEIL.dado('2d6+3') */
     dado: async (notacion = '1d20') => {
       const { evaluar } = await import('./core/Dice.js');
       return evaluar(motor.rng.dados, notacion);
@@ -313,7 +313,7 @@ function exponerGlobal() {
     diagnostico: () => Logger.volcar(),
   };
 
-  log.info('Consola de depuración disponible en window.ARCANUM');
+  log.info('Consola de depuración disponible en window.ARCANVEIL');
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

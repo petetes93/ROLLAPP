@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · core/Registry.js
+ * ARCANVEIL · core/Registry.js
  * ---------------------------------------------------------------------------
  * Registro y orquestación del ciclo de vida de los sistemas.
  *

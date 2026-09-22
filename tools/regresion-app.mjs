@@ -89,8 +89,8 @@ try {
     }
   };
   await cdp('Runtime.enable'); await cdp('Page.enable'); await cdp('Network.enable');
-  await until('window.ARCANUM?.motor?.listo && document.body.classList.contains("esta-listo")');
-  const boot = await evaluate(`({screen:document.body.dataset.activeScreen, systems:ARCANUM.inspeccionar().total, failures:document.querySelectorAll('#fallos').length})`);
+  await until('window.ARCANVEIL?.motor?.listo && document.body.classList.contains("esta-listo")');
+  const boot = await evaluate(`({screen:document.body.dataset.activeScreen, systems:ARCANVEIL.inspeccionar().total, failures:document.querySelectorAll('#fallos').length})`);
   if (boot.screen !== 'inicio' || boot.failures) throw new Error(`arranque invÃ¡lido ${JSON.stringify(boot)}`);
   await shot(`01-inicio-${viewport.label}.png`);
 
@@ -106,8 +106,8 @@ try {
   await new Promise(resolve => setTimeout(resolve, 850));
   await shot(`02-creacion-${viewport.label}.png`);
   await evaluate(`document.querySelector('#creacion-empezar').click()`);
-  await until('document.body.dataset.activeScreen === "juego" && !document.querySelector("#entrada").disabled && ARCANUM.sistema("turns").inspeccionar().ocupado === false && ARCANUM.ver("narrative.entradas",[]).length > 0 && ARCANUM.ver("player.lore","").includes("hermana")', 15000);
-  const aperturaLore = await evaluate(`({texto:ARCANUM.ver('narrative.entradas',[]).map(e=>e.texto??'').join(' '), memoria:ARCANUM.ver('ai.memoria.hilos',[])})`);
+  await until('document.body.dataset.activeScreen === "juego" && !document.querySelector("#entrada").disabled && ARCANVEIL.sistema("turns").inspeccionar().ocupado === false && ARCANVEIL.ver("narrative.entradas",[]).length > 0 && ARCANVEIL.ver("player.lore","").includes("hermana")', 15000);
+  const aperturaLore = await evaluate(`({texto:ARCANVEIL.ver('narrative.entradas',[]).map(e=>e.texto??'').join(' '), memoria:ARCANVEIL.ver('ai.memoria.hilos',[])})`);
   if (!/hermana|medallón|Umbral/i.test(aperturaLore.texto)) throw new Error('la apertura procedural ignoró el lore');
   if (!aperturaLore.memoria.some(h => h.relacionadoCon === 'player_lore')) throw new Error('el lore no abrió un hilo persistente');
   if (!aperturaLore.memoria.some(h => h.tipo === 'relacion')) throw new Error('el lore no reconoció el hilo familiar');
@@ -121,25 +121,25 @@ try {
   ];
   const turns = [];
   for (const a of acciones) {
-    const result = await evaluate(`ARCANUM.jugar(${JSON.stringify(a)}).then(()=>({disabled:document.querySelector('#entrada').disabled, lines:ARCANUM.ver('narrative.entradas',[]).length, failures:document.querySelectorAll('#fallos .fallos__linea').length}))`);
+    const result = await evaluate(`ARCANVEIL.jugar(${JSON.stringify(a)}).then(()=>({disabled:document.querySelector('#entrada').disabled, lines:ARCANVEIL.ver('narrative.entradas',[]).length, failures:document.querySelectorAll('#fallos .fallos__linea').length}))`);
     turns.push(result);
     if (result.disabled || result.failures) throw new Error(`turno fallido: ${a}`);
   }
   if (turns.at(-1).lines < 20) throw new Error(`la bitácora no avanzó: ${turns.at(-1).lines}`);
   await shot(`03-partida-20-turnos-${viewport.label}.png`);
 
-  const libre = await evaluate(`({texto:ARCANUM.ver('narrative.entradas',[]).map(e=>e.texto??'').join(' '), retrato:Boolean(document.querySelector('#retrato-pj .retrato-rasgo--cicatriz'))})`);
+  const libre = await evaluate(`({texto:ARCANVEIL.ver('narrative.entradas',[]).map(e=>e.texto??'').join(' '), retrato:Boolean(document.querySelector('#retrato-pj .retrato-rasgo--cicatriz'))})`);
   if (/intentas\s+anoto/i.test(libre.texto)) throw new Error('acción libre mal integrada');
   if (!libre.retrato) throw new Error('el rasgo visual no llegó a la partida');
 
-  const beforeOffline = await evaluate(`navigator.serviceWorker.ready.then(()=>({controlled:Boolean(navigator.serviceWorker.controller),lines:ARCANUM.ver('narrative.entradas',[]).length}))`);
+  const beforeOffline = await evaluate(`navigator.serviceWorker.ready.then(()=>({controlled:Boolean(navigator.serviceWorker.controller),lines:ARCANVEIL.ver('narrative.entradas',[]).length}))`);
   await wait(700);
   await cdp('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
   await cdp('Page.reload', { ignoreCache: false });
-  await until('window.ARCANUM?.motor?.listo && document.body.classList.contains("esta-listo")', 15000);
+  await until('window.ARCANVEIL?.motor?.listo && document.body.classList.contains("esta-listo")', 15000);
   const offline = await evaluate(`({screen:document.body.dataset.activeScreen, title:document.title, failures:document.querySelectorAll('#fallos .fallos__linea').length})`);
   await shot(`04-offline-${viewport.label}.png`);
-  if (offline.title !== 'ARCANUM' || offline.failures) throw new Error(`offline invÃ¡lido ${JSON.stringify(offline)}`);
+  if (offline.title !== 'ARCANVEIL' || offline.failures) throw new Error(`offline invÃ¡lido ${JSON.stringify(offline)}`);
 
   const report = {
     viewport: viewport.label, systems: boot.systems, turns: turns.length,

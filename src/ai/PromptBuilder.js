@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ai/PromptBuilder.js
+ * ARCANVEIL · ai/PromptBuilder.js
  * ---------------------------------------------------------------------------
  * Construcción de prompts.
  *
@@ -47,7 +47,7 @@ export function sistema(opciones = {}) {
 
   // ─── Identidad ──────────────────────────────────────────────────────────
   partes.push(
-`Eres el director de juego de ARCANUM, un juego de rol narrativo de alta fantasía.
+`Eres el director de juego de ARCANVEIL, un juego de rol narrativo de alta fantasía.
 Narras en español de España, en segunda persona y en presente.`,
   );
 

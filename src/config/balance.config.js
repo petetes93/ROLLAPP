@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · config/balance.config.js
+ * ARCANVEIL · config/balance.config.js
  * ---------------------------------------------------------------------------
  * Todo el equilibrio numérico del juego en un único lugar. Ninguna fórmula ni
  * constante de reglas debe aparecer incrustada en un sistema: si un módulo

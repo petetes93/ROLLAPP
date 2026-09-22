@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ARCANUM · animations.css
+   ARCANVEIL · animations.css
    Catálogo único de @keyframes. Ningún componente define los suyos: los
    consume desde aquí para que el vocabulario de movimiento sea coherente.
    (base.css ya neutraliza todo esto bajo prefers-reduced-motion.)

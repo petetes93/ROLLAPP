@@ -1,5 +1,5 @@
 // Generado para que la primera visita deje toda la PWA lista sin conexión.
-const CACHE = 'arcanum-v7-web-first';
+const CACHE = 'arcanveil-v7-web-first';
 const SHELL = [
   './app/index.html',
   './app/app.js',

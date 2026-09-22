@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · config/app.config.js
+ * ARCANVEIL · config/app.config.js
  * ---------------------------------------------------------------------------
  * Configuración global de la aplicación: identidad, versionado, límites del
  * motor, banderas de funcionalidad y ajustes de depuración.
@@ -35,10 +35,10 @@ function congelar(obj) {
 
 export const APP = congelar({
   /** Identificador técnico. Se usa como prefijo de claves de LocalStorage. */
-  id: 'arcanum',
+  id: 'arcanveil',
 
   /** Nombre visible en portada y cabecera. */
-  nombre: 'ARCANUM',
+  nombre: 'ARCANVEIL',
 
   /** Subtítulo de portada. */
   lema: 'Crónicas de los Reinos Quebrados',
@@ -236,16 +236,16 @@ export const PERSISTENCIA = congelar({
   activadaPorDefecto: false,
 
   /** Prefijo de todas las claves escritas en LocalStorage. */
-  prefijo: 'arcanum:',
+  prefijo: 'arcanveil:',
 
   /** Clave de la ranura de guardado rápido. */
-  claveAuto: 'arcanum:save:auto',
+  claveAuto: 'arcanveil:save:auto',
 
   /** Clave del índice de ranuras manuales. */
-  claveIndice: 'arcanum:save:index',
+  claveIndice: 'arcanveil:save:index',
 
   /** Clave de las preferencias de interfaz (tema, densidad, tamaño de lectura). */
-  clavePreferencias: 'arcanum:prefs',
+  clavePreferencias: 'arcanveil:prefs',
 
   /** Número de ranuras manuales disponibles. */
   /**
@@ -350,7 +350,7 @@ export const ATAJOS = congelar({
    ═══════════════════════════════════════════════════════════════════════════ */
 
 export const DEPURACION = congelar({
-  /** Expone el motor en window.ARCANUM para inspección desde la consola. */
+  /** Expone el motor en window.ARCANVEIL para inspección desde la consola. */
   exponerGlobal: ENTORNO.desarrollo,
 
   /** Registra en consola cada acción despachada al Store. */

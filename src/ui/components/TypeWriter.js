@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/TypeWriter.js
+ * ARCANVEIL · ui/components/TypeWriter.js
  * ---------------------------------------------------------------------------
  * Escritura progresiva de la narración.
  *

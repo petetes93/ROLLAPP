@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · persistence/Serializer.js
+ * ARCANVEIL · persistence/Serializer.js
  * ---------------------------------------------------------------------------
  * Serialización del estado de partida.
  *
@@ -363,7 +363,7 @@ export function desdeTexto(texto) {
   }
 
   if (!objeto?.estado || !objeto?.version) {
-    return { guardado: null, error: 'el archivo no parece un guardado de ARCANUM' };
+    return { guardado: null, error: 'el archivo no parece un guardado de ARCANVEIL' };
   }
 
   return { guardado: objeto, error: null };
@@ -384,7 +384,7 @@ export function nombreArchivo(cabecera) {
 
   const fecha = new Date().toISOString().slice(0, 10);
 
-  return `arcanum-${nombre}-n${cabecera?.nivel ?? 1}-${fecha}.json`;
+  return `arcanveil-${nombre}-n${cabecera?.nivel ?? 1}-${fecha}.json`;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

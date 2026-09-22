@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/QuickChoices.js
+ * ARCANVEIL · ui/components/QuickChoices.js
  * ---------------------------------------------------------------------------
  * Fila de acciones sugeridas, justo encima de la caja de texto.
  *

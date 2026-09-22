@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · data/adapters/srdAdapter.js
+ * ARCANVEIL · data/adapters/srdAdapter.js
  * ---------------------------------------------------------------------------
  * Conversión de datos del SRD al Sistema Núcleo d20.
  *

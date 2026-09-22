@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · world/EncounterTables.js
+ * ARCANVEIL · world/EncounterTables.js
  * ---------------------------------------------------------------------------
  * Tablas de encuentros.
  *

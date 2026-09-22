@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/NarrativeLog.js
+ * ARCANVEIL · ui/components/NarrativeLog.js
  * ---------------------------------------------------------------------------
  * Bitácora narrativa: el panel central, donde ocurre el juego.
  *

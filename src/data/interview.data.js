@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · data/interview.data.js
+ * ARCANVEIL · data/interview.data.js
  * ---------------------------------------------------------------------------
  * Guion de la entrevista de creación de personaje.
  *

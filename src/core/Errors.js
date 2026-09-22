@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · core/Errors.js
+ * ARCANVEIL · core/Errors.js
  * ---------------------------------------------------------------------------
  * Jerarquía de errores propios del motor.
  *
@@ -105,10 +105,10 @@ export const CODIGO = Object.freeze({
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /**
- * Error base de ARCANUM. Todo error propio hereda de aquí, de modo que
- * `err instanceof ErrorArcanum` distingue lo nuestro de lo ajeno.
+ * Error base de ARCANVEIL. Todo error propio hereda de aquí, de modo que
+ * `err instanceof ErrorArcanveil` distingue lo nuestro de lo ajeno.
  */
-export class ErrorArcanum extends Error {
+export class ErrorArcanveil extends Error {
   /**
    * @param {string} mensaje Descripción técnica, en español, para el registro.
    * @param {Object} [opciones]
@@ -166,7 +166,7 @@ export class ErrorArcanum extends Error {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /** Fallo de validación de datos o de esquema. */
-export class ErrorValidacion extends ErrorArcanum {
+export class ErrorValidacion extends ErrorArcanveil {
   /**
    * @param {string} mensaje
    * @param {Object} [opciones]
@@ -179,14 +179,14 @@ export class ErrorValidacion extends ErrorArcanum {
 }
 
 /** Fallo en el núcleo: estado, store, registro de sistemas. */
-export class ErrorNucleo extends ErrorArcanum {
+export class ErrorNucleo extends ErrorArcanveil {
   constructor(mensaje, opciones = {}) {
     super(mensaje, { code: CODIGO.ESTADO_INVALIDO, severidad: SEVERIDAD.FATAL, ...opciones });
   }
 }
 
 /** Fallo del director de juego: red, formato, credenciales. */
-export class ErrorDirector extends ErrorArcanum {
+export class ErrorDirector extends ErrorArcanveil {
   constructor(mensaje, opciones = {}) {
     super(mensaje, { code: CODIGO.IA_SIN_RESPUESTA, severidad: SEVERIDAD.GRAVE, ...opciones });
     /** true si conviene reintentar la misma petición. */
@@ -197,21 +197,21 @@ export class ErrorDirector extends ErrorArcanum {
 }
 
 /** Acción que las reglas del juego no permiten. No es un bug: es una jugada inválida. */
-export class ErrorReglas extends ErrorArcanum {
+export class ErrorReglas extends ErrorArcanveil {
   constructor(mensaje, opciones = {}) {
     super(mensaje, { code: CODIGO.ACCION_ILEGAL, severidad: SEVERIDAD.LEVE, ...opciones });
   }
 }
 
 /** Fallo de guardado o carga. */
-export class ErrorPersistencia extends ErrorArcanum {
+export class ErrorPersistencia extends ErrorArcanveil {
   constructor(mensaje, opciones = {}) {
     super(mensaje, { code: CODIGO.GUARDADO_FALLO, severidad: SEVERIDAD.GRAVE, ...opciones });
   }
 }
 
 /** Fallo de la capa de presentación. */
-export class ErrorInterfaz extends ErrorArcanum {
+export class ErrorInterfaz extends ErrorArcanveil {
   constructor(mensaje, opciones = {}) {
     super(mensaje, { code: CODIGO.MONTAJE_AUSENTE, severidad: SEVERIDAD.GRAVE, ...opciones });
   }
@@ -222,20 +222,20 @@ export class ErrorInterfaz extends ErrorArcanum {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /**
- * Normaliza cualquier valor lanzado a un ErrorArcanum.
+ * Normaliza cualquier valor lanzado a un ErrorArcanveil.
  * JavaScript permite lanzar cadenas, números y objetos; el motor no debería
  * tener que preocuparse de eso más de una vez.
  *
  * @param {unknown} valor
  * @param {Object} [predeterminados] Opciones aplicadas si hay que envolver.
- * @returns {ErrorArcanum}
+ * @returns {ErrorArcanveil}
  */
 export function normalizar(valor, predeterminados = {}) {
-  if (valor instanceof ErrorArcanum) return valor;
+  if (valor instanceof ErrorArcanveil) return valor;
   if (valor instanceof Error) {
-    return new ErrorArcanum(valor.message, { causa: valor, ...predeterminados });
+    return new ErrorArcanveil(valor.message, { causa: valor, ...predeterminados });
   }
-  return new ErrorArcanum(String(valor), predeterminados);
+  return new ErrorArcanveil(String(valor), predeterminados);
 }
 
 /**
@@ -244,7 +244,7 @@ export function normalizar(valor, predeterminados = {}) {
  *
  * @param {unknown} error
  * @param {string} [canal] Canal de registro.
- * @returns {ErrorArcanum} El error ya normalizado.
+ * @returns {ErrorArcanveil} El error ya normalizado.
  */
 export function registrar(error, canal = 'core') {
   const err = normalizar(error);
@@ -320,7 +320,7 @@ export function invariante(condicion, mensaje, contexto = {}) {
 export default {
   SEVERIDAD,
   CODIGO,
-  ErrorArcanum,
+  ErrorArcanveil,
   ErrorValidacion,
   ErrorNucleo,
   ErrorDirector,

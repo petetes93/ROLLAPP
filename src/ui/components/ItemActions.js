@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/ItemActions.js
+ * ARCANVEIL · ui/components/ItemActions.js
  * ---------------------------------------------------------------------------
  * Menú contextual de acciones sobre un objeto.
  *

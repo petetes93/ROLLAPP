@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · inventory/Encumbrance.js
+ * ARCANVEIL · inventory/Encumbrance.js
  * ---------------------------------------------------------------------------
  * Peso, capacidad de carga e impedimenta.
  *

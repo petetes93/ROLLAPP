@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · npc/MerchantSystem.js
+ * ARCANVEIL · npc/MerchantSystem.js
  * ---------------------------------------------------------------------------
  * Inventarios de los mercaderes.
  *

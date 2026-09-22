@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · src/art/retrato.js
+ * ARCANVEIL · src/art/retrato.js
  * ---------------------------------------------------------------------------
  * Retrato procedural de fantasía oscura, con acabado de concept art.
  *

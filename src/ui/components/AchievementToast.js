@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/AchievementToast.js
+ * ARCANVEIL · ui/components/AchievementToast.js
  * ---------------------------------------------------------------------------
  * Aviso de hazaña conseguida.
  *
@@ -17,7 +17,7 @@
  *     detiene la partida para felicitarte es una interrupción, no una
  *     recompensa.
  *
- *   · EL TEXTO ES LO IMPORTANTE. Las hazañas de ARCANUM llevan una frase que
+ *   · EL TEXTO ES LO IMPORTANTE. Las hazañas de ARCANVEIL llevan una frase que
  *     comenta tu partida; esa frase es el premio, no el icono.
  *
  * Dependencias: Component, DOM, achievements.data.

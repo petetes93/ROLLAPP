@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · combat/Combatant.js
+ * ARCANVEIL · combat/Combatant.js
  * ---------------------------------------------------------------------------
  * Modelo unificado de participante en combate.
  *

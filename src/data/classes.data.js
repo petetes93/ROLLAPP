@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · data/classes.data.js
+ * ARCANVEIL · data/classes.data.js
  * ---------------------------------------------------------------------------
  * Vocaciones jugables. Contenido original.
  *

@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/EquipmentSlots.js
+ * ARCANVEIL · ui/components/EquipmentSlots.js
  * ---------------------------------------------------------------------------
  * Ranuras de equipo.
  *

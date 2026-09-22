@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/StatBar.js
+ * ARCANVEIL · ui/components/StatBar.js
  * ---------------------------------------------------------------------------
  * Barra de recurso: vida, maná, experiencia, fatiga, hambre, sed, moral, carga.
  *

@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · data/races.data.js
+ * ARCANVEIL · data/races.data.js
  * ---------------------------------------------------------------------------
  * Linajes jugables. Contenido original de alta fantasía clásica.
  *

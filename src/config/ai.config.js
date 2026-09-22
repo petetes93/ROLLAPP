@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · config/ai.config.js
+ * ARCANVEIL · config/ai.config.js
  * ---------------------------------------------------------------------------
  * Configuración del director de juego: proveedores disponibles, personalidad,
  * presupuesto de contexto, política de credenciales y contrato de respuesta.

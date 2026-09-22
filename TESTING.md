@@ -1,6 +1,6 @@
 # Pruebas
 
-ARCANUM no tiene pruebas automáticas. Es una decisión deliberada: montar un
+ARCANVEIL no tiene pruebas automáticas. Es una decisión deliberada: montar un
 entorno de pruebas exigiría una dependencia de desarrollo, y el proyecto se
 define por no tener ninguna. A cambio, aquí está el guion de lo que hay que
 comprobar a mano, con el orden que encuentra los fallos antes.
@@ -20,7 +20,7 @@ Abre `http://localhost:8080` y ten la consola del navegador visible. **Cualquier
 error en rojo durante las pruebas es un fallo**, aunque el juego siga
 funcionando.
 
-La consola expone `window.ARCANUM` con los atajos que se usan más abajo.
+La consola expone `window.ARCANVEIL` con los atajos que se usan más abajo.
 
 ---
 
@@ -35,8 +35,8 @@ La consola expone `window.ARCANUM` con los atajos que se usan más abajo.
 **Comprobación de arranque limpio:**
 
 ```js
-ARCANUM.ver('meta.fase')     // 'menu'
-ARCANUM.inspeccionar()       // todos los sistemas 'arrancado'
+ARCANVEIL.ver('meta.fase')     // 'menu'
+ARCANVEIL.inspeccionar()       // todos los sistemas 'arrancado'
 ```
 
 Si algún sistema aparece como `pendiente` o `fallido`, el orden de registro en
@@ -73,8 +73,8 @@ texto libre. Prueba estas cuatro entradas:
 | El lugar de partida corresponde al linaje | Un ferrano que empieza en el pantano |
 
 ```js
-ARCANUM.ver('player')        // nombre, raza, clase, atributos completos
-ARCANUM.ver('world.ubicacion')
+ARCANVEIL.ver('player')        // nombre, raza, clase, atributos completos
+ARCANVEIL.ver('world.ubicacion')
 ```
 
 ---
@@ -101,7 +101,7 @@ dado. Si la tirada dice fracaso y el texto dice que lo consigues, la promesa
 central del motor está rota. Comprueba varias veces con:
 
 ```js
-ARCANUM.jugar('intento forzar la puerta')
+ARCANVEIL.jugar('intento forzar la puerta')
 ```
 
 ---
@@ -109,10 +109,10 @@ ARCANUM.jugar('intento forzar la puerta')
 ## 4 · Inventario
 
 ```js
-ARCANUM.dar('pocion_curacion', 3)
-ARCANUM.dar('espada_corta')
-ARCANUM.dar('cota_ligera')
-ARCANUM.botin('jefe')
+ARCANVEIL.dar('pocion_curacion', 3)
+ARCANVEIL.dar('espada_corta')
+ARCANVEIL.dar('cota_ligera')
+ARCANVEIL.botin('jefe')
 ```
 
 | Comprobar | Criterio de fallo |
@@ -127,7 +127,7 @@ ARCANUM.botin('jefe')
 
 ```js
 // Provoca combates hasta que el arma se desgaste
-ARCANUM.pelear('rata_gigante', 1)
+ARCANVEIL.pelear('rata_gigante', 1)
 ```
 
 Repite hasta ver el aro de durabilidad amarillo. Debe avisar al cruzar cada
@@ -138,7 +138,7 @@ umbral, no en cada golpe.
 ## 5 · Combate
 
 ```js
-ARCANUM.pelear('lobo_ceniciento', 3)
+ARCANVEIL.pelear('lobo_ceniciento', 3)
 ```
 
 | Comprobar | Criterio de fallo |
@@ -152,7 +152,7 @@ ARCANUM.pelear('lobo_ceniciento', 3)
 **Combate contra jefe:**
 
 ```js
-ARCANUM.pelear('guardian_de_la_puerta')
+ARCANVEIL.pelear('guardian_de_la_puerta')
 ```
 
 | Comprobar | Criterio de fallo |
@@ -165,7 +165,7 @@ ARCANUM.pelear('guardian_de_la_puerta')
 **Prueba de estados:**
 
 ```js
-ARCANUM.pelear('tejedora_de_umbral')
+ARCANVEIL.pelear('tejedora_de_umbral')
 ```
 
 El veneno debe hacer daño **al inicio** de tu turno, antes de que actúes. Si
@@ -176,8 +176,8 @@ hace daño al final, el orden está invertido.
 ## 6 · Mundo y viaje
 
 ```js
-ARCANUM.mundo()
-ARCANUM.ir('camino_norte')
+ARCANVEIL.mundo()
+ARCANVEIL.ir('camino_norte')
 ```
 
 | Comprobar | Criterio de fallo |
@@ -190,24 +190,24 @@ ARCANUM.ir('camino_norte')
 **Prueba de clima:**
 
 ```js
-ARCANUM.clima('niebla')
-ARCANUM.prueba('percepcion')   // debe mostrar -4 por niebla
-ARCANUM.prueba('sigilo')       // debe mostrar +3
+ARCANVEIL.clima('niebla')
+ARCANVEIL.prueba('percepcion')   // debe mostrar -4 por niebla
+ARCANVEIL.prueba('sigilo')       // debe mostrar +3
 ```
 
 **Prueba de estaciones:**
 
 ```js
-ARCANUM.dias(90)
+ARCANVEIL.dias(90)
 ```
 
 Al entrar el invierno, las rutas de montaña con peligro alto deben cerrarse.
-Intenta `ARCANUM.ir('forja_alta')` desde el paso: debe negarse.
+Intenta `ARCANVEIL.ir('forja_alta')` desde el paso: debe negarse.
 
 **Prueba de eventos:**
 
 ```js
-ARCANUM.evento('feria')
+ARCANVEIL.evento('feria')
 ```
 
 Los precios deben bajar. Comprueba con un mercader antes y después.
@@ -219,7 +219,7 @@ Los precios deben bajar. Comprueba con un mercader antes y después.
 Habla con alguien presente y observa:
 
 ```js
-ARCANUM.ver('npcs.presentes')
+ARCANVEIL.ver('npcs.presentes')
 ```
 
 | Comprobar | Criterio de fallo |
@@ -242,7 +242,7 @@ texto, el enlace entre diálogo y mundo está roto.
 ## 8 · Comercio
 
 ```js
-ARCANUM.ver('npcs.presentes')   // busca un mercader
+ARCANVEIL.ver('npcs.presentes')   // busca un mercader
 ```
 
 | Comprobar | Criterio de fallo |
@@ -256,7 +256,7 @@ ARCANUM.ver('npcs.presentes')   // busca un mercader
 comprueba que sus mercaderes cobran menos:
 
 ```js
-ARCANUM.inspeccionar('reputation')
+ARCANVEIL.inspeccionar('reputation')
 ```
 
 ---
@@ -266,7 +266,7 @@ ARCANUM.inspeccionar('reputation')
 Habla con gente hasta que te ofrezcan algo, o fuerza:
 
 ```js
-ARCANUM.inspeccionar('quests')
+ARCANVEIL.inspeccionar('quests')
 ```
 
 | Comprobar | Criterio de fallo |
@@ -300,7 +300,7 @@ Activa el guardado en Ajustes primero.
 
 ```js
 // Introduce una clave de API en Ajustes, guarda, y luego:
-localStorage.getItem('arcanum:save:1')
+localStorage.getItem('arcanveil:save:1')
 ```
 
 Busca la clave en el texto. **Si aparece, es un fallo grave.** No debería estar
@@ -308,7 +308,7 @@ en ninguna parte del guardado.
 
 ```js
 // Comprobación adicional
-ARCANUM.inspeccionar('saves')   // credencialPersistida debe ser false
+ARCANVEIL.inspeccionar('saves')   // credencialPersistida debe ser false
 ```
 
 **Prueba de migración.** Edita a mano un guardado exportado y cambia
@@ -426,7 +426,7 @@ node tools/bundle.mjs
 
 | Comprobar | Criterio de fallo |
 |---|---|
-| Genera `dist/arcanum.html` sin avisos | Reporta módulos ausentes |
+| Genera `dist/arcanveil.html` sin avisos | Reporta módulos ausentes |
 | Se abre con doble clic, sin servidor | Pantalla en blanco |
 | Funciona igual que la versión servida | Falta algo |
 | Pesa menos de un megabyte | Excede |
@@ -451,8 +451,8 @@ Presta atención a:
 
 ```js
 // Al terminar
-ARCANUM.inspeccionar('turns')      // memoria: hechos, hilos, resúmenes
-ARCANUM.inspeccionar('pacing')     // ritmo y directriz actual
+ARCANVEIL.inspeccionar('turns')      // memoria: hechos, hilos, resúmenes
+ARCANVEIL.inspeccionar('pacing')     // ritmo y directriz actual
 performance.memory                 // en Chromium
 ```
 
@@ -466,10 +466,10 @@ es un error de código. Es de diseño, y está en `MemoryStore` o en
 ## Qué hacer con un fallo
 
 1. **Anota la reproducción exacta.** Los fallos que dependen del azar son los
-   peores; la semilla ayuda: `ARCANUM.ver('meta.semilla')`.
-2. **Mira el canal correcto del registro.** `ARCANUM.log.volcar('combate')`
+   peores; la semilla ayuda: `ARCANVEIL.ver('meta.semilla')`.
+2. **Mira el canal correcto del registro.** `ARCANVEIL.log.volcar('combate')`
    filtra por sistema.
 3. **Comprueba si es de blindaje.** Si el director propuso algo raro,
-   `ARCANUM.inspeccionar('effects')` muestra los ajustes recortados.
+   `ARCANVEIL.inspeccionar('effects')` muestra los ajustes recortados.
 4. **Si el estado quedó inconsistente**, es lo más grave. Las transacciones del
    store deberían impedirlo: revisa si algún sistema despacha fuera de una.

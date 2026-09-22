@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · combat/AttackResolver.js
+ * ARCANVEIL · combat/AttackResolver.js
  * ---------------------------------------------------------------------------
  * Resolución completa de un ataque, de la intención al resultado.
  *

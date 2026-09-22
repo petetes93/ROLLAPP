@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/CombatPanel.js
+ * ARCANVEIL · ui/components/CombatPanel.js
  * ---------------------------------------------------------------------------
  * Interfaz de combate.
  *

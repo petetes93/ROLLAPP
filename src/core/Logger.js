@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · core/Logger.js
+ * ARCANVEIL · core/Logger.js
  * ---------------------------------------------------------------------------
  * Registro de diagnóstico por niveles y canales, con búfer circular en memoria.
  *
@@ -134,7 +134,7 @@ function leerBuffer() {
 
 /**
  * Nivel activo. Arranca desde la configuración pero puede ajustarse en caliente
- * desde la consola: ARCANUM.log.nivel(5).
+ * desde la consola: ARCANVEIL.log.nivel(5).
  */
 let nivelActivo = LOG.nivel;
 

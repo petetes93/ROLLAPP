@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · npc/ReputationSystem.js
+ * ARCANVEIL · npc/ReputationSystem.js
  * ---------------------------------------------------------------------------
  * Reputación con las facciones.
  *

@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ai/ResponseSchema.js
+ * ARCANVEIL · ai/ResponseSchema.js
  * ---------------------------------------------------------------------------
  * Esquema y reparación del contrato JSON del director.
  *

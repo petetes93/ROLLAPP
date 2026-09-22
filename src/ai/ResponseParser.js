@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ai/ResponseParser.js
+ * ARCANVEIL · ai/ResponseParser.js
  * ---------------------------------------------------------------------------
  * Análisis de las respuestas del director.
  *

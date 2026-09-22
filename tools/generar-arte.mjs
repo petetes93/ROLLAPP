@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · tools/generar-arte.mjs
+ * ARCANVEIL · tools/generar-arte.mjs
  * ---------------------------------------------------------------------------
  * Genera las imágenes del juego con un modelo de difusión gratuito.
  *
@@ -94,7 +94,7 @@ async function pedir(url, intentos) {
     try {
       const respuesta = await fetch(url, {
         signal: AbortSignal.timeout(180_000),
-        headers: { 'User-Agent': 'arcanum-build/1.0' },
+        headers: { 'User-Agent': 'arcanveil-build/1.0' },
       });
 
       if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
@@ -145,7 +145,7 @@ if (!cola.length) {
   process.exit(1);
 }
 
-console.log('ARCANUM · generación de arte\n');
+console.log('ARCANVEIL · generación de arte\n');
 console.log(`  servicio: image.pollinations.ai (gratuito, sin clave)`);
 console.log(`  encargos: ${cola.length}`);
 console.log(`  variante: ${opciones.variante}\n`);

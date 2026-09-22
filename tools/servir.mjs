@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · tools/servir.mjs
+ * ARCANVEIL · tools/servir.mjs
  * ---------------------------------------------------------------------------
  * Servidor estático de desarrollo.
  *
@@ -81,7 +81,7 @@ const servidor = createServer(async (peticion, respuesta) => {
 });
 
 servidor.listen(PUERTO, () => {
-  console.log(`ARCANUM servido en http://localhost:${PUERTO}`);
+  console.log(`ARCANVEIL servido en http://localhost:${PUERTO}`);
   console.log(`  raíz: ${RAIZ}`);
   console.log('  sin caché: recargar basta para ver los cambios');
   console.log('\n  app:    /app/index.html');

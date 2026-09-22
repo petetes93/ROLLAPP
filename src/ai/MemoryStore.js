@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ai/MemoryStore.js
+ * ARCANVEIL · ai/MemoryStore.js
  * ---------------------------------------------------------------------------
  * Memoria narrativa a largo plazo del director.
  *

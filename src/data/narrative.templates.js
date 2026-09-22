@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · data/narrative.templates.js
+ * ARCANVEIL · data/narrative.templates.js
  * ---------------------------------------------------------------------------
  * Gramáticas y plantillas del director procedural.
  *

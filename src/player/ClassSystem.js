@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · player/ClassSystem.js
+ * ARCANVEIL · player/ClassSystem.js
  * ---------------------------------------------------------------------------
  * Vocaciones: rasgos activos, usos y clases avanzadas.
  *

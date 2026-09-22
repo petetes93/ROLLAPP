@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/QuestPanel.js
+ * ARCANVEIL · ui/components/QuestPanel.js
  * ---------------------------------------------------------------------------
  * Registro de misiones.
  *

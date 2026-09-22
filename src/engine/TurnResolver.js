@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · engine/TurnResolver.js
+ * ARCANVEIL · engine/TurnResolver.js
  * ---------------------------------------------------------------------------
  * El bucle de turno. Aquí converge todo el motor.
  *

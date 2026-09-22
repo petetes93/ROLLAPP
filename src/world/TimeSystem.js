@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · world/TimeSystem.js
+ * ARCANVEIL · world/TimeSystem.js
  * ---------------------------------------------------------------------------
  * Tiempo del mundo: franjas del día, estaciones y horarios.
  *

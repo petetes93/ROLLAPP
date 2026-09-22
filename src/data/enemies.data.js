@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · data/enemies.data.js
+ * ARCANVEIL · data/enemies.data.js
  * ---------------------------------------------------------------------------
  * Bestiario base. Contenido original.
  *

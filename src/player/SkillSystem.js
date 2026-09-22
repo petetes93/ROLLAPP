@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · player/SkillSystem.js
+ * ARCANVEIL · player/SkillSystem.js
  * ---------------------------------------------------------------------------
  * Competencias: grados, bonificadores y resolución de pruebas.
  *

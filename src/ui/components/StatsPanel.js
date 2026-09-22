@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/StatsPanel.js
+ * ARCANVEIL · ui/components/StatsPanel.js
  * ---------------------------------------------------------------------------
  * La crónica en cifras.
  *

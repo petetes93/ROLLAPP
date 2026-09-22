@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · engine/ConsequenceEngine.js
+ * ARCANVEIL · engine/ConsequenceEngine.js
  * ---------------------------------------------------------------------------
  * Consecuencias de los actos.
  *

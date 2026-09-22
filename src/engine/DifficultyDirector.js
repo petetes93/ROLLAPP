@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · engine/DifficultyDirector.js
+ * ARCANVEIL · engine/DifficultyDirector.js
  * ---------------------------------------------------------------------------
  * Dirección de ritmo.
  *

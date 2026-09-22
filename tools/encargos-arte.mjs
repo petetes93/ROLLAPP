@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · tools/encargos-arte.mjs
+ * ARCANVEIL · tools/encargos-arte.mjs
  * ---------------------------------------------------------------------------
  * Cuaderno de encargos para generar el arte con un modelo de imagen.
  *
@@ -337,7 +337,7 @@ if (comoJson) {
   for (const e of encargos) (porFamilia[e.familia] ??= []).push(e);
 
   const partes = [
-    '# ARCANUM · encargos de arte',
+    '# ARCANVEIL · encargos de arte',
     '',
     `${encargos.length} imágenes. Generado por \`tools/encargos-arte.mjs\` desde`,
     'los catálogos de `src/data/`. **No editar a mano**: se regenera.',

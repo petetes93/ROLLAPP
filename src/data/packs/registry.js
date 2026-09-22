@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · data/packs/registry.js
+ * ARCANVEIL · data/packs/registry.js
  * ---------------------------------------------------------------------------
  * Registro de paquetes de contenido.
  *
@@ -43,7 +43,7 @@ const log = crearCanal('core');
 export const LICENCIAS = Object.freeze({
   ORIGINAL: {
     clave: 'original',
-    nombre: 'Contenido original de ARCANUM',
+    nombre: 'Contenido original de ARCANVEIL',
     url: null,
     atribucionObligatoria: false,
     permiteRedistribucion: true,
@@ -106,7 +106,7 @@ export const PAQUETES = Object.freeze({
     id: 'original',
     nombre: 'Reinos Quebrados',
     descripcion:
-      'Ambientación original de ARCANUM: 9 linajes y 8 vocaciones propias, con sus culturas, ' +
+      'Ambientación original de ARCANVEIL: 9 linajes y 8 vocaciones propias, con sus culturas, ' +
       'ganchos narrativos y rasgos exclusivos.',
     licencia: LICENCIAS.ORIGINAL,
     atribucion: '',

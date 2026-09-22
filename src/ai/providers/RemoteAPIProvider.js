@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ai/providers/RemoteAPIProvider.js
+ * ARCANVEIL · ai/providers/RemoteAPIProvider.js
  * ---------------------------------------------------------------------------
  * API remota: Anthropic, OpenAI y compatibles.
  *

@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · config/ui.config.js
+ * ARCANVEIL · config/ui.config.js
  * ---------------------------------------------------------------------------
  * Configuración de la capa de presentación: pantallas, puntos de montaje,
  * catálogo de iconos, textos de interfaz, atajos y ajustes visibles.

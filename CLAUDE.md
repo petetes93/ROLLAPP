@@ -1,4 +1,4 @@
-# ARCANUM · guía para Claude Code
+# ARCANVEIL · guía para Claude Code
 
 Motor de rol narrativo web. **145 módulos, 66.000 líneas, cero dependencias.**
 Todo en español: nombres de función, variables, comentarios y comunicación.
@@ -144,7 +144,7 @@ los fallos reales aparecen al **ejecutar**.
 node tools/auditar-imports.mjs   # nombres importados que no existen
 node tools/auditar-config.mjs    # claves de config usadas pero no definidas
 node tools/auditar-arte.mjs      # las 1088 piezas de arte, enteras
-node tools/bundle.mjs            # empaqueta a dist/arcanum.html
+node tools/bundle.mjs            # empaqueta a dist/arcanveil.html
 node tools/bundle.mjs --entrada app/app.js --html app/index.html \
      --sin-estilos --salida dist/app.html
 ```

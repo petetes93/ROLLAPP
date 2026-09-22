@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · core/EventBus.js
+ * ARCANVEIL · core/EventBus.js
  * ---------------------------------------------------------------------------
  * Bus de eventos con espacios de nombres, comodines y prioridades.
  *

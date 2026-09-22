@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · data/loot.tables.js
+ * ARCANVEIL · data/loot.tables.js
  * ---------------------------------------------------------------------------
  * Tablas de botín por amenaza, terreno y tipo de hallazgo.
  *

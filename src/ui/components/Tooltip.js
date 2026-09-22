@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/Tooltip.js
+ * ARCANVEIL · ui/components/Tooltip.js
  * ---------------------------------------------------------------------------
  * Descripciones flotantes al vuelo.
  *

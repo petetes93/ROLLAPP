@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/InventoryPanel.js
+ * ARCANVEIL · ui/components/InventoryPanel.js
  * ---------------------------------------------------------------------------
  * Lista de inventario con filtros, orden y barra de carga.
  *

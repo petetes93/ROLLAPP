@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · player/Alignment.js
+ * ARCANVEIL · player/Alignment.js
  * ---------------------------------------------------------------------------
  * Alineamiento en dos ejes continuos, no en nueve casillas.
  *

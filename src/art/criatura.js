@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · src/art/criatura.js
+ * ARCANVEIL · src/art/criatura.js
  * ---------------------------------------------------------------------------
  * Criatura generada a partir de su tipo y su tamaño.
  *

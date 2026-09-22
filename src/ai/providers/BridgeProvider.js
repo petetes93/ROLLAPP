@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ai/providers/BridgeProvider.js
+ * ARCANVEIL · ai/providers/BridgeProvider.js
  * ---------------------------------------------------------------------------
  * Puente manual.
  *

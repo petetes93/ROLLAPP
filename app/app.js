@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · app/app.js
+ * ARCANVEIL · app/app.js
  * ---------------------------------------------------------------------------
  * La aplicación de juego.
  *
@@ -104,7 +104,7 @@ function animarGeneracion(nodo, etiqueta = 'Tejiendo rasgos') {
 
 /** Muestra un fallo en pantalla en vez de dejar la página muda. */
 function avisarFallo(donde, error) {
-  console.error('[arcanum] ' + donde, error);
+  console.error('[arcanveil] ' + donde, error);
 
   let caja = $('#fallos');
   if (!caja) {
@@ -543,7 +543,7 @@ function pintarCabecera() {
   // de la ilustración. Repetirlos aquí era ruido; la cabecera lleva lo que la
   // escena no dice: en qué región estás y quién eres.
   caja.append(
-    el('span', { class: 'cab__lugar', text: j.nombre ?? 'ARCANUM' }),
+    el('span', { class: 'cab__lugar', text: j.nombre ?? 'ARCANVEIL' }),
     el('span', { class: 'cab__sep', text: '·' }),
     el('span', { text: `nivel ${j.nivel ?? 1}` }),
     lugar?.region ? el('span', { class: 'cab__sep', text: '·' }) : null,
@@ -1207,7 +1207,7 @@ function arranqueFallido(donde, error) {
 
 async function arrancar() {
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    navigator.serviceWorker.register('../sw.js').catch((e) => console.warn('[arcanum] modo offline no disponible', e));
+    navigator.serviceWorker.register('../sw.js').catch((e) => console.warn('[arcanveil] modo offline no disponible', e));
   }
   // Si algo se cuelga, a los ocho segundos se dice en pantalla en vez de
   // dejar al jugador mirando un rótulo eterno.
@@ -1256,7 +1256,7 @@ async function arrancar() {
   }
 
   // Para inspeccionar desde la consola del navegador.
-  window.ARCANUM = {
+  window.ARCANVEIL = {
     motor, store, bus, ver,
     sistema,
     jugar: (t) => enviar(t),

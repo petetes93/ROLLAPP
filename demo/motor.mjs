@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ARCANUM · demo/motor.mjs
+ * ARCANVEIL · demo/motor.mjs
  * Demostración de los módulos puros del motor, sin navegador.
  */
 
@@ -24,7 +24,7 @@ const L = (s = '') => console.log(s);
 const T = (t) => { L(); L('─'.repeat(66)); L('  ' + t); L('─'.repeat(66)); };
 
 // Semilla fija: la demo es reproducible.
-const rng = new GestorRNG('demostracion-arcanum');
+const rng = new GestorRNG('demostracion-arcanveil');
 
 /* ══════════════════════════════════════════════════════════════════════ */
 T('1 · INTERPRETACIÓN DE TEXTO LIBRE');

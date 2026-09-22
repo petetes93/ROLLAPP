@@ -1,4 +1,4 @@
-# Atribuciones y licencias · ARCANUM
+# Atribuciones y licencias · ARCANVEIL
 
 Este documento cumple las obligaciones de atribución de las licencias abiertas
 utilizadas en el proyecto. **No lo elimines ni lo modifiques al distribuir la
@@ -74,7 +74,7 @@ conexión.
 
 ---
 
-## 4. Contenido original de ARCANUM
+## 4. Contenido original de ARCANVEIL
 
 Todo lo que no proceda de las fuentes anteriores es obra original de este
 proyecto y no deriva de material protegido. En particular:

@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ai/providers/IDMProvider.js
+ * ARCANVEIL · ai/providers/IDMProvider.js
  * ---------------------------------------------------------------------------
  * Interfaz común de todo director de juego.
  *

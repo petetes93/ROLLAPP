@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · core/Validator.js
+ * ARCANVEIL · core/Validator.js
  * ---------------------------------------------------------------------------
  * Validador de esquemas ligero, sin dependencias externas.
  *

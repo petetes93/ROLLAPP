@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · combat/InitiativeTracker.js
+ * ARCANVEIL · combat/InitiativeTracker.js
  * ---------------------------------------------------------------------------
  * Orden de iniciativa y avance de turnos dentro de una ronda.
  *

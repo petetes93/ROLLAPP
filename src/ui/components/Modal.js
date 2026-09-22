@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/Modal.js
+ * ARCANVEIL · ui/components/Modal.js
  * ---------------------------------------------------------------------------
  * Ventanas modales: confirmaciones, subida de nivel, árbol de talentos,
  * comercio, ficha de guardado.

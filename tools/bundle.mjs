@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · tools/bundle.mjs
+ * ARCANVEIL · tools/bundle.mjs
  * ---------------------------------------------------------------------------
  * Empaquetador a archivo único.
  *
  * Convierte el proyecto entero —HTML, CSS y noventa y nueve módulos ES6— en un
- * solo `arcanum.html` que se abre haciendo doble clic. Sin servidor, sin
+ * solo `arcanveil.html` que se abre haciendo doble clic. Sin servidor, sin
  * dependencias, sin instalación.
  *
  * Por qué existe: los módulos ES6 no funcionan desde `file://` por la política
@@ -26,7 +26,7 @@
  * tener ninguna.
  *
  * Uso:
- *   node tools/bundle.mjs                      → dist/arcanum.html
+ *   node tools/bundle.mjs                      → dist/arcanveil.html
  *   node tools/bundle.mjs --salida juego.html
  *   node tools/bundle.mjs --verboso
  *
@@ -69,7 +69,7 @@ const ESTILOS = [
 
 function leerArgumentos(argv) {
   const opciones = {
-    salida: 'dist/arcanum.html',
+    salida: 'dist/arcanveil.html',
     entrada: ENTRADA,
     html: HTML_BASE,
     sinEstilos: false,
@@ -113,11 +113,11 @@ function leerArgumentos(argv) {
 }
 
 const AYUDA = `
-ARCANUM · empaquetador
+ARCANVEIL · empaquetador
 
   node tools/bundle.mjs [opciones]
 
-  -o, --salida <ruta>   Archivo de salida (por defecto dist/arcanum.html)
+  -o, --salida <ruta>   Archivo de salida (por defecto dist/arcanveil.html)
   -v, --verboso         Muestra cada módulo procesado
   -m, --minimizar       Retira comentarios y líneas vacías del JavaScript
   -h, --ayuda           Esto
@@ -614,7 +614,7 @@ async function ensamblarHTML(datos) {
   // ─── Script en línea ────────────────────────────────────────────────────
   // Un script normal, no de módulo: el módulo volvería a exigir un origen.
   const cabeceraJS = [
-    '/*! ARCANUM · archivo único generado por tools/bundle.mjs */',
+    '/*! ARCANVEIL · archivo único generado por tools/bundle.mjs */',
     `/* generado el ${new Date().toISOString()} */`,
     avisos.length ? `/* avisos: ${avisos.length} — ver la consola de construcción */` : '',
   ].filter(Boolean).join('\n');
@@ -646,7 +646,7 @@ async function ensamblarHTML(datos) {
 async function principal() {
   const opciones = leerArgumentos(process.argv);
 
-  console.log('ARCANUM · empaquetando\n');
+  console.log('ARCANVEIL · empaquetando\n');
 
   // ─── Grafo de módulos ───────────────────────────────────────────────────
   console.log('Módulos:');

@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/screens/SettingsScreen.js
+ * ARCANVEIL · ui/screens/SettingsScreen.js
  * ---------------------------------------------------------------------------
  * Pantalla de ajustes, generada por completo desde el catálogo AJUSTES de
  * ui.config.js.

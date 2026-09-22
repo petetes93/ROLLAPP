@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ai/ContextComposer.js
+ * ARCANVEIL · ai/ContextComposer.js
  * ---------------------------------------------------------------------------
  * Composición y poda del contexto que recibe el director.
  *

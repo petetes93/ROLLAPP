@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · core/Store.js
+ * ARCANVEIL · core/Store.js
  * ---------------------------------------------------------------------------
  * Almacén central del estado: única fuente de verdad de la partida.
  *

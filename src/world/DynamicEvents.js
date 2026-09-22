@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · world/DynamicEvents.js
+ * ARCANVEIL · world/DynamicEvents.js
  * ---------------------------------------------------------------------------
  * Eventos dinámicos del mundo.
  *

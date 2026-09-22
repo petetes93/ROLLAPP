@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · demo/web/app.js
+ * ARCANVEIL · demo/web/app.js
  * ---------------------------------------------------------------------------
  * Banco de pruebas del motor, en el navegador.
  *
@@ -34,7 +34,7 @@ import { combinarEfectos } from '../../src/data/events.data.js';
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function avisarFallo(donde, error) {
-  console.error('[arcanum:demo] ' + donde, error);
+  console.error('[arcanveil:demo] ' + donde, error);
 
   let caja = document.getElementById('fallos');
 

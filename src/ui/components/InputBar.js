@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/InputBar.js
+ * ARCANVEIL · ui/components/InputBar.js
  * ---------------------------------------------------------------------------
  * Caja de acción: por donde el jugador dice lo que hace.
  *

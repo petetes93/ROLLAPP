@@ -1,4 +1,4 @@
-# ARCANVEIL · ARCANUM
+# ARCANVEIL · ARCANVEIL
 
 Juego de rol narrativo para navegador web. Alta fantasía clásica, sin servidor y sin base de datos.
 
@@ -42,7 +42,7 @@ falta el servidor estático de arriba. Para jugar sin él:
 node tools/bundle.mjs
 ```
 
-Genera `dist/arcanum.html`: un solo archivo que se abre con doble clic, sin
+Genera `dist/arcanveil.html`: un solo archivo que se abre con doble clic, sin
 servidor y sin dependencias. Node solo hace falta para construirlo, no para
 jugarlo.
 
@@ -69,7 +69,7 @@ El guion ampliado sigue en [TESTING.md](TESTING.md).
 ## Estructura
 
 ```
-arcanum/
+arcanveil/
 ├── app/                    LA WEB QUE SE JUEGA: index.html + app.js
 ├── index.html              Portada: redirige al juego
 ├── clasico.html            Shell de tres paneles (interfaz original)
@@ -154,16 +154,16 @@ inactividad.
 
 ## Depuración
 
-La consola expone `window.ARCANUM`:
+La consola expone `window.ARCANVEIL`:
 
 ```js
-ARCANUM.mundo()              // dónde estás, qué hora, qué tiempo
-ARCANUM.jugar('exploro')     // fuerza un turno
-ARCANUM.ir('forja_alta')     // viaja
-ARCANUM.pelear('lobo_ceniciento', 3)
-ARCANUM.dar('pocion_curacion', 3)
-ARCANUM.evento('feria')      // fuerza un evento del mundo
-ARCANUM.dias(90)             // cambia la estación
+ARCANVEIL.mundo()              // dónde estás, qué hora, qué tiempo
+ARCANVEIL.jugar('exploro')     // fuerza un turno
+ARCANVEIL.ir('forja_alta')     // viaja
+ARCANVEIL.pelear('lobo_ceniciento', 3)
+ARCANVEIL.dar('pocion_curacion', 3)
+ARCANVEIL.evento('feria')      // fuerza un evento del mundo
+ARCANVEIL.dias(90)             // cambia la estación
 ```
 
 ## Contenido

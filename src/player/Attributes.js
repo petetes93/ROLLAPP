@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · player/Attributes.js
+ * ARCANVEIL · player/Attributes.js
  * ---------------------------------------------------------------------------
  * Atributos del personaje: valores, modificadores y reparto por compra.
  *

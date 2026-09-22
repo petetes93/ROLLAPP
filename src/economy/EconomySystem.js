@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · economy/EconomySystem.js
+ * ARCANVEIL · economy/EconomySystem.js
  * ---------------------------------------------------------------------------
  * Coordinador económico.
  *

@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · progression/StatsTracker.js
+ * ARCANVEIL · progression/StatsTracker.js
  * ---------------------------------------------------------------------------
  * Estadísticas de la crónica.
  *

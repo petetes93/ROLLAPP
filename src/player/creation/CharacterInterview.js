@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · player/creation/CharacterInterview.js
+ * ARCANVEIL · player/creation/CharacterInterview.js
  * ---------------------------------------------------------------------------
  * Motor de la entrevista de creación de personaje.
  *

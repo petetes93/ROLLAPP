@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · src/art/index.js
+ * ARCANVEIL · src/art/index.js
  * ---------------------------------------------------------------------------
  * Cargador de arte. La única puerta por la que la interfaz pide imágenes.
  *

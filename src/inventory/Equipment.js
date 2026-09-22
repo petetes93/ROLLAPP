@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · inventory/Equipment.js
+ * ARCANVEIL · inventory/Equipment.js
  * ---------------------------------------------------------------------------
  * Ranuras de equipo y bonificadores derivados.
  *

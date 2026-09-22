@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · tools/auditar-arte.mjs
+ * ARCANVEIL · tools/auditar-arte.mjs
  * ---------------------------------------------------------------------------
  * Comprueba que todas las piezas de arte se generan enteras.
  *
@@ -120,7 +120,7 @@ function comprobar(etiqueta, svg) {
   }
 }
 
-console.log('ARCANUM · auditoría de arte\n');
+console.log('ARCANVEIL · auditoría de arte\n');
 
 /* ── Retratos ─────────────────────────────────────────────────────────────── */
 for (const r of Object.values(RAZAS)) {

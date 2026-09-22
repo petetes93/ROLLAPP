@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ai/providers/LocalLLMProvider.js
+ * ARCANVEIL · ai/providers/LocalLLMProvider.js
  * ---------------------------------------------------------------------------
  * Modelo local: Ollama, LM Studio, llama.cpp y compatibles.
  *

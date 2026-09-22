@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/CharacterPanel.js
+ * ARCANVEIL · ui/components/CharacterPanel.js
  * ---------------------------------------------------------------------------
  * Ficha del personaje en el panel izquierdo: identidad, nivel, experiencia,
  * atributos y alineamiento.

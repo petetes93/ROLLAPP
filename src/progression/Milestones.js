@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · progression/Milestones.js
+ * ARCANVEIL · progression/Milestones.js
  * ---------------------------------------------------------------------------
  * Hitos narrativos y estructura de la crónica.
  *

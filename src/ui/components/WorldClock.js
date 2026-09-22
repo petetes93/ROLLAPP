@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ARCANUM · ui/components/WorldClock.js
+ * ARCANVEIL · ui/components/WorldClock.js
  * ---------------------------------------------------------------------------
  * Reloj del mundo en la cabecera: día, franja horaria y clima.
  *

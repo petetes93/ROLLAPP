@@ -490,18 +490,29 @@ function pintarBitacora() {
   const desdeReciente = Math.max(0, visibles.length - 3);
 
   for (const [indice, e] of visibles.entries()) {
-    if (e.voz === 'tirada') {
+    // El motor etiqueta esta voz como `roll`, no como `tirada`. Al buscar solo
+    // `tirada` no coincidía nunca y las fichas de dados NO SE DIBUJABAN: el
+    // juego resolvía las tiradas y no enseñaba ni una, que es justo lo que el
+    // proyecto promete («el motor tira los dados y el director narra lo que ya
+    // está decidido»). Se aceptan los dos nombres para no depender de cuál
+    // emita cada sistema.
+    if (e.voz === 'roll' || e.voz === 'tirada') {
       const ficha = fichaTirada(e.meta?.tirada);
       if (indice >= desdeReciente) ficha.classList.add('es-reciente');
       caja.append(ficha);
       continue;
     }
 
+    // Mismo desajuste con la voz del jugador: el motor dice `player` y aquí
+    // solo estaba `jugador`, así que sus líneas perdían su estilo y salían
+    // como texto corriente, indistinguibles de la narración.
     const clase = {
       dm: 'linea linea--dm',
+      player: 'linea linea--jugador',
       jugador: 'linea linea--jugador',
       system: 'linea linea--sistema',
       sistema: 'linea linea--sistema',
+      combat: 'linea linea--combate',
       combate: 'linea linea--combate',
     }[e.voz] ?? 'linea';
 

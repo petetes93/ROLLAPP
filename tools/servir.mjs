@@ -67,10 +67,17 @@ const servidor = createServer(async (peticion, respuesta) => {
 
     const cuerpo = await readFile(destino);
 
+    // El trabajador de servicio es la única excepción al `no-store`. Chrome
+    // se niega a registrar un `sw.js` servido con `no-store` y falla con un
+    // «unknown error» que no dice nada, así que sin esta rendija la instalación
+    // como aplicación no se puede probar en local. `max-age=0` conserva lo que
+    // importa —nunca se sirve una versión vieja— sin prohibir el registro.
+    const esTrabajador = /(^|\/)sw\.js$/.test(ruta);
+
     respuesta.writeHead(200, {
       'Content-Type': TIPOS[extname(destino)] ?? 'application/octet-stream',
       // La razón de que este archivo exista.
-      'Cache-Control': 'no-store, must-revalidate',
+      'Cache-Control': esTrabajador ? 'max-age=0, must-revalidate' : 'no-store, must-revalidate',
     });
 
     respuesta.end(cuerpo);

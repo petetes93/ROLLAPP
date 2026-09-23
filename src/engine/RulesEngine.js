@@ -339,13 +339,15 @@ export class RulesEngine extends SystemBase {
     // Una intención dudosa se resuelve con una dificultad algo mayor: el motor
     // no está seguro de qué pretendía el jugador, y eso tiene un coste.
     const penalizacionAmbiguedad = intencion.confianza < 0.4 ? -1 : 0;
+    // Una acción detallada y bien planteada compensa (ver Ambicion.js).
+    const bono = penalizacionAmbiguedad + (contexto.bono ?? 0);
 
     return this.resolver({
       habilidad: intencion.habilidad,
       umbral: contexto.umbral ?? intencion.umbral,
       situacion: contexto.situacion ?? 'neutra',
-      bonoExtra: penalizacionAmbiguedad,
-      fuenteExtra: penalizacionAmbiguedad ? 'Acción confusa' : null,
+      bonoExtra: bono,
+      fuenteExtra: contexto.bono ? (contexto.fuenteBono ?? 'Acción bien pensada') : (penalizacionAmbiguedad ? 'Acción confusa' : null),
       condiciones: contexto.condiciones,
     });
   }

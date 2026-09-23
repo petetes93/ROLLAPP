@@ -256,7 +256,7 @@ export const DIRECTOR = congelar({
   ],
 
   /** Extensión objetivo de la narración por turno, en palabras. */
-  longitudNarracion: { min: 60, objetivo: 140, max: 320 },
+  longitudNarracion: { min: 90, objetivo: 190, max: 360 },
 
   /** Extensión en combate: más corta y más seca. */
   longitudCombate: { min: 30, objetivo: 70, max: 150 },
@@ -265,7 +265,7 @@ export const DIRECTOR = congelar({
   /** Cotas de longitud de la narración, en caracteres. */
   narracion: { min: 40, max: 2400 },
 
-  opciones: { min: 3, objetivo: 4, max: 6 },
+  opciones: { min: 3, objetivo: 3, max: 6 },
 
   /**
    * Verbos canónicos de acción. El director debe mapear cada opción a uno de

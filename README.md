@@ -1,4 +1,4 @@
-# ARCANVEIL · ARCANVEIL
+# ARCANVEIL
 
 Juego de rol narrativo para navegador web. Alta fantasía clásica, sin servidor y sin base de datos.
 

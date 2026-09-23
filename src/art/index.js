@@ -25,6 +25,7 @@ import { paisaje, atmosfera } from './paisaje.js';
 import { retrato } from './retrato.js';
 import { criatura } from './criatura.js';
 import { mejorarRetratoLocal } from './retrato-local.js';
+import { mejorarRetratoIA } from './retrato-ia.js';
 
 export { paisaje, atmosfera, retrato, criatura };
 
@@ -256,7 +257,17 @@ export function pintarRetrato(nodo, personaje = {}) {
       sinRaster: Boolean((personaje.descripcion ?? personaje.retrato ?? '').trim()),
     },
   });
+
+  // Dos vías para convertir la descripción en imagen, y se intentan las dos.
+  //
+  // El puente local es mejor cuando está: no sale nada de la máquina y el
+  // jugador manda sobre el modelo. Pero exige instalar ComfyUI, así que casi
+  // siempre está apagado, y entonces la descripción no pintaba nada.
+  //
+  // La vía remota no exige instalar nada. Si el puente contesta, su resultado
+  // llega después y se queda con el nodo; si no, ya hay retrato.
   mejorarRetratoLocal(nodo, personaje);
+  mejorarRetratoIA(nodo, personaje);
 }
 
 /**
@@ -274,7 +285,12 @@ export function pintarCriatura(nodo, enemigo = {}) {
       tipo: enemigo.tipo,
       tamano: enemigo.tamano,
       nombre: enemigo.nombre ?? '',
-      sinRaster: !enemigo.momentoClave,
+      // Sin puerta de «momento clave»: si hay una imagen de esta criatura, se
+      // usa siempre. Guardarla para los jefes dejaba diez de trece ilustraciones
+      // sin ver nunca y el combate corriente con un vector oscuro, que es
+      // exactamente al revés de lo que interesa: al jugador le importa a QUÉ se
+      // enfrenta, y eso ocurre en todos los combates, no solo en el último.
+      // Si la criatura no tiene imagen, el vector sigue estando debajo.
     },
   });
 }

@@ -27,6 +27,8 @@ import {
 } from '../../data/narrative.templates.js';
 import { APP } from '../../config/app.config.js';
 import { capitalizar } from '../../utils/text.js';
+import { aSegundaPersona } from '../Persona.js';
+import { obtenerLugar } from '../../data/locations.data.js';
 
 export class ProceduralProvider extends IDMProvider {
   static id = 'procedural';
@@ -75,9 +77,119 @@ export class ProceduralProvider extends IDMProvider {
 
     switch (peticion.tipo) {
       case 'combate': return this._turnoCombate(peticion, ctx);
-      case 'dialogo': return this._turnoDialogo(peticion, ctx);
-      default: return this._turnoNarrativo(peticion, ctx);
+      case 'dialogo': return this._enriquecer(peticion, ctx, this._turnoDialogo(peticion, ctx));
+      default: return this._enriquecer(peticion, ctx, this._turnoNarrativo(peticion, ctx));
     }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     INTEGRAR AL JUGADOR
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /**
+   * Hace que el turno responda a lo que el jugador escribió.
+   *
+   * La acción se devuelve en segunda persona como arranque («Te acercas al
+   * barquero y le enseñas el medallón»), quien esté presente reacciona, el
+   * relato nunca queda en una sola línea y las sugerencias nombran lo que
+   * hay en escena.
+   * @private
+   */
+  _enriquecer(peticion, ctx, r) {
+    // Los cierres tipo «Tú dirás.» sobran: la caja de texto ya invita a actuar.
+    const parrafos = String(r.story ?? '').split(/\n\n+/).filter(Boolean)
+      .filter((p) => !CIERRES.includes(p.trim()))
+      // La cita literal de la intención se sustituye por la narración en segunda persona.
+      .filter((p) => !(peticion.accion && /^(Pones en práctica tu idea|Sin apartar la vista|No dudas más)/.test(p)));
+    const accion = String(peticion.accion ?? '').trim();
+
+    if (accion) {
+      let frase = capitalizar(aSegundaPersona(accion)).replace(/[.!?…]*$/u, '.');
+      // Lo desmedido se narra como intento, con el límite dentro de la historia.
+      if (peticion.ambicion === 'desmedida') {
+        frase = `${frase.replace(/\.$/, '')}: esa es tu intención, y la empuñas con todo lo que tienes.`;
+        parrafos.splice(1, 0, this._unico([
+          'Pero el mundo es más grande que tus fuerzas. El impulso se quiebra a medio camino y te deja jadeando, con los brazos temblando y la certeza de que aún no eres quien necesitas ser para algo así.',
+          'Durante un instante parece posible. Luego la realidad pesa más que tu voluntad: el golpe se pierde, el eco se apaga y solo queda tu respiración, rápida, y las miradas de quien lo haya visto.',
+          'Algo responde, muy lejos, como si el mundo hubiera notado el intento. Pero no cede. Todavía no. Quizá algún día, con más camino a la espalda.',
+        ]));
+      }
+      const primera = parrafos[0] ?? '';
+      // Las plantillas cortas de acción («Te pones en marcha.») sobran cuando
+      // ya se narra lo que el jugador escribió.
+      const plantilla = primera.length < 60 && !primera.includes('«');
+      parrafos[0] = plantilla ? frase : `${frase} ${primera}`.trim();
+    }
+
+    // Quien está en escena no se queda de piedra.
+    const npc = ctx.npcsPresentes?.[0];
+    if (accion && npc?.nombre && !String(r.story).includes(npc.nombre)) {
+      parrafos.push(this._unico([
+        `${npc.nombre} no te quita ojo. Por su gesto, lo que acabas de hacer le ha dicho de ti más que cualquier presentación.`,
+        `${npc.nombre} deja lo que estaba haciendo y te mira de otra manera, como quien recoloca una pieza en un tablero.`,
+        `A tu lado, ${npc.nombre} suelta el aire despacio. No dice nada todavía, pero ha tomado nota.`,
+      ]));
+    }
+
+    // Nunca una sola línea: el mundo sigue vivo alrededor y el hilo personal
+    // asoma de vez en cuando.
+    if (parrafos.length < 3) {
+      const atm = this._componerAtmosfera(ctx);
+      if (atm && !r.story?.includes(atm)) parrafos.push(atm);
+    }
+    if (parrafos.length < 3 && ctx.hiloParaRetomar?.texto) parrafos.push(this._recordarHilo(ctx.hiloParaRetomar, ctx));
+    else if (parrafos.length < 3) {
+      const amb = this._elegirAmbiente(ctx);
+      if (amb) parrafos.push(amb);
+    }
+
+    return {
+      ...r,
+      story: parrafos.join('\n\n'),
+      choices: this._sugerenciasDeEscena(ctx, r.choices ?? []),
+    };
+  }
+
+  /**
+   * Tres sugerencias que nombran lo que hay en escena: la persona presente,
+   * un rincón del lugar y el hilo personal del jugador.
+   * @private
+   */
+  _sugerenciasDeEscena(ctx, base) {
+    const lugar = obtenerLugar(ctx.mundo?.ubicacion);
+    const npc = ctx.npcsPresentes?.[0];
+    const lore = String(ctx.jugador?.lore ?? '').toLowerCase();
+    const vinculo = lore.match(/\b(hermana|hermano|padre|madre|hija|hijo|maestra|maestro|amiga|amigo|mentor|esposa|esposo|prometida|prometido)\b/)?.[1];
+    const objeto = lore.match(/\b(medallón|colgante|anillo|espada|carta|mapa|libro|amuleto|diario|llave)\b/)?.[1];
+
+    const candidatas = [];
+    if (npc?.nombre) {
+      if (vinculo) candidatas.push({ label: `Preguntar a ${npc.nombre} por tu ${vinculo}`, intent: 'talk', risk: 'low' });
+      candidatas.push({ label: `Ganarte la confianza de ${npc.nombre}`, intent: 'persuade', risk: 'low' });
+      candidatas.push({ label: `Observar a ${npc.nombre} sin que lo note`, intent: 'observe', risk: 'low' });
+    }
+    if (objeto && vinculo) candidatas.push({ label: `Enseñar el ${objeto} y preguntar por tu ${vinculo}`, intent: 'talk', risk: 'low' });
+    else if (vinculo) candidatas.push({ label: `Buscar a alguien que conozca a tu ${vinculo}`, intent: 'talk', risk: 'low' });
+
+    const sub = this._flujo().elegir(lugar?.sublugares ?? []);
+    if (sub?.nombre) candidatas.push({ label: `Ir a ${sub.nombre.replace(/^(La|El|Los|Las) /, (m) => m.toLowerCase())}`, intent: 'explore', risk: 'low' });
+
+    const conexion = this._flujo().elegir(lugar?.conexiones ?? []);
+    const destino = conexion ? obtenerLugar(conexion.hasta) : null;
+    if (destino?.nombre) candidatas.push({ label: `Tomar el camino hacia ${destino.nombre}`, intent: 'travel', risk: conexion.peligro > 1 ? 'medium' : 'low' });
+
+    candidatas.push(...base);
+
+    const vistas = new Set();
+    const elegidas = [];
+    for (const c of candidatas) {
+      const clave = c.label?.toLowerCase();
+      if (!clave || vistas.has(clave) || c.label.split(/\s+/).length > 9) continue;
+      vistas.add(clave);
+      elegidas.push(c);
+      if (elegidas.length === 3) break;
+    }
+    return elegidas.map((o, i) => ({ ...o, id: `c${i + 1}` }));
   }
 
   /** @private */
@@ -178,7 +290,7 @@ export class ProceduralProvider extends IDMProvider {
   /** Abre la campaña desde una pieza concreta del canon del jugador. */
   _abrirDesdeLore(lore) {
     const limpio = String(lore).replace(/\s+/g, ' ').trim();
-    const primera = limpio.split(/(?<=[.!?…])\s+/u)[0].slice(0, 220).replace(/[.!?…]+$/u, '');
+    const primera = aSegundaPersona(limpio.split(/(?<=[.!?…])\s+/u)[0].slice(0, 220).replace(/[.!?…]+$/u, ''));
     if (!primera) return '';
     return this._unico([
       `Tu pasado no te ha dejado llegar aquí por azar. ${capitalizar(primera)}. Hoy ese hilo vuelve a tensarse.`,
@@ -386,6 +498,19 @@ export class ProceduralProvider extends IDMProvider {
    * @private
    */
   _recordarHilo(hilo, ctx) {
+    // Los hilos de la historia del jugador llegan en su voz («Mi hermana
+    // cruzó…»); se devuelven en la tuya y sin la etiqueta interna.
+    const bruto = String(hilo.texto ?? '').replace(/^De su historia:\s*/i, '');
+    const propio = bruto !== hilo.texto;
+    const frase = propio ? aSegundaPersona(bruto).replace(/[.!?…]*$/u, '') : bruto;
+    if (propio) {
+      return this._unico([
+        `Y entonces lo recuerdas otra vez: ${frase.charAt(0).toLowerCase()}${frase.slice(1)}. No has venido hasta aquí para olvidarlo.`,
+        `${capitalizar(frase)}. Lo piensas sin querer, como una piedra en la bota que no termina de salir.`,
+        `Por un momento, el ruido de alrededor se apaga y solo queda eso: ${frase.charAt(0).toLowerCase()}${frase.slice(1)}.`,
+      ]);
+    }
+    hilo = { ...hilo, texto: frase };
     const formas = [
       `Te viene a la cabeza, sin venir a cuento: ${hilo.texto.toLowerCase()}`,
       `Sigue ahí, en algún rincón: ${hilo.texto.toLowerCase()}`,

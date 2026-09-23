@@ -734,6 +734,9 @@ textarea.entrada{resize:none;overflow-y:auto;line-height:1.45;max-height:180px;d
 .sugerencia{text-align:left;padding:.5rem .75rem;font:400 .92rem/1.35 var(--sans);color:#E8DDC6;background:rgba(0,0,0,.28);border:1px solid rgba(151,112,50,.45);border-radius:3px 10px 3px 10px;cursor:pointer;transition:border-color .15s,background .15s}
 .sugerencia:hover,.sugerencia:focus-visible{border-color:#C19A4A;background:rgba(193,154,74,.12);outline:none}
 @media(max-width:560px){.sugerencia{font-size:.88rem;padding:.45rem .6rem}}
+/* Móvil: la historia manda. La ficha queda como una franja desplazable y la
+   ilustración del lugar se reduce, para que el texto ocupe la pantalla. */
+@media(max-width:800px){.escena{max-height:17vh;min-height:88px}.lateral{max-height:6.4rem;overflow-y:auto;overscroll-behavior:contain;grid-template-columns:64px minmax(0,1fr);gap:.5rem}.retrato-pj{width:64px;height:80px}.ficha-pj{margin-bottom:.3rem;padding:.3rem .5rem}}
 </style>
 </head>
 <body>

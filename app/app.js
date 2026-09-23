@@ -61,6 +61,9 @@ import { TRASFONDOS } from '../src/data/backgrounds.data.js';
 import { obtenerLugar } from '../src/data/locations.data.js';
 import * as Comb from '../src/combat/Combatant.js';
 import { PROVEEDORES } from '../src/config/ai.config.js';
+import {
+  rodarDado, numeroDano, sacudir, destello, rotuloMomento,
+} from './efectos.js';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    UTILIDADES DE DOM
@@ -591,11 +594,32 @@ function pintarRevelacion(p) {
     ),
   ));
 
-  cara.addEventListener('retrato-local', (e) => {
-    const t = { generando: 'La IA está pintando tu retrato…', listo: 'Retrato pintado por la IA.', ausente: 'Generador de imagen apagado: se muestra el retrato procedural.' }[e.detail?.estado];
-    if (t) estado.textContent = t;
-    estado.dataset.estado = e.detail?.estado ?? '';
-  });
+  // Dos generadores compiten por el mismo hueco: el puente local, que casi
+  // nunca está encendido, y el remoto, que no necesita instalar nada. El
+  // rótulo cuenta lo mejor que haya pasado, no lo último que pasó: si el
+  // remoto pintó el retrato, da igual que el local esté apagado, y decir
+  // «generador apagado» debajo de una imagen recién pintada era mentira.
+  const ROTULOS = {
+    generando: 'La IA está pintando tu retrato…',
+    listo: 'Retrato pintado por la IA a partir de tu descripción.',
+    ausente: 'Sin generador disponible: se muestra el retrato procedural.',
+    'sin-red': 'Sin generador disponible: se muestra el retrato procedural.',
+  };
+
+  let logrado = false;
+
+  const contar = (e) => {
+    const es = e.detail?.estado ?? '';
+
+    if (es === 'listo') logrado = true;
+    else if (logrado) return;          // ya hay retrato: nada lo desmiente
+
+    if (ROTULOS[es]) estado.textContent = ROTULOS[es];
+    estado.dataset.estado = es;
+  };
+
+  cara.addEventListener('retrato-local', contar);
+  cara.addEventListener('retrato-ia', contar);
 
   animarGeneracion(cara, 'Pintando retrato');
   pintarRetrato(cara, { raza: p.raza, nombre: p.nombre, descripcion: p.retrato, inmediato: true });
@@ -842,6 +866,14 @@ const VELOCIDADES = { lenta: 40, normal: 85, rapida: 170, instantanea: Infinity 
 /** Entradas de la bitácora que ya se han enseñado enteras. */
 let entradasVistas = 0;
 let firmaBitacora = '';
+
+/**
+ * Id de la última tirada cuyo dado ya rodó.
+ *
+ * La bitácora se repinta entera en cada refresco, así que sin recordar esto
+ * los dados ya vistos volverían a rodar turno tras turno.
+ */
+let ultimaTiradaAnimada = null;
 /** Cola de párrafos pendientes de escribirse. */
 const colaEscritura = [];
 let escribiendo = false;
@@ -919,7 +951,17 @@ function pintarBitacora() {
     // está decidido»). Se aceptan los dos nombres para no depender de cuál
     // emita cada sistema.
     if (e.voz === 'roll' || e.voz === 'tirada') {
-      const ficha = fichaTirada(e.meta?.tirada);
+      // El dado solo rueda para la tirada que acaba de ocurrir, y una sola
+      // vez. La bitácora se repinta entera en cada refresco: sin este
+      // candado, cada turno harían rodar de nuevo todos los dados visibles.
+      const esNueva = Boolean(e.id) && e.id !== ultimaTiradaAnimada;
+
+      const ficha = fichaTirada(e.meta?.tirada, {
+        animar: esNueva && indice >= desdeReciente,
+      });
+
+      if (esNueva && indice >= desdeReciente) ultimaTiradaAnimada = e.id;
+
       if (indice >= desdeReciente) ficha.classList.add('es-reciente');
       caja.append(ficha);
       continue;
@@ -955,18 +997,33 @@ function pintarBitacora() {
   if (colaEscritura.length && !escribiendo) escribirSiguiente();
 }
 
-function fichaTirada(t) {
+function fichaTirada(t, { animar = false } = {}) {
   if (!t) return el('span');
 
   const clase = t.pifia ? 'pifia' : t.critico ? 'critico' : t.exito ? 'exito' : 'fracaso';
   const etiqueta = t.pifia ? 'pifia' : t.critico ? 'crítico' : t.exito ? 'éxito' : 'fracaso';
 
-  return el('div', { class: `tirada tirada--${clase}` },
-    el('span', { class: 'tirada__dado', text: `d20 ${t.natural}` }),
+  const dado = el('span', { class: 'tirada__dado', text: `d20 ${t.natural}` });
+
+  const ficha = el('div', { class: `tirada tirada--${clase}` },
+    dado,
     el('span', { class: 'tirada__cuenta', text: `${t.total} vs ${t.umbral}` }),
     el('span', { class: 'tirada__veredicto', text: etiqueta }),
     t.nombreHabilidad ? el('span', { class: 'tirada__hab', text: t.nombreHabilidad }) : null,
   );
+
+  // Solo rueda la tirada recién ocurrida. Repintar la bitácora vuelve a crear
+  // las fichas viejas, y verlas rodar todas de golpe cada turno sería absurdo.
+  if (animar) {
+    rodarDado(dado, t.natural, () => {
+      // El crítico y la pifia son los dos momentos en que la tirada deja de
+      // ser un trámite. Se subrayan al asentarse el dado, no antes.
+      if (t.critico) sacudir(ficha, 'suave');
+      if (t.pifia) sacudir(ficha, 'fuerte');
+    });
+  }
+
+  return ficha;
 }
 
 /* ── cabecera ─────────────────────────────────────────────────────────── */
@@ -1412,7 +1469,13 @@ function pintarCombate() {
   for (const c of datos.combatientes) {
     const frac = Math.round(c.fraccionVida * 100);
 
-    lista.append(el('div', { class: 'luchador' + (c.vivo ? '' : ' es-caido') },
+    // El id permite que un golpe encuentre a SU objetivo en pantalla y le
+    // lance el número encima. Sin esto, el daño saldría en un sitio genérico
+    // y el jugador no vería a quién le pasó, que es media información.
+    lista.append(el('div', {
+      class: 'luchador' + (c.vivo ? '' : ' es-caido'),
+      dataset: { luchador: c.id },
+    },
       el('div', { class: 'luchador__fila' },
         el('span', { text: c.nombre }),
         el('span', { class: 'luchador__cond', text: c.condicion }),
@@ -1594,16 +1657,53 @@ function conectarEventos() {
   // El motor avisa; la interfaz lo muestra.
   bus.on('ui:notice', ({ mensaje, tipo }) => avisar(mensaje, tipo));
   bus.on('achievement:unlocked', ({ nombre }) => avisar(`Hazaña: ${nombre}`, 'exito'));
-  bus.on('player:levelup', ({ nivel }) => avisar(`Has subido a nivel ${nivel}`, 'exito'));
+  // Subir de nivel merece más que un aviso en la esquina: es de las pocas
+  // cosas que cambian lo que puedes intentar.
+  bus.on('player:levelup', ({ nivel }) => {
+    rotuloMomento(`NIVEL ${nivel}`, 'oro');
+    avisar(`Has subido a nivel ${nivel}`, 'exito');
+  });
 
   // Cualquier cambio del mundo redibuja lo que corresponda.
   for (const evento of ['combat:start', 'combat:end', 'combat:turn', 'combat:awaiting', 'combat:log']) {
     bus.on(evento, () => { pintarCombate(); pintarBitacora(); });
   }
 
+  // El golpe, en pantalla. Una barra que baja dice que pasó algo; esto dice
+  // cuánto y a quién. Se engancha a `combat:attack`, que ya trae el daño
+  // resuelto por el motor: aquí no se calcula nada, solo se enseña.
+  bus.on('combat:attack', (golpe) => {
+    if (!golpe?.dano?.total) return;
+
+    // El repintado del panel ocurre en el mismo tic; se espera a que el
+    // objetivo exista en el DOM o el número saldría sobre un nodo muerto.
+    setTimeout(() => {
+      const objetivo = $(`[data-luchador="${golpe.objetivo?.id}"]`);
+      if (!objetivo) return;
+
+      const critico = Boolean(golpe.tirada?.critico);
+
+      numeroDano(objetivo, golpe.dano.total, {
+        critico,
+        esJugador: golpe.objetivo?.esJugador,
+      });
+
+      destello(objetivo, 'dano');
+
+      // La sacudida se reserva: el crítico y el golpe que derriba. Si todo
+      // tiembla, el temblor deja de significar nada.
+      if (critico || golpe.cayo) {
+        sacudir($('#combate'), golpe.cayo ? 'fuerte' : 'suave');
+      }
+    }, 30);
+  });
+
   bus.on('narrative:direct', () => setTimeout(pintarBitacora, 10));
   bus.on('world:arrived', () => refrescarTodo());
-  bus.on('player:defeated', () => avisar('Has caído. La crónica termina aquí.', 'aviso'));
+  bus.on('player:defeated', () => {
+    rotuloMomento('HAS CAÍDO', 'sangre');
+    avisar('Has caído. La crónica termina aquí.', 'aviso');
+  });
 }
 
 /** Retira la pantalla de arranque y muestra el juego. */

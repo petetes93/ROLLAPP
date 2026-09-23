@@ -126,6 +126,9 @@ export function cabecera(estado, nota) {
     nivel: jugador.nivel ?? 1,
     raza: jugador.raza ?? null,
     clase: jugador.clase ?? null,
+    // Para dibujar el rostro en «Cargar» sin deserializar la partida.
+    retrato: jugador.retrato ?? '',
+    personajeId: estado.meta?.personajeId ?? null,
 
     lugar: mundo.ubicacion
       ? (mundo.localizaciones?.porId?.[mundo.ubicacion]?.nombre ?? mundo.ubicacion)

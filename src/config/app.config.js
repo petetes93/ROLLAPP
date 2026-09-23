@@ -260,7 +260,7 @@ export const PERSISTENCIA = congelar({
   /** Tamaño máximo de una ranura, en bytes. */
   tamanoMaxRanura: 900_000,
 
-  ranuras: 3,
+  ranuras: 8,
 
   /**
    * NUNCA se persiste ninguna clave de API ni credencial, bajo ninguna

@@ -51,7 +51,10 @@ import {
 } from '../src/art/index.js';
 import { obtenerEnemigo } from '../src/data/enemies.data.js';
 
-import { previsualizar } from '../src/player/CharacterFactory.js';
+import { fichaAleatoria } from '../src/player/CharacterRandom.js';
+import {
+  listarPersonajes, obtenerPersonaje, guardarPersonaje,
+} from '../src/persistence/CharacterRoster.js';
 import { RAZAS } from '../src/data/races.data.js';
 import { CLASES } from '../src/data/classes.data.js';
 import { TRASFONDOS } from '../src/data/backgrounds.data.js';
@@ -215,204 +218,507 @@ function mostrar(pantalla) {
 
 /* ── inicio ───────────────────────────────────────────────────────────── */
 
+/**
+ * Pantalla de título, como la de cualquier videojuego: Continuar solo se
+ * enciende si hay algo que continuar.
+ */
 function pintarInicio() {
   const saves = sistema('saves');
-  const hay = saves?.hayPartidas?.() ?? { hay: false };
+  const reciente = partidaMasReciente();
 
   const caja = $('#inicio-acciones');
   vaciar(caja);
 
   caja.append(
     el('button', {
-      class: 'btn btn--grande',
-      onClick: protegido('nueva partida', () => { mostrar('creacion'); pintarCreacion(); }),
-    }, 'Nueva crónica'),
-  );
-
-  if (hay.hay) {
-    caja.append(el('button', {
-      class: 'btn btn--fantasma',
+      class: 'btn btn--grande menu-btn', id: 'menu-continuar',
+      disabled: reciente ? null : 'disabled',
+      title: reciente ? `${reciente.cabecera?.nombre ?? ''} · nivel ${reciente.cabecera?.nivel ?? 1}` : 'Aún no hay partidas guardadas',
       onClick: protegido('continuar', () => continuar()),
-    }, 'Continuar'));
-  }
+    },
+      el('span', { text: 'Continuar' }),
+      reciente ? el('small', { class: 'menu-btn__nota', text: `${reciente.cabecera?.nombre ?? ''} · ${reciente.cabecera?.lugar ?? ''}` }) : null,
+    ),
+    el('button', {
+      class: 'btn menu-btn', id: 'menu-nueva',
+      onClick: protegido('nueva partida', () => abrirNuevaPartida()),
+    }, 'Nueva partida'),
+    el('button', {
+      class: 'btn menu-btn', id: 'menu-cargar',
+      disabled: saves && partidasGuardadas().length ? null : 'disabled',
+      onClick: protegido('cargar', () => { mostrar('cargar'); pintarCargar(); }),
+    }, 'Cargar'),
+    el('button', {
+      class: 'btn btn--fantasma menu-btn', id: 'menu-ajustes',
+      onClick: protegido('ajustes', () => abrirAjustes()),
+    }, 'Ajustes'),
+  );
 }
 
-function continuar() {
-  const saves = sistema('saves');
-  const reciente = saves?.hayPartidas?.().masReciente;
-  if (!reciente) return;
+/* ── partidas guardadas ───────────────────────────────────────────────── */
 
-  const r = saves.cargar(reciente.ranura);
+/** Clave de la preferencia que recuerda que el jugador quiso guardar. */
+const CLAVE_PERSISTENCIA = 'arcanveil:prefs:persistencia';
 
+/**
+ * Enciende el guardado en el navegador. Se llama al empezar una partida: quien
+ * pulsa «Nueva partida» en un juego con «Continuar» está pidiendo que se
+ * recuerde. El autoguardado propio del motor se apaga porque aquí cada
+ * partida tiene su ranura y se guarda al final de cada turno.
+ */
+function activarPersistencia() {
+  try { localStorage.setItem(CLAVE_PERSISTENCIA, '1'); } catch { /* modo privado */ }
+  store.fijar('settings.persistencia', true);
+  store.fijar('settings.autoguardado', false);
+  bus.emit('settings:change', { id: 'persistencia', valor: true });
+}
+
+/** Al arrancar: si antes se guardó algo, se vuelve a poder leer y guardar. */
+function recuperarPersistencia() {
+  let recordada = false;
+  try {
+    recordada = localStorage.getItem(CLAVE_PERSISTENCIA) === '1'
+      || Object.keys(localStorage).some((k) => k.startsWith('arcanveil:partida:'));
+  } catch { /* sin almacenamiento */ }
+  if (recordada) activarPersistencia();
+}
+
+function partidasGuardadas() {
+  return (sistema('saves')?.listar?.() ?? [])
+    .filter((r) => !r.vacia && r.abrible !== false)
+    .sort((a, b) => (b.guardadoEn ?? 0) - (a.guardadoEn ?? 0));
+}
+
+function partidaMasReciente() {
+  return partidasGuardadas()[0] ?? null;
+}
+
+/** Primera ranura libre; si no queda ninguna, la más antigua. */
+function ranuraParaPartidaNueva() {
+  const todas = (sistema('saves')?.listar?.() ?? []).filter((r) => !r.automatica);
+  const libre = todas.find((r) => r.vacia);
+  if (libre) return libre.ranura;
+  return [...todas].sort((a, b) => (a.guardadoEn ?? 0) - (b.guardadoEn ?? 0))[0]?.ranura ?? '1';
+}
+
+/** Guarda la partida en curso en su ranura, sin avisos. */
+function guardarPartidaActual({ silencioso = true } = {}) {
+  if (!ver('player.raza')) return null;
+  const ranura = ver('meta.ranura') ?? ranuraParaPartidaNueva();
+  store.fijar('meta.ranura', ranura);
+  return sistema('saves')?.guardar(ranura, { silencioso, nota: 'crónica' }) ?? null;
+}
+
+function cargarRanura(ranura) {
+  const r = sistema('saves').cargar(ranura);
   if (!r.exito) {
     avisarFallo('cargar partida', new Error(r.motivo));
     return;
   }
-
+  store.fijar('meta.ranura', ranura);
   mostrar('juego');
   refrescarTodo();
+  bitacoraSinAnimar();
+  programarSugerencias();
 }
 
-/* ── creación ─────────────────────────────────────────────────────────── */
+function continuar() {
+  const reciente = partidaMasReciente();
+  if (reciente) cargarRanura(reciente.ranura);
+}
+
+function pintarCargar() {
+  const caja = $('#cargar-lista');
+  vaciar(caja);
+
+  const partidas = partidasGuardadas();
+  if (!partidas.length) {
+    caja.append(el('p', { class: 'cargar__vacio', text: 'No hay partidas guardadas todavía.' }));
+    return;
+  }
+
+  for (const p of partidas) {
+    const c = p.cabecera ?? {};
+    const cara = el('div', { class: 'tarjeta-pj__cara' });
+    const fecha = p.guardadoEn ? new Date(p.guardadoEn).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+
+    caja.append(el('div', { class: 'tarjeta-pj tarjeta-pj--partida' },
+      el('button', {
+        class: 'tarjeta-pj__abrir', dataset: { ranura: p.ranura },
+        onClick: protegido('cargar partida', () => cargarRanura(p.ranura)),
+      },
+        cara,
+        el('span', { class: 'tarjeta-pj__texto' },
+          el('strong', { class: 'tarjeta-pj__nombre', text: c.nombre ?? 'Sin nombre' }),
+          el('span', { class: 'tarjeta-pj__dato', text: `Nivel ${c.nivel ?? 1} · ${RAZAS[c.raza]?.nombre ?? ''} · ${CLASES[c.clase]?.nombre ?? ''}` }),
+          el('span', { class: 'tarjeta-pj__dato tarjeta-pj__dato--tenue', text: `${c.lugar ?? ''} · día ${c.dia ?? 1} · ${fecha}` }),
+        ),
+      ),
+      el('button', {
+        class: 'btn btn--pequeno btn--peligro tarjeta-pj__borrar', title: 'Borrar esta partida',
+        onClick: protegido('borrar partida', () => {
+          if (!confirm(`¿Borrar la partida de ${c.nombre ?? 'este personaje'}? No se puede deshacer.`)) return;
+          sistema('saves').borrar(p.ranura);
+          pintarCargar();
+          pintarInicio();
+        }),
+      }, 'Borrar'),
+    ));
+
+    pintarRetrato(cara, { raza: c.raza, nombre: c.nombre, descripcion: c.retrato });
+  }
+}
+
+/* ── nueva partida: personajes ────────────────────────────────────────── */
+
+/**
+ * Si ya existe algún personaje, «Nueva partida» lo ofrece a nivel 1 con un
+ * botón para crear otro. Si no, va directo al generador.
+ */
+function abrirNuevaPartida() {
+  if (!listarPersonajes().length) {
+    abrirCreacion();
+    return;
+  }
+  mostrar('personajes');
+  pintarPersonajes(null);
+}
+
+function pintarPersonajes(elegidoId) {
+  const caja = $('#personajes-lista');
+  const pie = $('#personajes-pie');
+  vaciar(caja);
+  vaciar(pie);
+
+  const personajes = listarPersonajes();
+  const elegido = personajes.find((p) => p.id === elegidoId) ?? null;
+
+  // Con un personaje elegido solo queda él y «Comenzar partida».
+  for (const p of elegido ? [elegido] : personajes) {
+    const cara = el('div', { class: 'tarjeta-pj__cara' });
+    caja.append(el('button', {
+      class: 'tarjeta-pj' + (elegido ? ' es-elegida' : ''),
+      dataset: { personaje: p.id },
+      onClick: protegido('elegir personaje', () => pintarPersonajes(elegido ? null : p.id)),
+    },
+      cara,
+      el('span', { class: 'tarjeta-pj__texto' },
+        el('strong', { class: 'tarjeta-pj__nombre', text: p.nombre }),
+        el('span', { class: 'tarjeta-pj__dato', text: `Nivel 1 · ${RAZAS[p.raza]?.nombre ?? ''} · ${CLASES[p.clase]?.nombre ?? ''}` }),
+        elegido && p.lore ? el('span', { class: 'tarjeta-pj__lore', text: p.lore.slice(0, 220) + (p.lore.length > 220 ? '…' : '') }) : null,
+      ),
+    ));
+    pintarRetrato(cara, { raza: p.raza, nombre: p.nombre, descripcion: p.retrato });
+  }
+
+  if (elegido) {
+    pie.append(
+      el('button', { class: 'btn btn--fantasma', id: 'personajes-otro', onClick: () => pintarPersonajes(null) }, 'Elegir otro'),
+      el('button', {
+        class: 'btn btn--grande', id: 'personajes-comenzar',
+        onClick: protegido('comenzar partida', () => comenzarPartida(elegido)),
+      }, 'Comenzar partida'),
+    );
+  } else {
+    pie.append(
+      el('button', { class: 'btn btn--fantasma', onClick: () => mostrar('inicio') }, 'Atrás'),
+      el('button', {
+        class: 'btn', id: 'personajes-nuevo',
+        onClick: protegido('nuevo personaje', () => abrirCreacion()),
+      }, 'Nuevo personaje'),
+    );
+  }
+}
+
+/* ── creación: generador aleatorio ────────────────────────────────────── */
 
 const borrador = {
-  nombre: '',
-  raza: 'valdes',
-  clase: 'rastreador',
-  trasfondo: 'errante',
-  retrato: '',
-  lore: '',
+  nombre: '', raza: 'valdes', clase: 'rastreador', trasfondo: 'errante',
+  genero: 'm', retrato: '', lore: '',
 };
 
+/** Personaje recién creado que se enseña con su ilustración. */
+let personajeCreado = null;
+
+function tirarFicha() {
+  Object.assign(borrador, fichaAleatoria());
+}
+
+function abrirCreacion() {
+  personajeCreado = null;
+  tirarFicha();
+  borrador.retrato = '';
+  borrador.lore = '';
+  mostrar('creacion');
+  pintarCreacion();
+}
+
+/**
+ * Primer paso: ficha al azar y los tres textos del jugador. Aquí no hay
+ * retrato a propósito: la ilustración llega cuando el jugador envía su
+ * descripción, no antes.
+ */
 function pintarCreacion() {
   const caja = $('#creacion-cuerpo');
   vaciar(caja);
+  $('#creacion-titulo').textContent = '¿Quién eres?';
+  $('#creacion-nota').textContent = 'Tira los dados hasta que te guste el origen. Después escribe quién eres: tu descripción será el encargo para la ilustración.';
 
-  // ── Nombre ──────────────────────────────────────────────────────────
+  caja.append(el('div', { class: 'aleatoria', id: 'ficha-aleatoria' }));
+  pintarFichaAleatoria();
+
   caja.append(
     el('div', { class: 'campo' },
       el('label', { class: 'campo__eti', for: 'nombre', text: 'Nombre' }),
       el('input', {
         id: 'nombre', class: 'campo__entrada', type: 'text',
-        placeholder: 'Kelra', maxlength: '28', value: borrador.nombre,
+        maxlength: '28', value: borrador.nombre, autocomplete: 'off',
         onInput: (e) => { borrador.nombre = e.target.value; },
       }),
     ),
-  );
-
-  // ── Linaje, con el rostro al lado ───────────────────────────────────
-  // El retrato manda: es lo que hace que elegir linaje sea una decisión
-  // visual y no una lista de nombres.
-  const cara = el('div', { class: 'eleccion__cara', id: 'creacion-cara' });
-
-  caja.append(
-    el('div', { class: 'eleccion' },
-      cara,
-      el('div', {}, grupoEleccion('Linaje', RAZAS, 'raza')),
-    ),
-  );
-
-  pintarRetrato(cara, {
-    raza: borrador.raza,
-    nombre: RAZAS[borrador.raza]?.nombre,
-    descripcion: borrador.retrato,
-  });
-
-  caja.append(
     el('div', { class: 'campo retrato-descripcion' },
-      el('label', { class: 'campo__eti', for: 'retrato-descripcion', text: 'Describe a tu personaje' }),
+      el('label', { class: 'campo__eti', for: 'retrato-descripcion', text: 'Descripción' }),
       el('textarea', {
         id: 'retrato-descripcion', class: 'campo__entrada campo__entrada--retrato',
         placeholder: 'Ej.: exploradora de pelo plateado, cicatriz en la ceja, capa violeta y brújula de bronce…',
         maxlength: '360', value: borrador.retrato,
-        onInput: (e) => {
-          borrador.retrato = e.target.value;
-          animarGeneracion(cara, 'Interpretando descripción');
-          pintarRetrato(cara, {
-            raza: borrador.raza,
-            nombre: RAZAS[borrador.raza]?.nombre,
-            descripcion: borrador.retrato,
-          });
-        },
+        onInput: (e) => { borrador.retrato = e.target.value; },
       }),
-      el('p', { class: 'campo__ayuda', text: 'El retrato local interpreta tu descripción. La IA también la usará para narrar quién eres.' }),
+      el('p', { class: 'campo__ayuda', text: 'Es lo que la IA pintará. Aspecto, ropa, rasgos, gesto.' }),
     ),
-  );
-
-  // ── Historia propia ────────────────────────────────────────────────
-  // Va separada del aspecto: una describe cómo se ve; la otra explica de
-  // dónde viene y qué asuntos debe convertir la campaña en hilos vivos.
-  caja.append(
     el('div', { class: 'campo lore-personaje' },
-      el('label', { class: 'campo__eti', for: 'lore-personaje', text: 'Tu historia' }),
+      el('label', { class: 'campo__eti', for: 'lore-personaje', text: 'Historia' }),
       el('textarea', {
         id: 'lore-personaje', class: 'campo__entrada campo__entrada--retrato campo__entrada--lore',
         placeholder: 'Ej.: crecí junto al Umbral, mi hermana desapareció tras cruzarlo y llevo su medallón. Quiero encontrarla, aunque tema lo que haya al otro lado…',
         maxlength: '1200', value: borrador.lore,
         onInput: (e) => { borrador.lore = e.target.value; },
       }),
-      el('p', { class: 'campo__ayuda', text: 'El narrador convertirá personas, promesas, lugares y conflictos de esta historia en la campaña.' }),
+      el('p', { class: 'campo__ayuda', text: 'El máster convertirá personas, promesas, lugares y conflictos de esta historia en la campaña.' }),
     ),
-    grupoEleccion('Oficio', CLASES, 'clase'),
-    grupoEleccion('Pasado', TRASFONDOS, 'trasfondo'),
   );
 
-  // ── Resumen ─────────────────────────────────────────────────────────
-  caja.append(el('div', { id: 'creacion-resumen', class: 'resumen' }));
-  pintarResumen();
-}
-
-function grupoEleccion(titulo, catalogo, clave) {
-  const opciones = Object.values(catalogo);
-
-  return el('div', { class: 'grupo' },
-    el('p', { class: 'grupo__eti', text: titulo }),
-    el('div', { class: 'fichas' },
-      ...opciones.map((o) => el('button', {
-        class: 'ficha' + (borrador[clave] === o.refId ? ' es-elegida' : ''),
-        dataset: { clave, valor: o.refId },
-        onClick: protegido('elección', () => {
-          borrador[clave] = o.refId;
-          pintarCreacion();
-          if (clave === 'raza') animarGeneracion($('#creacion-cara'), 'Forjando linaje');
-        }),
-      },
-        el('span', { class: 'ficha__nombre', text: o.nombre }),
-        el('span', { class: 'ficha__nota', text: (o.lema ?? o.descripcion ?? '').slice(0, 68) }),
-      )),
-    ),
+  const pie = $('#creacion-pie');
+  vaciar(pie);
+  pie.append(
+    el('button', { class: 'btn btn--fantasma', id: 'creacion-volver', onClick: protegido('volver', () => (listarPersonajes().length ? abrirNuevaPartida() : mostrar('inicio'))) }, 'Atrás'),
+    el('button', { class: 'btn btn--grande', id: 'creacion-crear', onClick: protegido('crear personaje', crearPersonajeNuevo) }, 'Crear personaje'),
   );
 }
 
-function pintarResumen() {
-  const caja = $('#creacion-resumen');
+function pintarFichaAleatoria() {
+  const caja = $('#ficha-aleatoria');
   if (!caja) return;
-
   vaciar(caja);
 
   const raza = RAZAS[borrador.raza];
   const clase = CLASES[borrador.clase];
   const fondo = TRASFONDOS[borrador.trasfondo];
-
-  const inicio = obtenerLugar({
-    ferrano: 'forja_alta', brumal: 'pilotes_brumal', sombracorteza: 'arboleda_madre',
-    crisol: 'oasis_sal', albar: 'umbral_albar', griscuerno: 'paso_yunque',
-    valdes: 'vado_yunque', menudo: 'saucedo',
-  }[borrador.raza] ?? 'vado_yunque');
+  const inicio = obtenerLugar(LUGAR_INICIAL[borrador.raza] ?? 'vado_yunque');
 
   caja.append(
-    el('p', { class: 'resumen__linea', text: raza?.promptLore?.slice(0, 180) ?? '' }),
-    el('p', { class: 'resumen__linea resumen__linea--tenue' },
-      el('strong', { text: clase?.nombre ?? '' }), ' · ', fondo?.nombre ?? '',
-      inicio ? el('span', { text: ` · empiezas en ${inicio.nombre}` }) : null,
+    el('div', { class: 'aleatoria__cab' },
+      el('p', { class: 'aleatoria__eti', text: 'Tu origen' }),
+      el('button', {
+        class: 'btn aleatoria__dado', id: 'creacion-aleatorio', type: 'button', title: 'Volver a tirar',
+        onClick: protegido('aleatorio', () => {
+          const nombreAnterior = borrador.nombre;
+          tirarFicha();
+          const campo = $('#nombre');
+          // El nombre también se tira, salvo que el jugador ya haya escrito el suyo.
+          if (campo && campo.value && campo.value !== nombreAnterior) borrador.nombre = campo.value;
+          else if (campo) campo.value = borrador.nombre;
+          pintarFichaAleatoria();
+          caja.classList.remove('se-tira'); void caja.offsetWidth; caja.classList.add('se-tira');
+        }),
+      }, el('span', { class: 'aleatoria__glifo', text: '⚄' }), ' Aleatorio'),
     ),
+    el('div', { class: 'aleatoria__rasgos' },
+      el('div', { class: 'aleatoria__rasgo' }, el('small', { text: 'Linaje' }), el('strong', { id: 'aleatoria-raza', text: raza?.nombre ?? '' }), el('span', { text: raza?.lema ?? '' })),
+      el('div', { class: 'aleatoria__rasgo' }, el('small', { text: 'Oficio' }), el('strong', { text: clase?.nombre ?? '' }), el('span', { text: clase?.lema ?? (clase?.descripcion ?? '').slice(0, 80) })),
+      el('div', { class: 'aleatoria__rasgo' }, el('small', { text: 'Pasado' }), el('strong', { text: fondo?.nombre ?? '' }), el('span', { text: fondo?.lema ?? (fondo?.descripcion ?? '').slice(0, 80) })),
+    ),
+    inicio ? el('p', { class: 'aleatoria__inicio', text: `Empiezas en ${inicio.nombre}.` }) : null,
   );
 }
 
-async function empezarPartida() {
-  const nombre = ($('#nombre')?.value ?? '').trim();
+const LUGAR_INICIAL = {
+  ferrano: 'forja_alta', brumal: 'pilotes_brumal', sombracorteza: 'arboleda_madre',
+  crisol: 'oasis_sal', albar: 'umbral_albar', griscuerno: 'paso_yunque',
+  valdes: 'vado_yunque', menudo: 'saucedo',
+};
 
-  if (!nombre) {
-    $('#nombre')?.focus();
-    avisarFallo('creación', new Error('Ponle nombre al personaje.'));
+/**
+ * Segundo paso: el personaje queda creado y la IA pinta su ilustración a
+ * partir de la descripción. Si el generador local no está encendido, el
+ * retrato procedural ocupa su lugar y el juego sigue igual.
+ */
+function crearPersonajeNuevo() {
+  const nombre = ($('#nombre')?.value ?? '').trim();
+  const descripcion = ($('#retrato-descripcion')?.value ?? '').trim();
+  const lore = ($('#lore-personaje')?.value ?? '').trim();
+
+  const faltan = [];
+  if (!nombre) faltan.push(['#nombre', 'Ponle nombre al personaje.']);
+  if (descripcion.length < 8) faltan.push(['#retrato-descripcion', 'Describe su aspecto: es lo que pintará la IA.']);
+  if (lore.length < 8) faltan.push(['#lore-personaje', 'Cuenta un poco de su historia.']);
+  if (faltan.length) {
+    $(faltan[0][0])?.focus();
+    avisar(faltan[0][1], 'aviso');
     return;
   }
 
-  // El sistema de jugador construye el personaje y avisa a los demás: aquí
-  // solo se le pasa el borrador.
-  store.dispatch('player/crear', { borrador: { ...borrador, nombre } });
+  personajeCreado = guardarPersonaje({ ...borrador, nombre, retrato: descripcion, lore });
+  pintarRevelacion(personajeCreado);
+}
 
-  // Se deja que la microcola entregue el aviso antes de dibujar.
+function pintarRevelacion(p) {
+  const caja = $('#creacion-cuerpo');
+  vaciar(caja);
+  $('#creacion-titulo').textContent = p.nombre;
+  $('#creacion-nota').textContent = `${RAZAS[p.raza]?.nombre ?? ''} · ${CLASES[p.clase]?.nombre ?? ''} · ${TRASFONDOS[p.trasfondo]?.nombre ?? ''} · nivel 1`;
+
+  const cara = el('div', { class: 'eleccion__cara revelacion__cara', id: 'creacion-cara' });
+  const estado = el('p', { class: 'revelacion__estado', id: 'retrato-estado', text: 'La IA está pintando tu retrato…' });
+
+  caja.append(el('div', { class: 'revelacion' },
+    el('div', { class: 'revelacion__marco' }, cara, estado),
+    el('div', { class: 'revelacion__texto' },
+      el('p', { class: 'revelacion__eti', text: 'Descripción' }),
+      el('p', { class: 'revelacion__cita', text: p.retrato }),
+      el('p', { class: 'revelacion__eti', text: 'Historia' }),
+      el('p', { class: 'revelacion__cita', text: p.lore }),
+    ),
+  ));
+
+  cara.addEventListener('retrato-local', (e) => {
+    const t = { generando: 'La IA está pintando tu retrato…', listo: 'Retrato pintado por la IA.', ausente: 'Generador de imagen apagado: se muestra el retrato procedural.' }[e.detail?.estado];
+    if (t) estado.textContent = t;
+    estado.dataset.estado = e.detail?.estado ?? '';
+  });
+
+  animarGeneracion(cara, 'Pintando retrato');
+  pintarRetrato(cara, { raza: p.raza, nombre: p.nombre, descripcion: p.retrato, inmediato: true });
+
+  const pie = $('#creacion-pie');
+  vaciar(pie);
+  pie.append(
+    el('button', { class: 'btn btn--fantasma', id: 'creacion-otro', onClick: protegido('nuevo personaje', () => abrirCreacion()) }, 'Crear otro'),
+    el('button', { class: 'btn btn--grande', id: 'creacion-empezar', onClick: protegido('comenzar partida', () => comenzarPartida(p)) }, 'Comenzar partida'),
+  );
+}
+
+/**
+ * Empieza una crónica nueva con un personaje del plantel, siempre a nivel 1.
+ *
+ * Si en esta sesión ya se jugó otra partida, se recarga la página antes: los
+ * sistemas guardan estado propio (mundo, memoria del máster, eventos) y
+ * empezar limpio es la única forma segura de no heredar nada de la anterior.
+ */
+async function comenzarPartida(p) {
+  if (ver('player.raza')) {
+    try { sessionStorage.setItem('arcanveil:comenzar', p.id); } catch { /* sin sesión */ }
+    guardarPartidaActual();
+    location.reload();
+    return;
+  }
+
+  activarPersistencia();
+  store.fijar('meta.ranura', ranuraParaPartidaNueva());
+  store.fijar('meta.personajeId', p.id);
+
+  store.dispatch('player/crear', {
+    borrador: {
+      nombre: p.nombre, raza: p.raza, clase: p.clase, trasfondo: p.trasfondo,
+      retrato: p.retrato ?? '', lore: p.lore ?? '',
+    },
+  });
+
   await new Promise((r) => setTimeout(r, 0));
 
   mostrar('juego');
   refrescarTodo();
 
-  // El director abre la crónica.
   const turns = sistema('turns');
   await turns?.abrirCronica?.();
 
   refrescarTodo();
+  guardarPartidaActual();
+  programarSugerencias();
+}
+
+/** Tras la recarga de `comenzarPartida`, arranca directamente la crónica. */
+function comenzarPendiente() {
+  let id = null;
+  try { id = sessionStorage.getItem('arcanveil:comenzar'); sessionStorage.removeItem('arcanveil:comenzar'); } catch { /* sin sesión */ }
+  const p = id ? obtenerPersonaje(id) : null;
+  if (!p) return false;
+  comenzarPartida(p);
+  return true;
+}
+
+/* Se completan en la pantalla de juego (sugerencias y aparición del texto). */
+function programarSugerencias() {}
+function bitacoraSinAnimar() {}
+
+/* ── ajustes ──────────────────────────────────────────────────────────── */
+
+const AJUSTES_DEFECTO = { velocidadTexto: 'normal', esperaSugerencias: 7 };
+
+function leerAjustes() {
+  try { return { ...AJUSTES_DEFECTO, ...JSON.parse(localStorage.getItem('arcanveil:prefs:juego') ?? '{}') }; } catch { return { ...AJUSTES_DEFECTO }; }
+}
+
+function guardarAjustes(cambios) {
+  const nuevos = { ...leerAjustes(), ...cambios };
+  try { localStorage.setItem('arcanveil:prefs:juego', JSON.stringify(nuevos)); } catch { /* sin almacenamiento */ }
+  return nuevos;
+}
+
+function abrirAjustes() {
+  const a = leerAjustes();
+  const caja = $('#ajustes-cuerpo');
+  vaciar(caja);
+
+  const grupo = (titulo, clave, opciones) => el('div', { class: 'ajuste' },
+    el('p', { class: 'sub-eti', text: titulo }),
+    el('div', { class: 'ajuste__opciones' }, ...opciones.map(([valor, eti]) => el('button', {
+      class: 'ficha ajuste__opcion' + (String(a[clave]) === String(valor) ? ' es-elegida' : ''),
+      dataset: { ajuste: clave, valor: String(valor) },
+      onClick: () => { guardarAjustes({ [clave]: valor }); abrirAjustes(); },
+    }, eti))),
+  );
+
+  caja.append(
+    grupo('Aparición del texto', 'velocidadTexto', [['lenta', 'Pausada'], ['normal', 'Normal'], ['rapida', 'Rápida'], ['instantanea', 'Instantánea']]),
+    grupo('Sugerencias si no escribes', 'esperaSugerencias', [[5, 'A los 5 s'], [7, 'A los 7 s'], [10, 'A los 10 s'], [0, 'Nunca']]),
+    el('div', { class: 'ajuste' },
+      el('p', { class: 'sub-eti', text: 'Máster' }),
+      el('button', { class: 'btn', onClick: () => { $('#ajustes-modal').hidden = true; abrirNarrador(); } }, 'Elegir narrador e IA'),
+    ),
+    el('div', { class: 'ajuste' },
+      el('p', { class: 'sub-eti', text: 'Datos' }),
+      el('button', {
+        class: 'btn btn--peligro',
+        onClick: protegido('borrar datos', () => {
+          if (!confirm('¿Borrar todas las partidas y personajes guardados en este navegador?')) return;
+          sistema('saves')?.borrarTodo?.();
+          try { Object.keys(localStorage).filter((k) => k.startsWith('arcanveil:')).forEach((k) => localStorage.removeItem(k)); } catch { /* nada */ }
+          $('#ajustes-modal').hidden = true;
+          pintarInicio();
+        }),
+      }, 'Borrar partidas y personajes'),
+    ),
+  );
+
+  $('#ajustes-modal').hidden = false;
+}
+
+function abrirNarrador() {
+  pintarDirectores();
+  $('#ia-url').value = ver('settings.urlLocal', 'http://127.0.0.1:11435');
+  $('#ia-modelo').value = ver('settings.modeloLocal', 'gemini-3.5-flash');
+  $('#director-modal').hidden = false;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1131,7 +1437,7 @@ function aplicarPuente() {
 
 function conectarEventos() {
   $('#comercio-cerrar')?.addEventListener('click', () => { $('#comercio-modal').hidden = true; mercaderActivo = null; });
-  $('#director')?.addEventListener('click', () => { pintarDirectores(); $('#ia-url').value = ver('settings.urlLocal', 'http://127.0.0.1:11435'); $('#ia-modelo').value = ver('settings.modeloLocal', 'gemini-3.5-flash'); $('#director-modal').hidden = false; });
+  $('#director')?.addEventListener('click', () => abrirNarrador());
   $('#ia-probar')?.addEventListener('click', protegido('probar IA local', probarIALocal));
   $('#ia-activar')?.addEventListener('click', protegido('activar IA local', activarIALocal));
   $('#director-cerrar')?.addEventListener('click', () => { $('#director-modal').hidden = true; });
@@ -1151,15 +1457,20 @@ function conectarEventos() {
     }
   });
 
-  $('#creacion-empezar')?.addEventListener('click', protegido('empezar', empezarPartida));
-  $('#creacion-volver')?.addEventListener('click', protegido('volver', () => mostrar('inicio')));
+  $('#cargar-volver')?.addEventListener('click', () => { mostrar('inicio'); pintarInicio(); });
+  $('#ajustes-cerrar')?.addEventListener('click', () => { $('#ajustes-modal').hidden = true; });
+  $('#menu')?.addEventListener('click', protegido('menú', () => {
+    guardarPartidaActual();
+    // Volver al título recargando deja el motor limpio para la próxima partida.
+    location.reload();
+  }));
 
   $('#guardar')?.addEventListener('click', protegido('guardar', () => {
     const saves = sistema('saves');
     store.fijar('settings.persistencia', true);
     bus.emit('settings:change', { id: 'persistencia', valor: true });
 
-    const r = saves?.guardar('1');
+    const r = guardarPartidaActual({ silencioso: true });
     avisar(r?.exito ? 'Partida guardada' : (r?.motivo ?? 'No se pudo guardar'),
       r?.exito ? 'exito' : 'aviso');
   }));
@@ -1250,15 +1561,16 @@ async function arrancar() {
     // repintar la que esté a la vista para que las imágenes releven al vector.
     const pantalla = document.body.getAttribute('data-active-screen');
 
-    if (pantalla === 'creacion') pintarCreacion();
-    else if (pantalla === 'juego') refrescarTodo();
+    if (pantalla === 'juego') refrescarTodo();
   });
 
   try {
+    recuperarPersistencia();
     conectarEventos();
     pintarInicio();
     mostrar('inicio');
     arranqueListo();
+    comenzarPendiente();
   } catch (e) {
     // Aunque la interfaz falle, la pantalla se descubre: es mejor ver el
     // error que un vacío.

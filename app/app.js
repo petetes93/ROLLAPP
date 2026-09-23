@@ -59,6 +59,7 @@ import { RAZAS } from '../src/data/races.data.js';
 import { CLASES } from '../src/data/classes.data.js';
 import { TRASFONDOS } from '../src/data/backgrounds.data.js';
 import { obtenerLugar } from '../src/data/locations.data.js';
+import { ESTADOS } from '../src/data/statuses.data.js';
 import * as Comb from '../src/combat/Combatant.js';
 import { PROVEEDORES } from '../src/config/ai.config.js';
 import {
@@ -878,30 +879,84 @@ let ultimaTiradaAnimada = null;
 const colaEscritura = [];
 let escribiendo = false;
 
+/**
+ * La tarea que YA tiene un bucle de escritura propio, y los temporizadores en
+ * vuelo.
+ *
+ * Existen porque la máquina de escribir se corrompía sola. La cadena era:
+ * un párrafo termina y encola `escribirSiguiente` a 140ms; antes de que salte,
+ * llega un turno nuevo, `pintarBitacora` vacía la cola y arranca la escritura
+ * de los párrafos nuevos; entonces salta el temporizador VIEJO y arranca un
+ * SEGUNDO bucle sobre el párrafo que ya se estaba escribiendo. Los dos bucles
+ * terminaban y los dos hacían `shift()`, así que la cola se consumía del doble
+ * de rápido: por cada párrafo escrito, uno se perdía sin escribir y su `<p>`
+ * se quedaba vacío para siempre en la pantalla.
+ *
+ * Se veía como líneas en blanco en mitad de la narración. Con la cola vacía y
+ * el estado lleno: el texto SÍ estaba generado y guardado, solo que nunca se
+ * pintó.
+ *
+ * La regla ahora: un solo dueño. `tareaActiva` marca quién tiene bucle, y los
+ * temporizadores se cancelan siempre que la cola se toca.
+ */
+let tareaActiva = null;
+let relojEscritura = 0;
+let cuadroEscritura = 0;
+
+/** Corta en seco cualquier escritura en vuelo. No toca el texto ya puesto. */
+function detenerEscritura() {
+  if (relojEscritura) { clearTimeout(relojEscritura); relojEscritura = 0; }
+  if (cuadroEscritura) { cancelAnimationFrame(cuadroEscritura); cuadroEscritura = 0; }
+  tareaActiva = null;
+  escribiendo = false;
+}
+
 /** Al cargar una partida, lo ya jugado aparece entero, sin efecto. */
 function bitacoraSinAnimar() {
   entradasVistas = (ver('narrative.entradas', []) ?? []).length;
   firmaBitacora = '';
   colaEscritura.length = 0;
+  detenerEscritura();
   pintarBitacora();
 }
 
 /** Termina de golpe todo lo que se estaba escribiendo. */
 function completarEscritura() {
-  for (const t of colaEscritura.splice(0)) t.nodo.textContent = t.texto;
-  escribiendo = false;
+  const pendientes = colaEscritura.splice(0);
+  detenerEscritura();
+
+  for (const t of pendientes) {
+    t.nodo.textContent = t.texto;
+    t.nodo.classList.remove('se-escribe');
+  }
+
   const caja = $('#bitacora');
   if (caja) caja.scrollTop = caja.scrollHeight;
 }
 
 function escribirSiguiente() {
+  relojEscritura = 0;
+
   const tarea = colaEscritura[0];
   const caja = $('#bitacora');
-  if (!tarea) { escribiendo = false; programarSugerencias(); return; }
+  if (!tarea) { detenerEscritura(); programarSugerencias(); return; }
 
+  // Ya hay un bucle sobre este párrafo. Entrar otra vez lo escribiría dos
+  // veces y, peor, consumiría la cola por duplicado.
+  if (tarea === tareaActiva && cuadroEscritura) return;
+
+  tareaActiva = tarea;
   escribiendo = true;
+
   const cps = VELOCIDADES[leerAjustes().velocidadTexto] ?? VELOCIDADES.normal;
-  if (!Number.isFinite(cps) || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+
+  // Con la pestaña oculta, el navegador congela `requestAnimationFrame`. El
+  // texto se quedaba a medias —párrafos vacíos en pantalla, el relato entero
+  // guardado en el estado— hasta que el jugador volvía, y si volvía tras un
+  // repintado ya no se recuperaba. Escribir despacio solo tiene sentido si
+  // hay alguien mirando: si no lo hay, el texto aparece entero y ya está.
+  if (!Number.isFinite(cps) || document.hidden
+      || matchMedia('(prefers-reduced-motion: reduce)').matches) {
     completarEscritura();
     programarSugerencias();
     return;
@@ -909,20 +964,138 @@ function escribirSiguiente() {
 
   const inicio = performance.now();
   tarea.nodo.classList.add('se-escribe');
+
   const paso = (ahora) => {
+    cuadroEscritura = 0;
     if (colaEscritura[0] !== tarea) return;          // se completó de golpe
     const n = Math.min(tarea.texto.length, Math.floor(((ahora - inicio) / 1000) * cps) + 1);
     tarea.nodo.textContent = tarea.texto.slice(0, n);
     if (caja) caja.scrollTop = caja.scrollHeight;
-    if (n < tarea.texto.length) { requestAnimationFrame(paso); return; }
+    if (n < tarea.texto.length) { cuadroEscritura = requestAnimationFrame(paso); return; }
     tarea.nodo.classList.remove('se-escribe');
     colaEscritura.shift();
-    setTimeout(escribirSiguiente, 140);
+    tareaActiva = null;
+    relojEscritura = setTimeout(escribirSiguiente, 140);
   };
-  requestAnimationFrame(paso);
+
+  cuadroEscritura = requestAnimationFrame(paso);
 }
 
 /* ── bitácora ─────────────────────────────────────────────────────────── */
+
+/* ── modales: Escape, foco atrapado y foco devuelto ────────────────────── */
+
+/**
+ * Da a los cuatro modales el comportamiento que se espera de un modal.
+ *
+ * Antes no tenían ninguno: Escape no hacía nada, el tabulador se escapaba del
+ * panel y recorría la partida que había detrás —visible por debajo del velo,
+ * pero inalcanzable con el ratón— y al cerrar, el foco caía en el `<body>`, o
+ * sea que había que tabular desde el principio del documento para volver a
+ * donde estabas.
+ *
+ * Se resuelve con dos piezas globales en vez de tocar los veinte sitios que
+ * abren o cierran un modal. El observador reacciona al atributo `hidden`, que
+ * es lo que todos ellos cambian, así que funciona para los cuatro de hoy y
+ * para el que se añada mañana sin acordarse de nada.
+ */
+function conectarModales() {
+  const modales = [...document.querySelectorAll('.modal')];
+  if (!modales.length) return;
+
+  /** Dónde estaba el foco antes de abrir, para devolverlo al cerrar. */
+  let focoPrevio = null;
+
+  const abierto = () => modales.find((m) => !m.hidden) ?? null;
+
+  const focusables = (m) => [...m.querySelectorAll(
+    'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  )].filter((n) => n.offsetParent !== null);
+
+  // Escape cierra; el tabulador da la vuelta dentro del panel.
+  document.addEventListener('keydown', (ev) => {
+    const m = abierto();
+    if (!m) return;
+
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      m.hidden = true;
+      return;
+    }
+
+    if (ev.key !== 'Tab') return;
+
+    const lista = focusables(m);
+    if (!lista.length) return;
+
+    const primero = lista[0];
+    const ultimo = lista[lista.length - 1];
+
+    if (ev.shiftKey && document.activeElement === primero) {
+      ev.preventDefault(); ultimo.focus();
+    } else if (!ev.shiftKey && document.activeElement === ultimo) {
+      ev.preventDefault(); primero.focus();
+    }
+  });
+
+  const observador = new MutationObserver((cambios) => {
+    for (const c of cambios) {
+      const m = c.target;
+      if (m.hidden) {
+        // Se devuelve el foco solo si sigue dentro del modal que se cierra:
+        // si el jugador ya se ha ido a otro sitio, no se le mueve.
+        if (m.contains(document.activeElement) || document.activeElement === document.body) {
+          focoPrevio?.focus?.();
+        }
+        focoPrevio = null;
+      } else {
+        focoPrevio = document.activeElement;
+        focusables(m)[0]?.focus();
+      }
+    }
+  });
+
+  for (const m of modales) observador.observe(m, { attributes: true, attributeFilter: ['hidden'] });
+}
+
+/**
+ * Dicta las entradas nuevas a la región viva del lector de pantalla.
+ *
+ * La tirada se convierte en frase. Un `<span>` con «d20 14» y otro con «vs 12»
+ * se leen como dos números sueltos sin relación; dicho entero se entiende:
+ * «d20 14, total 17 contra dificultad 12: éxito».
+ *
+ * @param {Array<Object>} nuevas
+ */
+function anunciarRelato(nuevas) {
+  const region = $('#relato-vivo');
+  if (!region || !nuevas?.length) return;
+
+  const VOZ = { player: 'Tú', jugador: 'Tú', dm: 'Narrador', combat: 'Combate', combate: 'Combate', system: 'Aviso', sistema: 'Aviso' };
+
+  const partes = nuevas.map((e) => {
+    if (e.voz === 'roll' || e.voz === 'tirada') {
+      const t = e.meta?.tirada;
+      if (!t) return '';
+      // La dificultad se llama `umbral`, y el nombre bonito de la habilidad ya
+      // viene hecho en `nombreHabilidad`; `habilidad` es el identificador
+      // interno y se leería «percepcion», sin tilde.
+      const veredicto = t.critico ? 'crítico' : t.pifia ? 'pifia' : t.exito ? 'éxito' : 'fracaso';
+      const hab = t.nombreHabilidad ?? t.habilidad ?? 'habilidad';
+      return `Tirada de ${hab}: d20 ${t.natural ?? '?'}, total ${t.total ?? '?'} contra dificultad ${t.umbral ?? '?'}. ${capitalizarTexto(veredicto)}.`;
+    }
+    const texto = String(e.texto ?? '').replace(/\n+/g, ' ').trim();
+    if (!texto) return '';
+    return `${VOZ[e.voz] ?? ''}: ${texto}`.replace(/^:\s*/, '');
+  }).filter(Boolean);
+
+  if (partes.length) region.textContent = partes.join(' ');
+}
+
+/** Primera letra en mayúscula, sin traerse una dependencia por una línea. */
+function capitalizarTexto(s) {
+  return s ? s[0].toUpperCase() + s.slice(1) : s;
+}
 
 function pintarBitacora() {
   const caja = $('#bitacora');
@@ -935,8 +1108,19 @@ function pintarBitacora() {
   if (firma === firmaBitacora) return;
   firmaBitacora = firma;
 
-  // Lo que se estaba escribiendo se da por leído antes de repintar.
-  if (colaEscritura.length) completarEscritura();
+  // Lo que se estaba escribiendo se da por leído antes de repintar, y el
+  // escritor se para SIEMPRE, haya cola o no.
+  //
+  // El `if (colaEscritura.length)` que había aquí dejaba una ventana de 140ms
+  // —entre que el último párrafo termina y salta el temporizador del
+  // siguiente— en la que la cola está vacía pero `escribiendo` sigue en
+  // cierto. Un repintado en ese hueco se saltaba la limpieza, encolaba
+  // párrafos nuevos y luego no los arrancaba, porque la línea del final exige
+  // `!escribiendo`. Resultado: la cola se quedaba parada para siempre con sus
+  // `<p>` en blanco, y ni los turnos siguientes la desatascaban.
+  //
+  // Cada repintado es el único dueño del escritor. Nada sobrevive al anterior.
+  completarEscritura();
   vaciar(caja);
   const primeraNueva = Math.max(0, entradas.length - 60);
 
@@ -992,9 +1176,19 @@ function pintarBitacora() {
     }
   }
 
+  // Lo nuevo se dicta una sola vez y ya montado, para quien no ve la pantalla.
+  // Va aquí y no en la bitácora porque la bitácora se reconstruye entera en
+  // cada refresco: marcarla como región viva haría releer las sesenta
+  // entradas cada turno.
+  anunciarRelato(entradas.slice(entradasVistas));
+
   entradasVistas = entradas.length;
   caja.scrollTop = caja.scrollHeight;
-  if (colaEscritura.length && !escribiendo) escribirSiguiente();
+
+  // Sin comprobar `escribiendo`: `completarEscritura` acaba de dejarlo en
+  // falso unas líneas más arriba, y consultarlo aquí solo servía para no
+  // arrancar cuando alguna bandera se había quedado colgada.
+  if (colaEscritura.length) escribirSiguiente();
 }
 
 function fichaTirada(t, { animar = false } = {}) {
@@ -1117,7 +1311,23 @@ function pintarPersonaje() {
   const estados = j.estados ?? [];
   if (estados.length) {
     caja.append(el('div', { class: 'etiquetas' },
-      ...estados.map((e) => el('span', { class: 'etiqueta etiqueta--mal', text: e.refId })),
+      // Dos mentiras vivían en esta línea. Pintaba el identificador interno
+      // («sangrado») en vez del nombre del catálogo («Sangrando»), y marcaba
+      // TODO como daño: los seis estados beneficiosos —Bendecido, Protegido,
+      // Acelerado, Regenerando, Invisible, Concentrado— salían en rosa de
+      // herida, así que una bendición se leía como una desgracia.
+      //
+      // La flecha va además del color porque el color solo no vale: quien no
+      // distingue rojo de verde necesita algo más que un tono para saber si lo
+      // que le acaba de pasar es bueno o malo.
+      ...estados.map((e) => {
+        const est = ESTADOS[e.refId];
+        const bueno = est?.categoria === 'beneficio';
+        return el('span', {
+          class: `etiqueta etiqueta--${bueno ? 'bien' : 'mal'}`,
+          text: `${bueno ? '▲' : '▼'} ${est?.nombre ?? String(e.refId).replace(/_/g, ' ')}`,
+        });
+      }),
     ));
   }
 }
@@ -1626,6 +1836,16 @@ function conectarEventos() {
 
   $('#entrada')?.addEventListener('input', () => { ajustarAltoEntrada(); ocultarSugerencias(); if (!$('#entrada').value.trim()) programarSugerencias(); });
   $('#bitacora')?.addEventListener('click', () => { if (escribiendo) { completarEscritura(); programarSugerencias(); } });
+
+  // Al irse a otra pestaña se vuelca lo que quedara por escribir. Nadie lo
+  // está viendo aparecer, y así al volver está el texto entero en vez de
+  // párrafos en blanco esperando un fotograma que no llegó.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && escribiendo) { completarEscritura(); programarSugerencias(); }
+  });
+
+  conectarModales();
+
   $('#sugerencias-cerrar')?.addEventListener('click', () => ocultarSugerencias());
   bus.on('combat:start', () => ocultarSugerencias());
   bus.on('combat:end', () => { guardarPartidaActual(); programarSugerencias(); });

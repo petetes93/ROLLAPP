@@ -352,6 +352,10 @@ button{font-family:inherit;cursor:pointer}
    ═══════════════════════════════════════════════════════════════════════ */
 .arte{display:block;width:100%;height:100%}
 .arte--imagen{object-fit:cover}
+/* El retrato generado viene más alto que el marco: se ancla arriba para que
+   lo que se pierda sea la banda inferior, donde el servicio pone su marca. */
+.arte--ia{object-position:50% 0}
+.retrato-pj>.arte--ia,.tarjeta-pj__cara>.arte--ia{object-position:50% 0}
 /* Cada marco es un contexto aislado: ningún retrato cargado tarde puede
    escapar del recorte ni quedar flotando encima de la siguiente elección. */
 .eleccion__cara,.retrato-pj,.combate__criatura,.escena__lienzo{isolation:isolate;contain:paint}
@@ -737,6 +741,107 @@ textarea.entrada{resize:none;overflow-y:auto;line-height:1.45;max-height:180px;d
 /* Móvil: la historia manda. La ficha queda como una franja desplazable y la
    ilustración del lugar se reduce, para que el texto ocupe la pantalla. */
 @media(max-width:800px){.escena{max-height:17vh;min-height:88px}.lateral{max-height:6.4rem;overflow-y:auto;overscroll-behavior:contain;grid-template-columns:64px minmax(0,1fr);gap:.5rem}.retrato-pj{width:64px;height:80px}.ficha-pj{margin-bottom:.3rem;padding:.3rem .5rem}}
+
+/* ═══ efectos ═════════════════════════════════════════════════════════
+   Los pinta app/efectos.js. Cada uno existe para que algo se ENTIENDA:
+   el dado rueda porque el pilar del juego es que el motor decide a la
+   vista, y los números de daño salen porque una barra que baja no dice
+   cuánto. Todos se apagan con `prefers-reduced-motion`, que aquí es una
+   salida completa: el juego se lee igual sin una sola animación.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── el dado ─────────────────────────────────────────────────────────── */
+/* Mientras rueda cambia de cara cada 55 ms, así que el número no debe
+   bailar de ancho: sin `tabular-nums` la ficha entera tiembla. */
+.tirada__dado{font-variant-numeric:tabular-nums}
+.tirada__dado--rodando{
+  color:var(--oro);text-shadow:0 0 10px rgba(226,189,99,.6);
+  animation:dadoGira .16s steps(2) infinite;
+}
+.tirada__dado--asienta{animation:dadoAsienta .42s cubic-bezier(.2,1.4,.35,1) both}
+@keyframes dadoGira{
+  from{transform:translateY(-1px) rotate(-4deg)}
+  to{transform:translateY(1px) rotate(4deg)}
+}
+@keyframes dadoAsienta{
+  0%{transform:scale(1.45);color:var(--oro);text-shadow:0 0 18px rgba(226,189,99,.9)}
+  100%{transform:scale(1);color:var(--titulo);text-shadow:none}
+}
+/* El veredicto llega DESPUÉS del dado: es donde está la tensión. */
+.tirada.es-reciente .tirada__veredicto{animation:veredictoLlega .5s .62s backwards}
+@keyframes veredictoLlega{
+  from{opacity:0;transform:translateY(-4px) scale(.9);filter:blur(2px)}
+}
+
+/* ── impactos ────────────────────────────────────────────────────────── */
+.dano-flotante{
+  position:fixed;z-index:70;pointer-events:none;transform:translate(-50%,-50%);
+  font:700 1.5rem/1 var(--display);color:#F0B09E;
+  text-shadow:0 2px 4px #000,0 0 14px rgba(185,70,57,.7);
+  animation:danoSube 1.15s cubic-bezier(.2,.7,.3,1) both;
+}
+.dano-flotante--propio{color:#FF8E7A}
+.dano-flotante--critico{font-size:2.2rem;color:#FFD98A;text-shadow:0 2px 6px #000,0 0 22px rgba(226,189,99,.9)}
+@keyframes danoSube{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}
+  18%{opacity:1;transform:translate(-50%,-70%) scale(1.15)}
+  32%{transform:translate(-50%,-78%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-165%) scale(.92)}
+}
+
+.se-sacude{animation:sacudida .38s cubic-bezier(.36,.07,.19,.97) both}
+.se-sacude--fuerte{animation:sacudidaFuerte .5s cubic-bezier(.36,.07,.19,.97) both}
+@keyframes sacudida{
+  10%,90%{transform:translateX(-2px)}
+  30%,70%{transform:translateX(3px)}
+  50%{transform:translateX(-4px)}
+}
+@keyframes sacudidaFuerte{
+  10%,90%{transform:translate(-4px,1px) rotate(-.3deg)}
+  30%,70%{transform:translate(6px,-2px) rotate(.4deg)}
+  50%{transform:translate(-8px,2px) rotate(-.5deg)}
+}
+
+.destella--dano{animation:destelloDano .44s ease-out both}
+.destella--cura{animation:destelloCura .44s ease-out both}
+@keyframes destelloDano{
+  0%{box-shadow:0 0 0 0 rgba(200,70,55,.85),inset 0 0 22px rgba(200,70,55,.6)}
+  100%{box-shadow:0 0 0 14px rgba(200,70,55,0),inset 0 0 0 rgba(200,70,55,0)}
+}
+@keyframes destelloCura{
+  0%{box-shadow:0 0 0 0 rgba(120,190,130,.8),inset 0 0 22px rgba(120,190,130,.55)}
+  100%{box-shadow:0 0 0 14px rgba(120,190,130,0),inset 0 0 0 rgba(120,190,130,0)}
+}
+
+.se-acentua{animation:acento .85s ease-out both}
+@keyframes acento{
+  0%{box-shadow:0 0 0 0 rgba(226,189,99,.75)}
+  100%{box-shadow:0 0 0 12px rgba(226,189,99,0)}
+}
+
+/* ── momentos ────────────────────────────────────────────────────────── */
+.momento{
+  position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:75;
+  padding:.5rem 2rem;pointer-events:none;text-align:center;white-space:nowrap;
+  font:700 clamp(1.6rem,6vw,3rem)/1.1 var(--display);letter-spacing:.06em;
+  animation:momentoPasa 2.3s cubic-bezier(.2,.8,.2,1) both;
+}
+.momento--oro{color:#F3D98F;text-shadow:0 3px 0 #000,0 0 34px rgba(226,189,99,.75)}
+.momento--sangre{color:#F0A28E;text-shadow:0 3px 0 #000,0 0 34px rgba(185,70,57,.8)}
+@keyframes momentoPasa{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.82);filter:blur(6px)}
+  18%{opacity:1;transform:translate(-50%,-50%) scale(1);filter:blur(0)}
+  76%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-64%) scale(1.04);filter:blur(3px)}
+}
+@media(max-width:560px){.momento{white-space:normal;max-width:88vw}}
+
+@media(prefers-reduced-motion:reduce){
+  .tirada__dado--rodando,.tirada__dado--asienta,.dano-flotante,
+  .se-sacude,.se-sacude--fuerte,.destella--dano,.destella--cura,
+  .se-acentua,.momento,.tirada.es-reciente .tirada__veredicto{animation:none!important}
+  .momento{opacity:1}
+}
 </style>
 </head>
 <body>

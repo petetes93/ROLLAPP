@@ -24,15 +24,15 @@ La consola expone `window.ARCANVEIL` con los atajos que se usan más abajo.
 
 ---
 
-## 1 · Arranque
+## 1 · Arranque y portada
 
 | Comprobar | Criterio de fallo |
 |---|---|
-| La pantalla de inicio aparece en menos de dos segundos | Pantalla en blanco o error de módulo en consola |
+| La portada aparece en menos de dos segundos con Continuar, Nueva partida, Cargar y Ajustes | Pantalla en blanco, error de módulo o falta un botón |
 | No hay errores en consola | Cualquier excepción no capturada |
-| «Continuar» está oculto si no hay partidas | Aparece y al pulsarlo falla |
-
-**Comprobación de arranque limpio:**
+| «Continuar» y «Cargar» quedan apagados si no hay partidas | Se pueden pulsar y fallan |
+| «Continuar» retoma la última partida guardada | Abre otra o empieza de cero |
+| «Cargar» lista las ranuras (hasta 8) con nombre, nivel y lugar | Ranuras vacías que parecen llenas |
 
 ```js
 ARCANVEIL.ver('meta.fase')     // 'menu'
@@ -45,56 +45,52 @@ subsistemas.
 
 ---
 
-## 2 · Creación de personaje
+## 2 · Personajes
 
-La entrevista conversacional es la parte más frágil del flujo, porque interpreta
-texto libre. Prueba estas cuatro entradas:
-
-**Entrada explícita.** Debería deducir todo sin preguntar.
-
-> *«Soy Kelra, una ferrana herrera que dejó su clan por una deuda que no era
-> suya.»*
-
-**Entrada vaga.** Debería preguntar lo que falte.
-
-> *«Alguien que huye de algo.»*
-
-**Entrada contradictoria.** Debería elegir lo más probable y no romperse.
-
-> *«Un enano élfico que es a la vez guerrero y mago.»*
-
-**Entrada vacía.** El botón «Créamelo tú» debe generar un personaje completo.
+**Nueva partida sin personajes** abre directamente el generador. **Con
+personajes creados** muestra la lista (cada uno a nivel 1) y debajo «Nuevo
+personaje»; al elegir uno solo queda «Comenzar partida».
 
 | Comprobar | Criterio de fallo |
 |---|---|
-| El reparto de atributos suma exactamente lo previsto | Puntos que no cuadran o negativos |
-| La vista previa refleja los cambios en vivo | Se queda desincronizada |
-| Al confirmar, el personaje entra con equipo inicial | Inventario vacío |
+| El dado «Aleatorio» cambia linaje y nombre en cada pulsación | Repite el mismo origen o no cambia el nombre |
+| Nombre, Descripción e Historia se escriben libremente | Algún campo se borra al volver a tirar |
+| La descripción es el encargo del retrato (cicatriz, pelo, ojos se ven) | El retrato ignora la descripción |
+| Pulsar el nombre o el linaje no abre la ilustración a pantalla completa | Salta la ilustración |
+| «Crear personaje» enseña la ficha revelada con «Crear otro» y «Comenzar partida» | Entra en partida sin revelar |
 | El lugar de partida corresponde al linaje | Un ferrano que empieza en el pantano |
 
 ```js
-ARCANVEIL.ver('player')        // nombre, raza, clase, atributos completos
+ARCANVEIL.ver('player')        // nombre, raza, clase, lore y retrato
 ARCANVEIL.ver('world.ubicacion')
 ```
 
 ---
 
-## 3 · Turno básico
+## 3 · Turno libre
 
-Escribe estas cinco acciones seguidas y observa:
+La partida no tiene botones de acción fijos: solo la caja de texto. Tras 5-10
+segundos sin escribir aparece una ventana con tres sugerencias que nombran lo
+que hay en escena (la persona presente, un rincón del lugar, el hilo de tu
+historia). Se cierra al escribir o al elegir una.
 
-1. `mira alrededor`
-2. `exploro con cuidado`
-3. `registro el sitio a fondo`
-4. `descanso un rato`
-5. `avanzo hacia el norte`
+Escribe estas acciones seguidas y observa:
+
+1. `Me acerco al barquero y le enseño el medallón de mi hermana`
+2. `Le pregunto si alguien cruzó el río con uno igual`
+3. `Intento partir el puente de un puñetazo` (nivel 1)
+4. `Me escondo detrás del carro y espero a que pase la guardia`
+5. `anoto lo descubierto`
 
 | Comprobar | Criterio de fallo |
 |---|---|
-| Cada acción produce narración distinta | Texto repetido literalmente |
+| La narración devuelve la acción en segunda persona («Te acercas…», «anotas lo descubierto») | La cita en primera persona o frases como «intentas anoto» |
+| Cada respuesta tiene al menos dos o tres párrafos | Una sola línea |
+| El texto se escribe letra a letra; pulsar la bitácora lo completa | Aparece de golpe o no se puede saltar |
+| Una hazaña imposible para el nivel se narra como intento que no alcanza | El puente se parte a nivel 1 |
+| Una acción detallada (cómo y con qué) recibe ventaja en la tirada | Da igual lo que escribas |
 | Las tiradas aparecen antes de la narración | La narración contradice la tirada |
-| El reloj avanza | Se queda parado |
-| El hambre y la sed bajan | No se mueven en veinte turnos |
+| Las sugerencias no aparecen mientras escribes ni mientras se escribe el texto | Tapan la caja de texto |
 
 **La prueba crítica de este bloque** es que la narración nunca contradiga el
 dado. Si la tirada dice fracaso y el texto dice que lo consigues, la promesa
@@ -102,6 +98,7 @@ central del motor está rota. Comprueba varias veces con:
 
 ```js
 ARCANVEIL.jugar('intento forzar la puerta')
+ARCANVEIL.interfaz.estado()    // escribiendo, cola, sugerencias
 ```
 
 ---

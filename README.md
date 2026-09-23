@@ -14,6 +14,10 @@ motor resuelve las reglas.
 - **Cuatro directores de juego** intercambiables: uno procedural que funciona sin
   red ni claves, un puente manual para copiar y pegar en cualquier asistente, un
   modelo local y una API remota.
+- **Se juega escribiendo.** No hay botones de acción fijos: escribes lo que
+  haces o dices y el máster lo interpreta. Si te quedas en blanco unos segundos,
+  aparecen tres sugerencias de la escena. Las hazañas se permiten; lo imposible
+  para tu nivel se narra como un intento que no alcanza.
 - **El motor tira los dados.** El director narra el resultado, nunca lo decide.
   Un modelo de lenguaje no puede hacer que aciertes cuando has fallado.
 
@@ -57,11 +61,11 @@ El arte viaja dentro: son unos kilobytes de código, no megas de imágenes.
 
 ## Pruebas
 
-La regresión web automatizada no necesita dependencias: arranca Chrome, crea un personaje con descripción y lore, comprueba que el retrato interpreta sus rasgos y que el canon abre hilos de campaña, juega 20 turnos, vigila la gramática de acciones libres y verifica la recarga offline.
+La regresión web automatizada no necesita dependencias: arranca Chrome, recorre la portada, tira el generador aleatorio, crea un personaje con descripción e historia, comprueba que el retrato interpreta sus rasgos y que el canon abre hilos de campaña, juega 20 turnos, vigila la gramática de acciones libres y verifica la recarga offline.
 
 ```bash
 node tools/regresion-app.mjs --desktop --capturas
-node tools/regresion-app.mjs --mobile --capturas
+node tools/regresion-app.mjs --capturas   # móvil 390x844
 ```
 
 El guion ampliado sigue en [TESTING.md](TESTING.md).

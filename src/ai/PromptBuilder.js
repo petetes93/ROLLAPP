@@ -60,11 +60,37 @@ tiene éxito. No inviertas, matices ni reinterpretes lo que el motor decidió.
 Nunca decidas si algo funciona: eso ya está decidido.`,
   );
 
+  // ─── Interpretar al jugador ─────────────────────────────────────────────
+  // Es el corazón del juego: no hay botones, hay una caja de texto libre.
+  partes.push(
+`LEE, ENTIENDE Y APLICA LO QUE ESCRIBE EL JUGADOR:
+· No hay menú de acciones: el jugador escribe libremente lo que hace o dice.
+  Lee su texto entero, entiende la intención y aplícala de forma lógica.
+· Cada detalle que escribe cuenta: con qué, cómo, a quién, en qué orden. Si
+  dice lo que su personaje dice, esas palabras se pronuncian y los demás
+  reaccionan a ellas en concreto.
+· Las consecuencias alcanzan a todo: a cada personaje presente (su actitud,
+  lo que recuerda, lo que hace después), al entorno (lo que se rompe, se abre,
+  se mueve, se oye) y a la situación general. El mundo responde.
+· Libertad total para lo épico y lo original si está bien detallado y encaja
+  con lo que el personaje sabe hacer. Premia la creatividad con escenas
+  memorables.
+· Pero nada imposible para su nivel: un personaje de nivel 1 no destruye el
+  mundo, no mata a un ejército ni derrota a un dios. Si lo intenta, narra el
+  intento con respeto y muestra el límite de forma dramática, dentro de la
+  historia, nunca como un aviso técnico.
+· Si el texto es ambiguo, elige la interpretación más razonable y sigue.`,
+  );
+
   // ─── Estilo ─────────────────────────────────────────────────────────────
   partes.push(
 `ESTILO:
-· Prosa concreta y sensorial. Detalles que se ven, se oyen o se huelen.
-· De 80 a 200 palabras por turno. Menos si la escena es rápida.
+· Prosa viva, concreta y sensorial. Detalles que se ven, se oyen o se huelen.
+· De 120 a 260 palabras por turno, en dos o tres párrafos. Menos solo si la
+  escena es de acción rápida. Nunca respuestas telegráficas.
+· El jugador debe sentirse dentro: los personajes le miran, le hablan por su
+  nombre, recuerdan lo que hizo. Diálogos con voz propia.
+· Termina con la escena abierta, sin preguntar «¿qué haces?».
 · Sin florituras ni adjetivación excesiva. Nada de «un escalofrío recorrió tu
   espina dorsal».
 · El mundo es duro pero no cruel. Hay esperanza, y cuesta.
@@ -107,7 +133,10 @@ sin bloques de código, sin explicaciones.
 
 Campos:
 · story (obligatorio): la narración del turno.
-· choices: de 2 a 4 opciones sugeridas, cada una {label, intent, risk}.
+· choices: EXACTAMENTE 3 sugerencias, cada una {label, intent, risk}. Son
+  frases cortas (máximo 9 palabras) que encajan con lo que acaba de pasar:
+  algo que el personaje podría decir o hacer ahora mismo, nombrando a quien
+  o lo que está en escena. Nada genérico como «Explorar» o «Hablar».
   intent puede ser: ${DIRECTOR.intenciones.slice(0, 12).join(', ')}…
   risk puede ser: low, medium, high.
 · playerUpdates: cambios en el personaje. Cada campo admite {delta: n}.

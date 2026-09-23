@@ -7,6 +7,12 @@ const ORIGEN = 'http://127.0.0.1:11436';
 const ESPERA_ESCRITURA = 850;
 const pendientes = new WeakMap();
 
+/** Avisa a la interfaz del estado del retrato: generando, listo o ausente. */
+function avisar(nodo, estado) {
+  nodo.dataset.retratoLocal = estado;
+  nodo.dispatchEvent(new CustomEvent('retrato-local', { detail: { estado } }));
+}
+
 function firma(personaje) {
   return JSON.stringify({
     linaje: personaje.raza ?? 'valdes',
@@ -25,7 +31,10 @@ export function mejorarRetratoLocal(nodo, personaje = {}) {
 
   const actual = firma(personaje);
   nodo.dataset.firmaRetratoLocal = actual;
+  // Tras pulsar «Crear personaje» no hay nada más que esperar: se pide ya.
+  const espera = personaje.inmediato ? 0 : ESPERA_ESCRITURA;
   const temporizador = setTimeout(async () => {
+    avisar(nodo, 'generando');
     try {
       const respuesta = await fetch(`${ORIGEN}/v1/portrait`, {
         method: 'POST',
@@ -37,9 +46,11 @@ export function mejorarRetratoLocal(nodo, personaje = {}) {
           seed: actual,
         }),
       });
-      if (!respuesta.ok || nodo.dataset.firmaRetratoLocal !== actual) return;
+      if (nodo.dataset.firmaRetratoLocal !== actual) return;
+      if (!respuesta.ok) return avisar(nodo, 'ausente');
       const blob = await respuesta.blob();
-      if (!blob.type.startsWith('image/') || nodo.dataset.firmaRetratoLocal !== actual) return;
+      if (nodo.dataset.firmaRetratoLocal !== actual) return;
+      if (!blob.type.startsWith('image/')) return avisar(nodo, 'ausente');
 
       const url = URL.createObjectURL(blob);
       const img = new Image();
@@ -51,12 +62,14 @@ export function mejorarRetratoLocal(nodo, personaje = {}) {
         nodo.replaceChildren(img);
         nodo.dataset.urlRetratoLocal = url;
         if (previa) URL.revokeObjectURL(previa);
+        avisar(nodo, 'listo');
       }, { once: true });
-      img.addEventListener('error', () => URL.revokeObjectURL(url), { once: true });
+      img.addEventListener('error', () => { URL.revokeObjectURL(url); avisar(nodo, 'ausente'); }, { once: true });
       img.src = url;
     } catch {
       // El generador es una mejora local opcional. Nunca rompe el juego.
+      if (nodo.dataset.firmaRetratoLocal === actual) avisar(nodo, 'ausente');
     }
-  }, ESPERA_ESCRITURA);
+  }, espera);
   pendientes.set(nodo, temporizador);
 }

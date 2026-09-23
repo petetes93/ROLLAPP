@@ -94,15 +94,25 @@ try {
   if (boot.screen !== 'inicio' || boot.failures) throw new Error(`arranque invÃ¡lido ${JSON.stringify(boot)}`);
   await shot(`01-inicio-${viewport.label}.png`);
 
-  await evaluate(`document.querySelector('#inicio-acciones .btn--grande').click()`);
-  await until('document.body.dataset.activeScreen === "creacion"');
-  await evaluate(`(()=>{const fill=(q,v)=>{const n=document.querySelector(q);n.value=v;n.dispatchEvent(new Event('input',{bubbles:true}))};fill('#nombre','Lyra');document.querySelector('[data-clave="raza"][data-valor="albar"]').click();fill('#retrato-descripcion','elfa exploradora de pelo plateado, ojos azul brillante, cicatriz en la ceja y armadura de cuero negro');fill('#lore-personaje','Mi hermana cruzó el Umbral con nuestro medallón. La busco desde entonces.');})()`);
-  await until('document.querySelector("#creacion-cara .arte")');
-  const retrato = await evaluate(`({cicatriz:Boolean(document.querySelector('#creacion-cara .retrato-rasgo--cicatriz')), loreVisible:document.querySelector('#lore-personaje').getBoundingClientRect().top < innerHeight})`);
+  const menu = await evaluate(`[...document.querySelectorAll('.menu-btn')].filter(b=>!b.hidden && getComputedStyle(b).display!=='none').map(b=>b.id)`);
+  for (const id of ['menu-nueva', 'menu-cargar', 'menu-ajustes']) if (!menu.includes(id)) throw new Error(`falta ${id} en la portada: ${menu}`);
+
+  await evaluate(`document.querySelector('#menu-nueva').click()`);
+  await until('document.body.dataset.activeScreen === "creacion" && document.querySelector("#aleatoria-raza")');
+  // El dado vuelve a tirar raza y nombre en cada pulsación.
+  const tiradas = new Set();
+  for (let i = 0; i < 6; i++) {
+    tiradas.add(await evaluate(`document.querySelector('#aleatoria-raza').textContent + '|' + document.querySelector('#nombre').value`));
+    await evaluate(`document.querySelector('#creacion-aleatorio').click()`);
+  }
+  if (tiradas.size < 3) throw new Error(`el generador aleatorio no varía: ${[...tiradas]}`);
+  await evaluate(`(()=>{const fill=(q,v)=>{const n=document.querySelector(q);n.value=v;n.dispatchEvent(new Event('input',{bubbles:true}))};fill('#nombre','Lyra');fill('#retrato-descripcion','elfa exploradora de pelo plateado, ojos azul brillante, cicatriz en la ceja y armadura de cuero negro');fill('#lore-personaje','Mi hermana cruzó el Umbral con nuestro medallón. La busco desde entonces.');})()`);
+  await shot(`02a-creacion-${viewport.label}.png`);
+  await evaluate(`document.querySelector('#creacion-crear').click()`);
+  await until('document.querySelector("#creacion-empezar") && document.querySelector("#creacion-cara .arte")');
+  const retrato = await evaluate(`({cicatriz:Boolean(document.querySelector('#creacion-cara .retrato-rasgo--cicatriz')), botones:[...document.querySelectorAll('#creacion-pie button')].map(b=>b.id)})`);
   if (!retrato.cicatriz) throw new Error('la descripción libre no dibujó la cicatriz');
-  if (viewport.label === '1440x900' && !retrato.loreVisible) throw new Error('el lore no es visible en la composición web');
-  // La forja visual dura 720 ms; la captura valida el estado final nítido,
-  // no un fotograma borroso de la transición procedural.
+  // La forja visual dura 720 ms; la captura valida el estado final nítido.
   await new Promise(resolve => setTimeout(resolve, 850));
   await shot(`02-creacion-${viewport.label}.png`);
   await evaluate(`document.querySelector('#creacion-empezar').click()`);

@@ -27,6 +27,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
+import { evaluarAmbicion } from './Ambicion.js';
 import { SystemBase } from '../core/SystemBase.js';
 import { interpretar, tipoDeTurno, COMANDOS } from './IntentParser.js';
 import { validarRespuesta } from '../ai/ResponseSchema.js';
@@ -253,10 +254,24 @@ export class TurnResolver extends SystemBase {
       }
 
       // ─── 3. LOS DADOS, ANTES QUE EL DIRECTOR ──────────────────────────
+      // Antes de tirar se mide la ambición: lo desmedido para el nivel se
+      // intenta contra la dificultad máxima; lo detallado gana un bono.
+      const ambicion = evaluarAmbicion(limpio, this.leer('player.nivel', 1));
       const rules = this.sistema('rules');
-      const tirada = rules?.resolverIntencion(intencion, {
+      const intencionTirada = ambicion.grado === 'desmedida'
+        ? { ...intencion, requiereTirada: true, habilidad: intencion.habilidad ?? 'atletismo' }
+        : intencion;
+      const tirada = rules?.resolverIntencion(intencionTirada, {
         situacion: this._situacionActual(),
+        ...(ambicion.grado === 'desmedida' ? { umbral: 35 } : {}),
+        ...(ambicion.grado === 'detallada' ? { bono: 2, fuenteBono: 'Acción bien pensada' } : {}),
       }) ?? null;
+      if (tirada && ambicion.grado === 'desmedida') {
+        // Ni un 20 natural rompe el mundo: como mucho, un intento digno.
+        tirada.exito = false; tirada.critico = false;
+        if (!tirada.pifia) tirada.grado = 'fracaso';
+        tirada.desmedida = true;
+      }
 
       if (tirada && this.leer('settings.mostrarTiradas', true)) {
         this._anadirEntrada(VOCES.TIRADA, '', { tirada, turno: numeroTurno });
@@ -283,8 +298,11 @@ export class TurnResolver extends SystemBase {
       }
 
       // La pista del enrutador se añade al contexto del director.
-      if (ruta?.pistaDirector) {
-        peticion.contexto.pistaRuta = ruta.pistaDirector;
+      const pistas = [ruta?.pistaDirector, ambicion.pista].filter(Boolean);
+      if (pistas.length) {
+        peticion.contexto.pistaRuta = pistas.join(' ');
+        peticion.ambicion = ambicion.grado;
+        if (peticion.prompt) peticion.prompt += `\n\nNOTA DEL MOTOR: ${pistas.join(' ')}`;
       }
 
       // ─── 5. El director narra ─────────────────────────────────────────

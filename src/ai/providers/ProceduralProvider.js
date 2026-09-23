@@ -151,9 +151,22 @@ export class ProceduralProvider extends IDMProvider {
     const escena = this._narrarEscena(ctx);
     if (escena) parrafos.splice(1, 0, escena);
 
-    // Quien está en escena no se queda de piedra.
+    // Quien está en escena no se queda de piedra... pero tampoco comenta que
+    // bebas agua.
+    //
+    // Antes reaccionaba en TODOS los turnos. Con tres frases rotando, en doce
+    // turnos cada una salía cuatro veces, y el acompañante pasaba de estar
+    // vivo a ser un tic. El problema no era la falta de frases: era que no
+    // callaba nunca. Un acompañante de verdad mira cuando hay algo que mirar.
+    //
+    // Reacciona si ha pasado algo —hay escena, o la tirada salió redonda o
+    // desastrosa— y si no, una de cada tres veces.
     const npc = ctx.npcsPresentes?.[0];
-    if (accion && npc?.nombre && !String(r.story).includes(npc.nombre)) {
+    const t = peticion.tirada;
+    const mereceLaPena = Boolean(escena) || Boolean(t?.critico) || Boolean(t?.pifia);
+
+    if (accion && npc?.nombre && !String(r.story).includes(npc.nombre)
+        && (mereceLaPena || this._flujo().entero(0, 2) === 0)) {
       parrafos.push(this._unico([
         `${npc.nombre} no te quita ojo. Por su gesto, lo que acabas de hacer le ha dicho de ti más que cualquier presentación.`,
         `${npc.nombre} deja lo que estaba haciendo y te mira de otra manera, como quien recoloca una pieza en un tablero.`,

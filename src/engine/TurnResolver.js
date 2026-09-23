@@ -141,6 +141,15 @@ export class TurnResolver extends SystemBase {
     this.escuchar('memory:thread', (datos) => {
       this.memoria.abrirHilo({ ...datos, turno: this.leer('meta.turno', 0) });
     });
+
+    // Lo que está pasando en la escena AHORA. Nueve sistemas lo publican
+    // —encuentros, viaje, misiones, facciones, combate, consecuencias— y no lo
+    // recogía nadie: se tiraba entero. El director narraba a ciegas sobre una
+    // escena que el motor sí tenía descrita, y de ahí salían los turnos que no
+    // decían nada.
+    this.escuchar('memory:context', ({ texto, temporal = true }) => {
+      this.memoria.anotarContexto(texto, { temporal });
+    });
   }
 
   async alArrancar() {
@@ -316,6 +325,13 @@ export class TurnResolver extends SystemBase {
       } finally {
         clearTimeout(temporizadorPensando);
         this.emitir(EVENTOS_TURNO.PENSANDO, { turno: numeroTurno, terminado: true });
+
+        // El contexto de escena ya lo ha visto el director. Se descarta lo
+        // temporal aquí y no después de validar: si el turno falla, tampoco
+        // queremos que el encuentro se vuelva a anunciar en el siguiente.
+        // Se hace en `finally` porque un director que lanza excepción también
+        // ha recibido su contexto.
+        this.memoria.consumirContexto();
       }
 
       // ─── 6. Validación ────────────────────────────────────────────────

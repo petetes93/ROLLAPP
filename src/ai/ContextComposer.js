@@ -444,6 +444,11 @@ export class ContextComposer {
       hiloParaRetomar: this.memoria.hiloParaRetomar(turno),
       hechosRecientes: this.memoria.hechosRelevantes(5),
       ultimoTurno: this.memoria.historial.at(-1) ?? null,
+
+      // Lo que otros sistemas han preparado para ESTA escena: el encuentro en
+      // curso, lo que cambió desde la última visita, la promesa que caduca. Es
+      // lo primero que debe mirar el director, por delante de la atmósfera.
+      contextoEscena: this.memoria.contextoDeEscena(),
     };
   }
 }

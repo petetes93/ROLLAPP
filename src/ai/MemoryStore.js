@@ -88,6 +88,69 @@ export class MemoryStore {
 
     /** Turno del último resumen generado. */
     this.ultimoResumen = inicial.ultimoResumen ?? 0;
+
+    /**
+     * Lo que está pasando AHORA y el director tiene que saber para este turno.
+     *
+     * Nueve sistemas —encuentros, viaje, misiones, facciones, combate,
+     * consecuencias— preparaban este material y lo publicaban en el bus con
+     * `memory:context`. No lo escuchaba nadie. Se tiraba entero.
+     *
+     * Eso explica por qué el director narraba tan flojo, y no por ser
+     * procedural: es que le llegaba la escena vacía. El sistema de encuentros
+     * redactaba «ENCUENTRO EN CURSO: … Vías posibles: negociar, huir, pelear»
+     * y el narrador, sin verlo, contestaba «Sigues adelante».
+     *
+     * No se guarda en la partida: es de este turno y del siguiente a lo sumo.
+     * Por eso no aparece en `serializar()`.
+     *
+     * @type {Array<{texto: string, temporal: boolean}>}
+     */
+    this.contextoEscena = [];
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     CONTEXTO DE ESCENA
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /**
+   * Apunta algo que el director debe tener delante al narrar.
+   *
+   * @param {string} texto
+   * @param {Object} [opciones]
+   * @param {boolean} [opciones.temporal] Si se descarta tras usarse.
+   * @returns {boolean} Si se apuntó (los duplicados se ignoran).
+   */
+  anotarContexto(texto, { temporal = true } = {}) {
+    const limpio = limpiar(String(texto ?? ''));
+    if (!limpio) return false;
+    if (this.contextoEscena.some((c) => c.texto === limpio)) return false;
+
+    this.contextoEscena.push({ texto: limpio, temporal: Boolean(temporal) });
+
+    // Techo bajo a propósito: si llegan doce cosas a la vez, las primeras ya
+    // no son «lo que está pasando ahora», son ruido.
+    if (this.contextoEscena.length > 6) this.contextoEscena.shift();
+
+    return true;
+  }
+
+  /**
+   * Lo apuntado para esta escena, en orden de llegada.
+   *
+   * @returns {string[]}
+   */
+  contextoDeEscena() {
+    return this.contextoEscena.map((c) => c.texto);
+  }
+
+  /**
+   * Descarta lo temporal. Se llama cuando el turno ya se ha narrado.
+   *
+   * @returns {void}
+   */
+  consumirContexto() {
+    this.contextoEscena = this.contextoEscena.filter((c) => !c.temporal);
   }
 
   /* ═══════════════════════════════════════════════════════════════════════

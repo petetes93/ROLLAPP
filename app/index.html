@@ -9,6 +9,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<!-- iOS ignora el manifiesto por completo. Sin este archivo, el icono de la
+     pantalla de inicio es una captura de la página. -->
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Arcanveil">
 <title>ARCANVEIL</title>
 <!-- Tipografías libres alojadas localmente: la PWA no depende de una CDN. -->
 

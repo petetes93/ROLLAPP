@@ -27,7 +27,7 @@ import {
 } from '../../data/narrative.templates.js';
 import { APP } from '../../config/app.config.js';
 import { capitalizar } from '../../utils/text.js';
-import { aSegundaPersona } from '../Persona.js';
+import { aSegundaPersona, esPrimeraPersona } from '../Persona.js';
 import { obtenerLugar } from '../../data/locations.data.js';
 
 export class ProceduralProvider extends IDMProvider {
@@ -50,6 +50,26 @@ export class ProceduralProvider extends IDMProvider {
 
     /** Tamaño de la ventana antirrepetición. @private */
     this._ventana = 24;
+
+    /**
+     * Memoria por familia de frases.
+     *
+     * La ventana global de arriba no bastaba, y se veía jugando: en ocho
+     * turnos, la misma reacción del acompañante salió cuatro veces palabra por
+     * palabra. La razón es que `_usados` mezcla todas las familias y un turno
+     * gasta cinco o seis frases de familias distintas, así que una familia de
+     * tres opciones queda «limpia» a los pocos turnos. Peor: cuando las tres
+     * estaban marcadas, el filtro se quedaba sin candidatas y caía a la lista
+     * entera, es decir, podía repetir justo la que acababa de decir.
+     *
+     * Con una cola por familia se recorren todas las opciones antes de que
+     * ninguna vuelva. Es lo mínimo que se le pide a un narrador: que no repita
+     * teniendo más cosas que decir.
+     *
+     * @type {Map<string, string[]>}
+     * @private
+     */
+    this._porFamilia = new Map();
   }
 
   /** El director interno siempre está listo. */
@@ -121,6 +141,16 @@ export class ProceduralProvider extends IDMProvider {
       parrafos[0] = plantilla ? frase : `${frase} ${primera}`.trim();
     }
 
+    // Lo que el motor ha preparado para esta escena va justo detrás de la
+    // acción y por delante de todo lo demás.
+    //
+    // El orden es la mitad del trabajo: si hay un carro volcado cortando el
+    // paso, eso ES la escena, y el trigo moviéndose con el viento es decorado.
+    // Enterrar el encuentro bajo dos párrafos de ambiente lo convierte en una
+    // nota al pie de algo que no está pasando.
+    const escena = this._narrarEscena(ctx);
+    if (escena) parrafos.splice(1, 0, escena);
+
     // Quien está en escena no se queda de piedra.
     const npc = ctx.npcsPresentes?.[0];
     if (accion && npc?.nombre && !String(r.story).includes(npc.nombre)) {
@@ -132,13 +162,15 @@ export class ProceduralProvider extends IDMProvider {
     }
 
     // Nunca una sola línea: el mundo sigue vivo alrededor y el hilo personal
-    // asoma de vez en cuando.
-    if (parrafos.length < 3) {
+    // asoma de vez en cuando. Con una escena de verdad delante, esto ya no
+    // hace falta: el relleno existe para que el turno no quede desnudo.
+    if (!escena && parrafos.length < 3) {
       const atm = this._componerAtmosfera(ctx);
       if (atm && !r.story?.includes(atm)) parrafos.push(atm);
     }
-    if (parrafos.length < 3 && ctx.hiloParaRetomar?.texto) parrafos.push(this._recordarHilo(ctx.hiloParaRetomar, ctx));
-    else if (parrafos.length < 3) {
+    if (!escena && parrafos.length < 3 && ctx.hiloParaRetomar?.texto) {
+      parrafos.push(this._recordarHilo(ctx.hiloParaRetomar, ctx));
+    } else if (!escena && parrafos.length < 3) {
       const amb = this._elegirAmbiente(ctx);
       if (amb) parrafos.push(amb);
     }
@@ -410,6 +442,57 @@ export class ProceduralProvider extends IDMProvider {
      ═══════════════════════════════════════════════════════════════════════ */
 
   /**
+   * Convierte en prosa lo que el motor ha preparado para esta escena.
+   *
+   * Las notas llegan escritas para un modelo de lenguaje, en mayúsculas y con
+   * su etiqueta delante: «ENCUENTRO EN CURSO: un carro volcado corta el paso.
+   * Vías posibles: ayudar, rodear, registrar.» Un modelo se las arregla con
+   * eso; el director interno tiene que pasarlas a algo que se lea.
+   *
+   * Se traduce la etiqueta a una entradilla en castellano y se deja el cuerpo
+   * de la nota tal cual, que es donde está la información concreta. Las vías
+   * posibles se cuelgan al final como lo que son: lo que el jugador puede
+   * hacer ahora.
+   *
+   * @param {Object} ctx
+   * @returns {string}
+   * @private
+   */
+  _narrarEscena(ctx) {
+    const notas = ctx.contextoEscena ?? [];
+    if (!notas.length) return '';
+
+    // Solo la primera. Dos avisos a la vez se pisan y ninguno se lee.
+    const nota = String(notas[0] ?? '').trim();
+    if (!nota) return '';
+
+    const corte = nota.indexOf(':');
+    const etiqueta = corte > 0 ? nota.slice(0, corte).toUpperCase() : '';
+    let cuerpo = corte > 0 ? nota.slice(corte + 1).trim() : nota;
+
+    // Las vías posibles se separan para que no queden en mitad de la frase.
+    let vias = '';
+    const mVias = cuerpo.match(/\s*V[ií]as posibles:\s*([^.]+)\.?\s*$/i);
+    if (mVias) {
+      vias = mVias[1].trim().replace(/\.$/, '');
+      cuerpo = cuerpo.slice(0, mVias.index).trim();
+    }
+
+    const ENTRADILLAS = {
+      'ENCUENTRO EN CURSO': ['Y entonces se tuerce el camino.', 'Algo se cruza.', 'Ahí delante hay algo que no estaba.'],
+      'HA CAMBIADO DESDE LA ÚLTIMA VISITA': ['Esto no lo dejaste así.', 'Algo ha cambiado desde la última vez.'],
+      PENDIENTE: ['Hay algo que sigue sin saldar.', 'Queda una cuenta abierta.'],
+    };
+
+    const entradilla = ENTRADILLAS[etiqueta] ? this._unico(ENTRADILLAS[etiqueta]) : '';
+
+    const partes = [entradilla, capitalizar(cuerpo)].filter(Boolean);
+    if (vias) partes.push(`Se te ocurren varias salidas: ${vias}.`);
+
+    return partes.join(' ');
+  }
+
+  /**
    * Decide si conviene describir el entorno en este turno.
    *
    * Se describe siempre al cambiar de terreno o de franja horaria, y de vez en
@@ -502,12 +585,31 @@ export class ProceduralProvider extends IDMProvider {
     // cruzó…»); se devuelven en la tuya y sin la etiqueta interna.
     const bruto = String(hilo.texto ?? '').replace(/^De su historia:\s*/i, '');
     const propio = bruto !== hilo.texto;
-    const frase = propio ? aSegundaPersona(bruto).replace(/[.!?…]*$/u, '') : bruto;
+
     if (propio) {
+      const limpio = bruto.replace(/[.!?…]*$/u, '');
+
+      // Solo se conjuga lo que viene en primera persona. El trasfondo lo suele
+      // escribir el jugador en tercera, hablando de su personaje («Perdió la
+      // forja de su padre»), y convertir eso producía «perdias la forja de su
+      // padre»: verbo destrozado y posesivo sin tocar. En ese caso su texto se
+      // deja tal cual y el encaje lo pone el narrador alrededor, con frases
+      // que funcionan sin tener que tocarlo por dentro.
+      if (esPrimeraPersona(limpio)) {
+        const frase = aSegundaPersona(limpio).replace(/[.!?…]*$/u, '');
+        return this._unico([
+          `Y entonces lo recuerdas otra vez: ${frase.charAt(0).toLowerCase()}${frase.slice(1)}. No has venido hasta aquí para olvidarlo.`,
+          `${capitalizar(frase)}. Lo piensas sin querer, como una piedra en la bota que no termina de salir.`,
+          `Por un momento, el ruido de alrededor se apaga y solo queda eso: ${frase.charAt(0).toLowerCase()}${frase.slice(1)}.`,
+        ]);
+      }
+
+      const suyo = capitalizar(limpio);
       return this._unico([
-        `Y entonces lo recuerdas otra vez: ${frase.charAt(0).toLowerCase()}${frase.slice(1)}. No has venido hasta aquí para olvidarlo.`,
-        `${capitalizar(frase)}. Lo piensas sin querer, como una piedra en la bota que no termina de salir.`,
-        `Por un momento, el ruido de alrededor se apaga y solo queda eso: ${frase.charAt(0).toLowerCase()}${frase.slice(1)}.`,
+        `Vuelve a ti lo de siempre, con las mismas palabras de siempre. ${suyo}. Y aquí sigues.`,
+        `${suyo}. Eso no se queda atrás por mucho camino que le eches.`,
+        `Hay cosas que uno se lleva puestas. ${suyo}.`,
+        `Por un momento el ruido se apaga y solo queda eso. ${suyo}.`,
       ]);
     }
     hilo = { ...hilo, texto: frase };
@@ -778,16 +880,28 @@ export class ProceduralProvider extends IDMProvider {
    */
   _unico(lista) {
     if (!lista?.length) return '';
+    if (lista.length === 1) return lista[0];
 
-    const disponibles = lista.filter((f) => !this._usados.has(f));
-    const fuente = disponibles.length ? disponibles : lista;
+    // La familia se identifica por su contenido: la misma lista, llamada desde
+    // donde sea, comparte memoria. Cambiar una opción crea una familia nueva,
+    // que es lo correcto: ya no es la misma baraja.
+    const familia = lista.join('\u0001');
+    const recientes = this._porFamilia.get(familia) ?? [];
 
-    const elegido = this._flujo().elegir(fuente);
+    // Se descartan las últimas N-1: así SIEMPRE queda al menos una candidata y
+    // no hace falta el recurso de «si no hay, vale cualquiera», que era justo
+    // por donde se colaban las repeticiones.
+    const disponibles = lista.filter((f) => !recientes.includes(f));
+    const elegido = this._flujo().elegir(disponibles.length ? disponibles : lista);
 
+    recientes.push(elegido);
+    while (recientes.length > lista.length - 1) recientes.shift();
+    this._porFamilia.set(familia, recientes);
+
+    // La ventana global se mantiene: sirve para que dos familias distintas no
+    // suelten la misma frase si alguna vez comparten texto.
     this._usados.add(elegido);
 
-    // La ventana se vacía por la mitad al llenarse, para que las frases puedan
-    // reaparecer pasado un tiempo razonable.
     if (this._usados.size > this._ventana) {
       const mitad = [...this._usados].slice(this._ventana / 2);
       this._usados = new Set(mitad);

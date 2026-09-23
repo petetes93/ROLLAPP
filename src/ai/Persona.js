@@ -73,8 +73,49 @@ function conjugar(verbo) {
   if (/gué$/.test(bajo)) return `${bajo.slice(0, -3)}gaste`;
   if (/cé$/.test(bajo)) return `${bajo.slice(0, -2)}zaste`;
   if (/é$/.test(bajo) && bajo.length > 3) return `${bajo.slice(0, -1)}aste`;
-  if (/[^aeiou]o$/.test(bajo) || /[aeiu]o$/.test(bajo)) return `${bajo.slice(0, -1)}as`;
+
+  // Dónde cae la tilde lo decide todo, y por eso estas tres líneas van juntas:
+  //
+  //   «guío», «amplío»  → tilde en la í: primera del presente  → «guías»
+  //   «perdió», «salió» → tilde en la ó: TERCERA del pretérito → no se toca
+  //   «perdio», «salio» → sin tilde: es el pretérito mal escrito → no se toca
+  //
+  // La tercera línea es la que importa en la práctica. El trasfondo lo escribe
+  // el jugador a mano y sin tildes, y tratar «perdio» como presente producía
+  // «perdias la forja de su padre». Se prefiere dejar intacto un verbo que
+  // destrozarlo: lo primero se lee, lo segundo no.
+  if (/ío$/.test(bajo)) return `${bajo.slice(0, -2)}ías`;
+  if (/i[oó]$/.test(bajo)) return null;
+
+  if (/[^aeiou]o$/.test(bajo) || /[aeu]o$/.test(bajo)) return `${bajo.slice(0, -1)}as`;
   return null;
+}
+
+/**
+ * ¿Este texto está escrito en primera persona?
+ *
+ * Hace falta porque `aSegundaPersona` solo sabe traducir desde primera. Lo que
+ * el jugador escribe como acción sí viene en primera («me acerco»), pero el
+ * trasfondo lo suele escribir en tercera, hablando de su personaje («Perdió la
+ * forja de su padre»). Convertir eso no da una frase en segunda persona: da
+ * una frase rota, con el verbo cambiado y los posesivos intactos.
+ *
+ * Se exige señal explícita. Sin señal, se responde que no: dejar el texto como
+ * está siempre es legible; convertirlo a ciegas, no.
+ *
+ * @param {string} texto
+ * @returns {boolean}
+ */
+export function esPrimeraPersona(texto) {
+  const t = ` ${String(texto ?? '').toLowerCase()} `;
+
+  // Pronombres y posesivos de primera, que no admiten otra lectura.
+  if (/\s(yo|me|mi|mis|mío|mía|míos|mías|conmigo)[\s,.;:]/u.test(t)) return true;
+
+  // Pretéritos de primera, inequívocos.
+  if (/\s(fui|vi|hice|dije|tuve|estuve|pude|puse|supe|quise|vine|traje|perdí|gané|dejé|salí|llegué|nací)[\s,.;:]/u.test(t)) return true;
+
+  return false;
 }
 
 function conMayuscula(original, nueva) {
@@ -147,4 +188,4 @@ export function aSegundaPersona(texto) {
   }).join('');
 }
 
-export default { aSegundaPersona };
+export default { aSegundaPersona, esPrimeraPersona };

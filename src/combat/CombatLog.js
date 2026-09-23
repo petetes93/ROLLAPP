@@ -382,8 +382,14 @@ export function apertura(flujo, enemigos, opciones = {}) {
     return `Los tienes a tiro y no te han visto: ${descripcion}.`;
   }
 
+  // Con dos puntos, igual que las dos emboscadas de arriba.
+  //
+  // Iba pegado con un espacio y salía «No hay tiempo para hablar 2
+  // saqueadores.», como si uno hablara saqueadores. Las cuatro aperturas son
+  // frases cerradas que no admiten complemento detrás; los dos puntos
+  // presentan la lista en vez de cosérsela al verbo.
   const base = flujo.elegir(PLANTILLAS.inicio);
-  return `${base} ${descripcion}.`;
+  return `${base}: ${descripcion}.`;
 }
 
 /**

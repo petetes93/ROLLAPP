@@ -54,8 +54,24 @@ const PRONOMBRES = {
 /** Palabras tras las que suele empezar una nueva acción. */
 const TRAS_VERBO = new Set(['y', 'e', 'luego', 'después', 'entonces', 'mientras', 'me', 'te', 'le', 'les', 'lo', 'la', 'los', 'las', 'se', 'no', 'también', 'ya', 'yo', 'nos', 'que', 'pero', 'ni', 'o', 'u', 'si', 'cuando']);
 
-/** Palabras en -o que no son verbos aunque abran cláusula. */
-const NO_VERBOS = new Set(['lo', 'yo', 'no', 'o', 'como', 'todo', 'algo', 'poco', 'mucho', 'medio', 'otro', 'solo', 'sólo', 'pero', 'luego', 'tanto', 'cuanto', 'primero', 'dentro', 'fuera', 'encima', 'debajo', 'despacio', 'rápido', 'claro', 'mismo', 'pronto']);
+/**
+ * Palabras en -o que no son verbos aunque abran cláusula.
+ *
+ * Las últimas siete entran por un fallo que se vio jugando: «me acerco con la
+ * mano lejos del arco» salía narrado como «con la manas lejos del arco».
+ *
+ * La causa es que `la` está en TRAS_VERBO —porque puede ser pronombre átono
+ * delante de verbo, «la miro»— y entonces lo siguiente se trata como verbo. Es
+ * la ambigüedad del castellano: «la mano» es artículo más sustantivo, «la
+ * miro» es pronombre más verbo, y sin analizar la frase entera no se
+ * distinguen.
+ *
+ * Por suerte el agujero es diminuto: hacen falta sustantivos FEMENINOS
+ * acabados en -o, y en castellano hay un puñado. Se listan y se acabó. Sacar
+ * `la` de TRAS_VERBO habría arreglado esto y roto «la miro», que es más común.
+ */
+const NO_VERBOS = new Set(['lo', 'yo', 'no', 'o', 'como', 'todo', 'algo', 'poco', 'mucho', 'medio', 'otro', 'solo', 'sólo', 'pero', 'luego', 'tanto', 'cuanto', 'primero', 'dentro', 'fuera', 'encima', 'debajo', 'despacio', 'rápido', 'claro', 'mismo', 'pronto',
+  'mano', 'foto', 'moto', 'radio', 'libido', 'soprano', 'modelo']);
 
 const PRETERITOS = {
   vi: 'viste', fui: 'fuiste', hice: 'hiciste', dije: 'dijiste', tuve: 'tuviste', estuve: 'estuviste',

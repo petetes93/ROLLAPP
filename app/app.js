@@ -657,10 +657,6 @@ function comenzarPendiente() {
   return true;
 }
 
-/* Se completan en la pantalla de juego (sugerencias y aparición del texto). */
-function programarSugerencias() {}
-function bitacoraSinAnimar() {}
-
 /* ── ajustes ──────────────────────────────────────────────────────────── */
 
 const AJUSTES_DEFECTO = { velocidadTexto: 'normal', esperaSugerencias: 7 };
@@ -783,6 +779,117 @@ function pintarEscena() {
   );
 }
 
+/* ── sugerencias ──────────────────────────────────────────────────────── */
+
+/**
+ * La interfaz base es una caja de texto libre. Las sugerencias solo aparecen
+ * si el jugador lleva unos segundos sin escribir, en un pop-up discreto con
+ * tres frases que encajan con lo que está pasando.
+ */
+let temporizadorSugerencias = null;
+
+function ocultarSugerencias() {
+  clearTimeout(temporizadorSugerencias);
+  const capa = $('#sugerencias');
+  if (capa) capa.hidden = true;
+}
+
+function programarSugerencias() {
+  ocultarSugerencias();
+  const espera = Number(leerAjustes().esperaSugerencias) || 0;
+  if (!espera) return;
+  temporizadorSugerencias = setTimeout(mostrarSugerencias, espera * 1000);
+}
+
+function mostrarSugerencias() {
+  const capa = $('#sugerencias');
+  const campo = $('#entrada');
+  if (!capa || document.body.dataset.activeScreen !== 'juego') return;
+  // Si el jugador escribe o pelea, no se le interrumpe. Si el máster aún
+  // narra, se espera a que termine y se vuelve a mirar.
+  if (campo?.value.trim() || ver('combat.activo', false)) return;
+  if (campo?.disabled || escribiendo) {
+    temporizadorSugerencias = setTimeout(mostrarSugerencias, 1000);
+    return;
+  }
+
+  const opciones = (ver('narrative.opciones', []) ?? []).slice(0, 3);
+  if (!opciones.length) return;
+
+  const lista = $('#sugerencias-lista');
+  vaciar(lista);
+  for (const o of opciones) {
+    lista.append(el('button', {
+      class: 'sugerencia',
+      dataset: { intent: String(o.intent ?? o.intencion ?? 'accion').toLowerCase() },
+      onClick: protegido('sugerencia', () => enviar(o.label, o.intent)),
+    }, o.label));
+  }
+  capa.hidden = false;
+}
+
+/* Compatibilidad: el motor sigue llamando a pintarOpciones al refrescar. */
+function pintarOpciones() {
+  const caja = $('#opciones');
+  if (caja) { vaciar(caja); caja.hidden = true; }
+}
+
+/* ── aparición del texto ──────────────────────────────────────────────── */
+
+/** Caracteres por segundo de cada velocidad. */
+const VELOCIDADES = { lenta: 40, normal: 85, rapida: 170, instantanea: Infinity };
+
+/** Entradas de la bitácora que ya se han enseñado enteras. */
+let entradasVistas = 0;
+let firmaBitacora = '';
+/** Cola de párrafos pendientes de escribirse. */
+const colaEscritura = [];
+let escribiendo = false;
+
+/** Al cargar una partida, lo ya jugado aparece entero, sin efecto. */
+function bitacoraSinAnimar() {
+  entradasVistas = (ver('narrative.entradas', []) ?? []).length;
+  firmaBitacora = '';
+  colaEscritura.length = 0;
+  pintarBitacora();
+}
+
+/** Termina de golpe todo lo que se estaba escribiendo. */
+function completarEscritura() {
+  for (const t of colaEscritura.splice(0)) t.nodo.textContent = t.texto;
+  escribiendo = false;
+  const caja = $('#bitacora');
+  if (caja) caja.scrollTop = caja.scrollHeight;
+}
+
+function escribirSiguiente() {
+  const tarea = colaEscritura[0];
+  const caja = $('#bitacora');
+  if (!tarea) { escribiendo = false; programarSugerencias(); return; }
+
+  escribiendo = true;
+  const cps = VELOCIDADES[leerAjustes().velocidadTexto] ?? VELOCIDADES.normal;
+  if (!Number.isFinite(cps) || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    completarEscritura();
+    programarSugerencias();
+    return;
+  }
+
+  const inicio = performance.now();
+  tarea.nodo.classList.add('se-escribe');
+  const paso = (ahora) => {
+    if (colaEscritura[0] !== tarea) return;          // se completó de golpe
+    const n = Math.min(tarea.texto.length, Math.floor(((ahora - inicio) / 1000) * cps) + 1);
+    tarea.nodo.textContent = tarea.texto.slice(0, n);
+    if (caja) caja.scrollTop = caja.scrollHeight;
+    if (n < tarea.texto.length) { requestAnimationFrame(paso); return; }
+    tarea.nodo.classList.remove('se-escribe');
+    colaEscritura.shift();
+    setTimeout(escribirSiguiente, 140);
+  };
+  requestAnimationFrame(paso);
+}
+
 /* ── bitácora ─────────────────────────────────────────────────────────── */
 
 function pintarBitacora() {
@@ -790,7 +897,16 @@ function pintarBitacora() {
   if (!caja) return;
 
   const entradas = ver('narrative.entradas', []) ?? [];
+
+  // Refrescar sin cambios no repinta: así no se corta lo que se está escribiendo.
+  const firma = `${entradas.length}|${entradas.at(-1)?.texto ?? ''}`;
+  if (firma === firmaBitacora) return;
+  firmaBitacora = firma;
+
+  // Lo que se estaba escribiendo se da por leído antes de repintar.
+  if (colaEscritura.length) completarEscritura();
   vaciar(caja);
+  const primeraNueva = Math.max(0, entradas.length - 60);
 
   const visibles = entradas.slice(-60);
   const desdeReciente = Math.max(0, visibles.length - 3);
@@ -822,13 +938,21 @@ function pintarBitacora() {
       combate: 'linea linea--combate',
     }[e.voz] ?? 'linea';
 
+    // Solo la voz del máster se escribe; la acción del jugador aparece ya.
+    const esNueva = primeraNueva + indice >= entradasVistas;
+    const seEscribe = esNueva && (e.voz === 'dm' || e.voz === 'narrador');
+
     for (const parrafo of String(e.texto ?? '').split('\n')) {
       if (!parrafo.trim()) continue;
-      caja.append(el('p', { class: clase + (indice >= desdeReciente ? ' es-reciente' : ''), text: parrafo }));
+      const nodo = el('p', { class: clase + (indice >= desdeReciente ? ' es-reciente' : ''), text: seEscribe ? '' : parrafo });
+      caja.append(nodo);
+      if (seEscribe) colaEscritura.push({ nodo, texto: parrafo });
     }
   }
 
+  entradasVistas = entradas.length;
   caja.scrollTop = caja.scrollHeight;
+  if (colaEscritura.length && !escribiendo) escribirSiguiente();
 }
 
 function fichaTirada(t) {
@@ -1182,31 +1306,6 @@ function pintarComercio() {
   }
 }
 
-function pintarOpciones() {
-  const caja = $('#opciones');
-  if (!caja) return;
-
-  vaciar(caja);
-
-  const opciones = ver('narrative.opciones', []) ?? [];
-
-  const glifos = { ataque: '⚔', combate: '⚔', explorar: '⌖', observar: '◉', hablar: '✦', social: '✦', viajar: '➶', huir: '➶', objeto: '◆', magia: '✧' };
-  for (const [indice, o] of opciones.slice(0, 4).entries()) {
-    const intencion = String(o.intent ?? o.intencion ?? '').toLowerCase();
-    caja.append(el('button', {
-      class: 'opcion',
-      dataset: { risk: o.risk ?? 'low', intent: intencion || 'accion' },
-      onClick: protegido('opción', () => enviar(o.label, o.intent)),
-    },
-      el('span', { class: 'opcion__glifo', text: glifos[intencion] ?? '✦' }),
-      el('span', { class: 'opcion__contenido' },
-        el('small', { class: 'opcion__orden', text: `ACCIÓN ${indice + 1}` }),
-        el('span', { class: 'opcion__texto', text: o.label }),
-      ),
-    ));
-  }
-}
-
 /* ── entrada ──────────────────────────────────────────────────────────── */
 
 function bloquear(si) {
@@ -1224,7 +1323,9 @@ async function enviar(texto, intencion) {
   const accion = (texto ?? campo?.value ?? '').trim();
 
   if (!accion) return;
-  if (campo) campo.value = '';
+  if (campo) { campo.value = ''; ajustarAltoEntrada(); }
+  ocultarSugerencias();
+  completarEscritura();
 
   const turns = sistema('turns');
   if (!turns) return;
@@ -1240,7 +1341,17 @@ async function enviar(texto, intencion) {
   }
 
   refrescarTodo();
+  guardarPartidaActual();
   $('#entrada')?.focus();
+  if (!escribiendo) programarSugerencias();
+}
+
+/** La caja crece con el texto hasta un tope, como un chat. */
+function ajustarAltoEntrada() {
+  const campo = $('#entrada');
+  if (!campo || campo.tagName !== 'TEXTAREA') return;
+  campo.style.height = 'auto';
+  campo.style.height = `${Math.min(campo.scrollHeight, 180)}px`;
 }
 
 /* ── combate ──────────────────────────────────────────────────────────── */
@@ -1450,6 +1561,11 @@ function conectarEventos() {
   // Entrada de texto.
   $('#enviar')?.addEventListener('click', protegido('enviar', () => enviar()));
 
+  $('#entrada')?.addEventListener('input', () => { ajustarAltoEntrada(); ocultarSugerencias(); if (!$('#entrada').value.trim()) programarSugerencias(); });
+  $('#bitacora')?.addEventListener('click', () => { if (escribiendo) { completarEscritura(); programarSugerencias(); } });
+  $('#sugerencias-cerrar')?.addEventListener('click', () => ocultarSugerencias());
+  bus.on('combat:start', () => ocultarSugerencias());
+  bus.on('combat:end', () => { guardarPartidaActual(); programarSugerencias(); });
   $('#entrada')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -1583,6 +1699,7 @@ async function arrancar() {
     motor, store, bus, ver,
     sistema,
     jugar: (t) => enviar(t),
+    interfaz: { mostrarSugerencias, completarEscritura, estado: () => ({ escribiendo, cola: colaEscritura.length, temporizador: Boolean(temporizadorSugerencias) }) },
     inspeccionar: (n) => (n ? sistema(n)?.inspeccionar?.() : motor.registry?.inspeccionar?.()),
   };
 }

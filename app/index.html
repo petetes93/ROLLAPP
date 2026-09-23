@@ -716,6 +716,25 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
 .ajuste__opciones{display:flex;flex-wrap:wrap;gap:.4rem}
 .ajuste__opcion{padding:.45rem .7rem;min-height:0}
 </style>
+<style id="texto-y-sugerencias">
+/* Cuerpo un poco mayor y capitular 1-2 px menor: misma estética, más legible. */
+.linea--dm,.linea--narrador{font-size:1.1rem!important;line-height:1.7}
+.linea--dm::first-letter,.linea--narrador::first-letter{font-size:1.9em!important}
+.linea--dm.se-escribe::after{content:'';display:inline-block;width:.45em;height:1em;margin-left:2px;vertical-align:-2px;background:#D8AD50;opacity:.7;animation:cursorPluma .8s steps(2,end) infinite}
+@keyframes cursorPluma{50%{opacity:0}}
+.pie::before{content:'¿QUÉ HACES?'!important}
+textarea.entrada{resize:none;overflow-y:auto;line-height:1.45;max-height:180px;display:block}
+.entrada-fila{align-items:flex-end}
+.sugerencias{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);z-index:20;width:min(40rem,calc(100% - 1.4rem));padding:.55rem .6rem .6rem;background:linear-gradient(180deg,#221810F2,#0F0B09F5);border:1px solid #8C6A33;border-radius:4px 14px 4px 14px;box-shadow:0 12px 30px rgba(0,0,0,.6);animation:sugerenciasEntran .28s cubic-bezier(.2,.8,.2,1) both}
+.sugerencias[hidden]{display:none}
+@keyframes sugerenciasEntran{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+.sugerencias__cab{display:flex;justify-content:space-between;align-items:center;margin:0 .1rem .4rem;font:600 .6rem var(--mono);letter-spacing:.14em;text-transform:uppercase;color:#BDA566}
+.sugerencias__cerrar{background:none;border:0;color:#BDA566;font-size:1.1rem;line-height:1;cursor:pointer;padding:0 .2rem}
+.sugerencias__lista{display:flex;flex-direction:column;gap:.35rem}
+.sugerencia{text-align:left;padding:.5rem .75rem;font:400 .92rem/1.35 var(--sans);color:#E8DDC6;background:rgba(0,0,0,.28);border:1px solid rgba(151,112,50,.45);border-radius:3px 10px 3px 10px;cursor:pointer;transition:border-color .15s,background .15s}
+.sugerencia:hover,.sugerencia:focus-visible{border-color:#C19A4A;background:rgba(193,154,74,.12);outline:none}
+@media(max-width:560px){.sugerencia{font-size:.88rem;padding:.45rem .6rem}}
+</style>
 </head>
 <body>
 
@@ -803,11 +822,16 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
   </div>
 
   <footer class="pie">
-    <div class="opciones" id="opciones"></div>
+    <div class="opciones" id="opciones" hidden></div>
+
+    <div class="sugerencias" id="sugerencias" role="dialog" aria-label="Sugerencias" hidden>
+      <div class="sugerencias__cab"><span>¿Sin ideas? Prueba con…</span><button class="sugerencias__cerrar" id="sugerencias-cerrar" aria-label="Cerrar sugerencias">×</button></div>
+      <div class="sugerencias__lista" id="sugerencias-lista"></div>
+    </div>
 
     <div class="entrada-fila">
-      <input type="text" class="entrada" id="entrada"
-             placeholder="¿Qué haces?" autocomplete="off" autofocus>
+      <textarea class="entrada" id="entrada" rows="1"
+             placeholder="Escribe lo que haces o dices…" autocomplete="off" autofocus></textarea>
       <button class="btn" id="enviar">Actuar</button>
     </div>
 

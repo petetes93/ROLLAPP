@@ -1425,6 +1425,12 @@ function pintarMapa(caja) {
   caja.append(el('p', { class: 'sub-eti', text: 'Puedes ir a' }));
 
   for (const d of destinos) {
+    // El peligro se decía SOLO con el color del número de horas: naranja para
+    // arriesgado, rosa para peligroso. Un daltónico rojo-verde —uno de cada
+    // doce hombres— elegía ruta a ciegas. Ahora lo pone la palabra, y el color
+    // acompaña en vez de cargar con todo el mensaje.
+    const nivel = d.peligro >= 3 ? ' · peligroso' : d.peligro >= 2 ? ' · arriesgado' : '';
+
     caja.append(el('button', {
       class: 'destino',
       onClick: protegido('viajar', () => viajar(d.refId)),
@@ -1432,7 +1438,7 @@ function pintarMapa(caja) {
       el('span', { text: d.nombre }),
       el('span', {
         class: 'destino__dato' + (d.peligro >= 3 ? ' es-peligro' : d.peligro >= 2 ? ' es-aviso' : ''),
-        text: `${d.distancia} h`,
+        text: `${d.distancia} h${nivel}`,
       }),
     ));
   }
@@ -1920,10 +1926,23 @@ function conectarEventos() {
 
   bus.on('narrative:direct', () => setTimeout(pintarBitacora, 10));
   bus.on('world:arrived', () => refrescarTodo());
-  bus.on('player:defeated', () => {
+  // Se escuchan los DOS avisos de caída. `player:defeated` lo emite el
+  // combate; `player:down` lo emite el jugador cuando cae fuera de combate,
+  // por hambre, sed o agotamiento. Solo se escuchaba el primero, así que morir
+  // de hambre no sacaba rótulo, ni aviso, ni nada: el personaje llegaba a cero
+  // de vida y la partida seguía como si tal cosa.
+  let yaCaido = false;
+  const caer = (motivo) => {
+    if (yaCaido) return;           // los dos avisos pueden llegar juntos
+    yaCaido = true;
     rotuloMomento('HAS CAÍDO', 'sangre');
-    avisar('Has caído. La crónica termina aquí.', 'aviso');
-  });
+    avisar(motivo, 'aviso');
+  };
+
+  bus.on('player:defeated', () => caer('Has caído. La crónica termina aquí.'));
+  bus.on('player:down', ({ causa } = {}) => caer(
+    causa ? `Has caído: ${causa}. La crónica termina aquí.` : 'Has caído. La crónica termina aquí.',
+  ));
 }
 
 /** Retira la pantalla de arranque y muestra el juego. */

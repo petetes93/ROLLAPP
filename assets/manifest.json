@@ -20,16 +20,7 @@
     "umbral_albar": "paisajes/umbral_albar.webp",
     "vado_yunque": "paisajes/vado_yunque.webp"
   },
-  "retratos": {
-    "albar": "retratos/albar.webp",
-    "brumal": "retratos/brumal.webp",
-    "crisol": "retratos/crisol.webp",
-    "ferrano": "retratos/ferrano.webp",
-    "griscuerno": "retratos/griscuerno.webp",
-    "menudo": "retratos/menudo.webp",
-    "sombracorteza": "retratos/sombracorteza.webp",
-    "valdes": "retratos/valdes.webp"
-  },
+  "retratos": {},
   "criaturas": {
     "bruto_griscuerno": "criaturas/bruto_griscuerno.webp",
     "carronero": "criaturas/carronero.webp",

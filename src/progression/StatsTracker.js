@@ -203,8 +203,12 @@ export class StatsTracker extends SystemBase {
     // ─── Progresión ─────────────────────────────────────────────────────
     this.escuchar('player:levelup', () => this.registrar('nivelesGanados'));
     this.escuchar('player:xp', ({ cantidad }) => this.registrar('xpTotal', cantidad));
-    this.escuchar('player:rest', () => this.registrar('descansos'));
-    this.escuchar('player:lifesaver', () => this.registrar('salvavidasUsados'));
+    // Los nombres estaban mal: el motor emite `player:rested` y `player:saved`.
+    // Mismo desajuste que tuvieron `roll`/`tirada` y `player`/`jugador`, con la
+    // misma consecuencia silenciosa: los dos contadores se quedaban a cero para
+    // siempre y las hazañas que dependen de ellos no se desbloqueaban nunca.
+    this.escuchar('player:rested', () => this.registrar('descansos'));
+    this.escuchar('player:saved', () => this.registrar('salvavidasUsados'));
   }
 
   /**

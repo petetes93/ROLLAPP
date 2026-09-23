@@ -25,6 +25,7 @@ import * as Precios from './PriceModel.js';
 import * as Comercio from './Trade.js';
 import { obtenerLugar } from '../data/locations.data.js';
 import { ECONOMIA } from '../config/balance.config.js';
+import { GRADOS } from '../player/SkillSystem.js';
 
 /** Eventos publicados. */
 export const EVENTOS_ECONOMIA = Object.freeze({
@@ -116,10 +117,19 @@ export class EconomySystem extends SystemBase {
    * @private
    */
   _tieneTasacion() {
-    const competencias = this.leer('player.competencias', {});
-    const grado = competencias.tasacion ?? 0;
+    // Dos fallos en tres líneas, y por eso la habilidad no hacía nada.
+    //
+    // Leía `player.competencias`, que no existe: el mapa de competencias vive
+    // en `player.habilidades`. Y comparaba con `>= 1` cuando los grados son
+    // cadenas —inepto, lego, practicado, experto, maestro, legendario—, así
+    // que incluso con la ruta correcta, `'maestro' >= 1` es falso.
+    //
+    // Se podía subir Tasación hasta Maestro y seguir comprando a ciegas.
+    const habilidades = this.leer('player.habilidades', {}) ?? {};
+    const grado = habilidades.tasacion;
 
-    return grado >= 1;
+    // Desde «practicado»: lego es lo que sabe cualquiera y no da ventaja.
+    return GRADOS.indexOf(grado) >= GRADOS.indexOf('practicado');
   }
 
   /* ═══════════════════════════════════════════════════════════════════════

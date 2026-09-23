@@ -846,6 +846,68 @@ textarea.entrada{resize:none;overflow-y:auto;line-height:1.45;max-height:180px;d
   .se-acentua,.momento,.tirada.es-reciente .tirada__veredicto{animation:none!important}
   .momento{opacity:1}
 }
+
+/* ═══ que se pueda usar ═══════════════════════════════════════════════════
+   Va al final a propósito: son correcciones transversales que tienen que
+   ganar a las reglas de arriba, y juntas se leen como lo que son.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* El texto secundario no llegaba a 4.5:1 en NINGUNA de sus superficies. El
+   peor caso era 2.57:1, la condición del luchador en combate. Y todo ese texto
+   va entre 9 y 11 px, o sea que cuenta como texto normal: el umbral es 4.5:1,
+   no el 3:1 de los títulos. Mismo matiz cálido, un tono más claro: el peor
+   caso del sistema pasa a 4.61:1. Un token arregla los quince sitios. */
+:root{--texto-3:#9A9388}
+
+/* El anillo de foco global estaba bien, pero dos reglas lo anulaban justo en
+   los dos controles que más se usan con teclado. Peor: el sustituto de
+   `.sugerencia` era el MISMO borde que el de hover, así que no se distinguía
+   «tengo el ratón encima» de «estoy aquí con el teclado». */
+.sugerencia:focus-visible{outline:2px solid var(--bronce);outline-offset:2px}
+.entrada:focus-visible{outline:2px solid var(--bronce);outline-offset:1px}
+
+/* Áreas táctiles. Usar un objeto y viajar son las dos acciones más repetidas
+   de la partida y medían 27 px de alto, por debajo de los 44 px que necesita
+   un dedo. Fallar el destino y viajar a otro sitio cuesta un viaje entero. */
+.btn{min-height:44px}
+.objeto,.destino{min-height:44px;padding:.6rem}
+.pestana{min-height:44px;padding-inline:.6rem}
+.sugerencias__cerrar{min-width:44px;min-height:44px;display:grid;place-items:center;padding:0}
+
+/* La cabecera repetía el fallo del carrusel: hijos flex sin permiso para
+   partirse, cuyo ancho mínimo es la SUMA de los tres botones más el nombre del
+   lugar. A 390 px eso suma ~500 px y `overflow:hidden` se lo comía en
+   silencio, recortando «Guardar». */
+.cab,.cab__acciones,.creacion__pie{flex-wrap:wrap}
+.cab__lugar{overflow-wrap:anywhere}
+.entrada-fila>.entrada{min-width:0}
+
+/* Los estados buenos ya no se pintan como heridas. El color lleva flecha
+   porque el color solo no vale: uno de cada doce hombres no distingue el rosa
+   del verde. */
+.etiqueta--bien{color:#A8CFA0}
+
+/* Región para lector de pantalla: presente en el árbol, invisible en la
+   página. `display:none` no sirve, eso la borra también para el lector. */
+.solo-lector{position:absolute;width:1px;height:1px;margin:-1px;padding:0;
+  overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+
+@media(max-width:800px){
+  /* El lateral medía 6.4rem: 102 px para el retrato, la ficha entera y, en una
+     segunda fila que nunca llegaba a verse, las pestañas de Bolsa, Mapa,
+     Encargos y Gente. Estaban ahí, a 200 px de scroll a ciegas, sin nada que
+     indicara que existían. */
+  .lateral{max-height:11rem;margin-bottom:12px}
+  /* 6,1 px de alto. Ilegible a cualquier edad, no a partir de cierta. */
+  .medallon-atributo__eti{font-size:.5rem}
+  .medallon-atributo__mod{font-size:.52rem}
+
+  /* El rótulo «¿QUÉ HACES?» cuelga 15 px por encima del pie. En escritorio
+     queda sobre el borde y se lee como una pestaña; en móvil, con el lateral
+     justo encima, se plantaba sobre la barra de Ánima y tapaba el número. El
+     margen de arriba le hace sitio y la capa lo pone por delante del borde. */
+  .pie::before{z-index:3}
+}
 </style>
 </head>
 <body>
@@ -995,7 +1057,15 @@ textarea.entrada{resize:none;overflow-y:auto;line-height:1.45;max-height:180px;d
     <div class="modal__acciones"><button class="btn btn--fantasma" id="puente-cancelar">Usar narrador interno</button><button class="btn btn--grande" id="puente-aplicar">Continuar aventura</button></div>
   </section>
 </div>
-<div class="avisos" id="avisos"></div>
+<div class="avisos" id="avisos" role="status" aria-live="polite" aria-atomic="false"></div>
+
+<!-- El relato para quien no ve la pantalla.
+     No se puede poner `aria-live` en la bitácora misma por dos razones: se
+     reconstruye entera en cada refresco (se releerían las sesenta entradas) y
+     el efecto de máquina de escribir cambia el texto letra a letra, que en un
+     lector suena a tartamudeo. Aquí llega cada entrada una sola vez, completa
+     y ya montada, incluida la tirada dicha como frase. -->
+<p class="solo-lector" id="relato-vivo" role="status" aria-live="polite" aria-atomic="true"></p>
 
 <!-- El empaquetador retira esta etiqueta y pone el código en línea; sirviendo
      por HTTP es lo que carga la app. Sin ella el rótulo de arranque se queda

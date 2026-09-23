@@ -168,8 +168,18 @@ export class WeatherSystem extends SystemBase {
       'world/clima': this._reducirClima,
     });
 
-    // Se comprueba cada hora si toca cambiar.
-    this.escuchar('clock:hour:new', () => this._revisar());
+    // Se comprueba al avanzar el tiempo si toca cambiar.
+    //
+    // Escuchaba `clock:hour:new`, un evento que el reloj NO emite y que ni
+    // siquiera figura en `EVENTOS_RELOJ`. Con eso, `_revisar()` no se llamaba
+    // jamás: el clima salía al arrancar la partida y solo cambiaba al viajar a
+    // otro terreno. Cuarenta turnos en el mismo sitio, tres días de reloj, y
+    // el mismo cielo.
+    //
+    // `clock:time:advance` salta más de una vez por turno, y da igual: la
+    // inercia de `_revisar` decide si toca cambio y dos llamadas seguidas sin
+    // que el reloj avance no hacen nada.
+    this.escuchar('clock:time:advance', () => this._revisar());
 
     // Cambiar de terreno puede forzar un clima distinto: entrar en el pantano
     // desde el valle debería traer niebla.
@@ -182,7 +192,27 @@ export class WeatherSystem extends SystemBase {
       this._fijar(this._elegirInicial(), { silencioso: true });
     }
 
-    this._inicioClima = this.leer('world.tiempo.horasTotales', 0);
+    this._inicioClima = this._horasTotales();
+  }
+
+  /**
+   * Horas de mundo transcurridas desde el principio de la partida.
+   *
+   * Aquí se leía `world.tiempo.horasTotales`, que NO existe: el estado del
+   * mundo guarda `dia, hora, minuto, franja, estacion, diasTotales` y ningún
+   * reductor escribe nunca esa clave. El valor por defecto era 0, así que la
+   * resta de abajo daba siempre 0, siempre menor que el mínimo de inercia, y
+   * el clima no cambiaba aunque el evento hubiera llegado. Eran dos fallos
+   * apilados sobre el mismo mecanismo.
+   *
+   * Se deriva de lo que sí hay. No hace falta guardar nada nuevo.
+   *
+   * @returns {number}
+   * @private
+   */
+  _horasTotales() {
+    const t = this.leer('world.tiempo', {}) ?? {};
+    return (Number(t.diasTotales ?? 0) * 24) + Number(t.hora ?? 0);
   }
 
   /* ═══════════════════════════════════════════════════════════════════════
@@ -202,7 +232,7 @@ export class WeatherSystem extends SystemBase {
     const actual = CLIMAS[this.leer('world.clima.actual', 'despejado')];
     if (!actual) return;
 
-    const horasTotales = this.leer('world.tiempo.horasTotales', 0);
+    const horasTotales = this._horasTotales();
     const transcurridas = horasTotales - this._inicioClima;
 
     // ─── Duración mínima: no se cambia todavía ──────────────────────────
@@ -337,7 +367,7 @@ export class WeatherSystem extends SystemBase {
 
     const flujo = this.rng.flujo('mundo');
 
-    this._inicioClima = this.leer('world.tiempo.horasTotales', 0);
+    this._inicioClima = this._horasTotales();
     this._duracionPrevista = flujo.entero(clima.minHoras, clima.maxHoras);
 
     this.despachar('world/clima', {
@@ -391,7 +421,10 @@ export class WeatherSystem extends SystemBase {
         clima: {
           actual: clima,
           descripcion: descripcion ?? null,
-          desde: estado.world.tiempo?.horasTotales ?? 0,
+          // Mismo cálculo que `_horasTotales`, escrito aquí a mano porque un
+          // reductor es una función pura y no ve la instancia del sistema.
+          desde: (Number(estado.world?.tiempo?.diasTotales ?? 0) * 24)
+            + Number(estado.world?.tiempo?.hora ?? 0),
         },
       },
     };
@@ -508,7 +541,7 @@ export class WeatherSystem extends SystemBase {
 
   /** @returns {Object} */
   inspeccionar() {
-    const horasTotales = this.leer('world.tiempo.horasTotales', 0);
+    const horasTotales = this._horasTotales();
 
     return {
       actual: this.actual().nombre,

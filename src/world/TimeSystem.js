@@ -139,7 +139,11 @@ export class TimeSystem extends SystemBase {
     });
 
     // El reloj publica el avance; aquí se traducen las consecuencias.
-    this.escuchar('clock:hour:new', () => this._revisarServicios());
+    //
+    // Escuchaba `clock:hour:new`, que el reloj no emite y que ni existe en
+    // `EVENTOS_RELOJ`: los servicios del pueblo no abrían ni cerraban nunca, y
+    // la herrería seguía atendiendo a las cuatro de la madrugada.
+    this.escuchar('clock:time:advance', () => this._revisarServicios());
     this.escuchar('clock:day:new', ({ diasTotales }) => this._alNuevoDia(diasTotales));
   }
 

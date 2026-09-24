@@ -26,6 +26,7 @@ import { TIPOS_DANO, magnitud } from './DamageCalculator.js';
 import { RESULTADO } from './AttackResolver.js';
 import { COMBATE as PLANTILLAS } from '../data/narrative.templates.js';
 import { obtenerEstado } from '../data/statuses.data.js';
+import { concordar } from '../utils/text.js';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ENTRADAS
@@ -47,7 +48,7 @@ export function entradaAtaque(resultado, contexto) {
     resultado: resultado.resultado,
 
     atacante: { id: atacante.id, nombre: atacante.nombre, esJugador: atacante.esJugador },
-    objetivo: { id: objetivo.id, nombre: objetivo.nombre, esJugador: objetivo.esJugador },
+    objetivo: { id: objetivo.id, nombre: objetivo.nombre, esJugador: objetivo.esJugador, genero: objetivo.genero ?? 'm' },
 
     ataque: ataque?.nombre ?? 'ataque',
 
@@ -143,7 +144,8 @@ export function paraJugador(entrada) {
     case 'huida':
       return `${entrada.nombre} escapa del combate.`;
     case 'caida':
-      return `${entrada.nombre} cae.`;
+      // El parte le habla al jugador de tú: «Caes.», no «Brunhilda cae.».
+      return entrada.esJugador ? 'Caes.' : `${entrada.nombre} cae.`;
     case 'estado_expirado':
       return `${entrada.nombre}: se le pasa el efecto de ${entrada.estado.toLowerCase()}.`;
     case 'salvacion':
@@ -217,7 +219,11 @@ function _lineaAtaque(e) {
       // Estados aplicados.
       for (const est of e.estados ?? []) {
         const estado = obtenerEstado(est.refId);
-        if (estado) linea += ` ${e.objetivo.nombre} queda ${estado.nombre.toLowerCase()}.`;
+        if (!estado) continue;
+        // Si el golpe te lo dan a ti, quedas tú: la línea ya empezó con «te
+        // ataca» y pasar a «Brunhilda queda…» cambia de persona a media frase.
+        const como = concordar(estado.nombre.toLowerCase(), e.objetivo.genero);
+        linea += recibeJugador ? ` Quedas ${como}.` : ` ${e.objetivo.nombre} queda ${como}.`;
       }
 
       // La caída NO se cuenta aquí.
@@ -265,12 +271,14 @@ export function paraDirector(entradas) {
         if (!e.dano) break;
 
         const golpe = `${e.atacante.nombre} alcanzó a ${e.objetivo.nombre} con un golpe ${e.dano.magnitud}`;
+        const genero = e.objetivo.genero ?? 'm';
         const estados = (e.estados ?? [])
           .map((s) => obtenerEstado(s.refId)?.nombre?.toLowerCase())
-          .filter(Boolean);
+          .filter(Boolean)
+          .map((n) => concordar(n, genero));
 
         let linea = golpe;
-        if (estados.length) linea += `, dejándolo ${estados.join(' y ')}`;
+        if (estados.length) linea += `, dejándol${genero === 'f' ? 'a' : 'o'} ${estados.join(' y ')}`;
         if (e.cayo) linea += '. Cayó';
         else if (e.objetivoTras.fraccion < 0.25) linea += '. Está al límite';
 

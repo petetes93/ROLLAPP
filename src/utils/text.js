@@ -170,6 +170,23 @@ export function articuloIndet(palabra, genero = 'm') {
 }
 
 /**
+ * Concuerda un participio o adjetivo en -o con el género de quien lo lleva.
+ *
+ * «Brunhilda queda envenenado»: los estados se escriben en masculino en el
+ * catálogo y se pegaban tal cual. Los gerundios («sangrando», «ardiendo») y
+ * lo que no acaba en -o («invisible») no cambian.
+ *
+ * @param {string} palabra
+ * @param {'m'|'f'} [genero='m']
+ * @returns {string}
+ */
+export function concordar(palabra, genero = 'm') {
+  const p = String(palabra ?? '');
+  if (genero !== 'f' || /(?:ando|endo)$/i.test(p) || !/o$/i.test(p)) return p;
+  return `${p.slice(0, -1)}${p.endsWith('O') ? 'A' : 'a'}`;
+}
+
+/**
  * Una preposición seguida de un nombre propio que empieza por artículo.
  *
  * Casi la mitad de los lugares se llaman «El Vado del Yunque», «La Forja

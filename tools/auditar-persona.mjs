@@ -17,7 +17,9 @@
  */
 
 import { aSegundaPersona, esPrimeraPersona } from '../src/ai/Persona.js';
-import { trasPreposicion } from '../src/utils/text.js';
+import { trasPreposicion, concordar } from '../src/utils/text.js';
+import { paraJugador } from '../src/combat/CombatLog.js';
+import { RESULTADO } from '../src/combat/AttackResolver.js';
 import * as Mapa from '../src/world/MapGraph.js';
 import { LUGARES as CATALOGO } from '../src/data/locations.data.js';
 
@@ -134,6 +136,40 @@ for (const origen of ids) {
 if (descripcionesMal || rutasVistas < 10) fallos += 1;
 console.log(`${descripcionesMal || rutasVistas < 10 ? 'MAL ' : 'OK  '} ${rutasVistas} rutas descritas sin artículos en mayúscula a media frase`);
 
-const total = CASOS.length + PERSONA.length + LUGARES.length + 1;
+/** Concordancia de género en el parte de combate. [palabra, género, esperado] */
+const GENERO = [
+  ['envenenado', 'f', 'envenenada'],
+  ['aturdido', 'f', 'aturdida'],
+  ['sangrando', 'f', 'sangrando'],
+  ['ardiendo', 'f', 'ardiendo'],
+  ['invisible', 'f', 'invisible'],
+  ['envenenado', 'm', 'envenenado'],
+];
+
+for (const [palabra, genero, esperado] of GENERO) {
+  const real = concordar(palabra, genero);
+  const bien = real === esperado;
+  if (!bien) fallos += 1;
+  console.log(`${bien ? 'OK  ' : 'MAL '} ${palabra} (${genero}) → ${real}`);
+}
+
+// Y en una línea de parte de verdad: «Brunhilda queda envenenado».
+{
+  const linea = paraJugador({
+    tipo: 'ataque', resultado: RESULTADO.IMPACTO, ronda: 1, ataque: 'Machete',
+    atacante: { id: 'e1', nombre: 'Saqueador A', esJugador: false },
+    objetivo: { id: 'jugador', nombre: 'Brunhilda', esJugador: true, genero: 'f' },
+    tirada: { total: 15, umbral: 12 },
+    dano: { total: 4, tipo: 'cortante', magnitud: 'leve' },
+    estados: [{ refId: 'envenenado' }],
+    cayo: false,
+    objetivoTras: { vida: 20, max: 26, fraccion: 0.77 },
+  });
+  const bien = /Quedas envenenada/.test(linea) && !/Brunhilda queda/.test(linea);
+  if (!bien) fallos += 1;
+  console.log(`${bien ? 'OK  ' : 'MAL '} parte: ${linea}`);
+}
+
+const total = CASOS.length + PERSONA.length + LUGARES.length + 1 + GENERO.length + 1;
 console.log(`\n${total - fallos}/${total} correctos.`);
 process.exit(fallos ? 1 : 0);

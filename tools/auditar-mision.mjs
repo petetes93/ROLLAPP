@@ -20,6 +20,7 @@ import { principalDesdeHistoria } from '../src/quests/QuestGenerator.js';
 import { preguntaDeMesa, cerrarConPregunta, terminaEnPregunta, candidatas } from '../src/ai/Pregunta.js';
 import { GestorRNG } from '../src/core/RNG.js';
 import { obtenerLugar, LUGARES } from '../src/data/locations.data.js';
+import { TurnResolver } from '../src/engine/TurnResolver.js';
 
 let fallos = 0;
 
@@ -116,6 +117,29 @@ comprobar(yaPreguntaba === 'Corlin te mira. «¿Quién eres tú?»', 'si ya term
 
 comprobar(terminaEnPregunta('Algo.\n¿Qué haces?') && !terminaEnPregunta('Algo.\nNada.'),
   'reconoce si un texto termina en pregunta');
+
+/* ── «Hablar con…» se cumple al hablar, aunque la frase haga otra cosa ──── */
+
+{
+  // Salió en el playtest: «busco a Dadar y le pregunto por el hierro» se leyó
+  // como una búsqueda y el objetivo «Hablar con Dadar» no avanzó.
+  const turnos = Object.create(TurnResolver.prototype);
+  const estado = { npcs: { presentes: ['npc_dadar', 'npc_ulket'], conocidos: { porId: {
+    npc_dadar: { refId: 'npc_dadar', nombre: 'Dadar' }, npc_ulket: { refId: 'npc_ulket', nombre: 'Ulket' },
+  } } } };
+  turnos.leer = (ruta, d) => ruta.split('.').reduce((o, k) => o?.[k], estado) ?? d;
+  const conQuien = (accion, tipo) => {
+    const dichos = [];
+    turnos.emitir = (evento, datos) => { if (evento === 'npc:talked') dichos.push(datos.refId); };
+    turnos._registrarConversacion({ events: [] }, tipo, accion);
+    return dichos;
+  };
+
+  comprobar(conQuien('busco a Dadar, el herrero, y le pregunto por el hierro marcado', 'accion').includes('npc_dadar'),
+    'preguntar a alguien nombrado cuenta como hablar con él, aunque el turno sea otra cosa');
+  comprobar(!conQuien('busco a Dadar', 'accion').length, 'buscar a alguien no es hablar con él');
+  comprobar(!conQuien('le pregunto por el hierro', 'accion').length, 'sin nombre, fuera del diálogo no se adivina con quién');
+}
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);
 process.exit(fallos ? 1 : 0);

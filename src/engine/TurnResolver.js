@@ -42,6 +42,10 @@ import { DIRECCION } from '../config/balance.config.js';
 import { VOCES } from '../config/ui.config.js';
 import { idEntidad, TIPO } from '../utils/id.js';
 import { evaluar } from '../core/Dice.js';
+import { sinAcentos } from '../utils/text.js';
+
+/** Verbos de hablar con alguien, sin tildes: «le pregunto», «hablo», «le cuento». */
+const HABLA = /\b(?:pregunt\w*|habl[oa]\w*|dig[oa]|decirle|cuent[oa]|contarle|charl\w*|convers\w*|interrog\w*|salud[oa]\w*|le explico|le pido)\b/;
 
 /** Convierte la historia libre en varios hilos jugables sin inventar hechos. */
 function hilosDesdeLore(lore) {
@@ -775,20 +779,28 @@ export class TurnResolver extends SystemBase {
    */
   _registrarConversacion(respuesta, tipo, accion) {
     const declarado = (respuesta.events ?? []).find((e) => e.type === 'npc_talk' && e.payload?.refId)?.payload;
-    const npc = declarado ?? (tipo === 'dialogo' ? this._aQuienSeHablo(accion) : null);
+    // «Busco a Dadar y le pregunto por el hierro» se lee como una búsqueda,
+    // pero ha hablado con Dadar. Fuera del diálogo cuenta si hay un verbo de
+    // hablar y se nombra a quien está delante; sin nombre, no se adivina.
+    const deLaFrase = tipo === 'dialogo'
+      ? this._aQuienSeHablo(accion)
+      : (HABLA.test(sinAcentos(String(accion ?? '').toLowerCase())) ? this._aQuienSeHablo(accion, { soloNombrado: true }) : null);
+    const npc = declarado ?? deLaFrase;
     if (npc?.refId) this.emitir('npc:talked', { refId: npc.refId, nombre: npc.nombre });
   }
 
   /**
-   * De los presentes, el nombrado en la frase; si solo hay uno, ese.
+   * De los presentes, el nombrado en la frase; si solo hay uno, ese (salvo
+   * que se pida solo el nombrado).
    * @private
    */
-  _aQuienSeHablo(accion) {
+  _aQuienSeHablo(accion, { soloNombrado = false } = {}) {
     const conocidos = this.leer('npcs.conocidos.porId', {}) ?? {};
     const presentes = (this.leer('npcs.presentes', []) ?? []).map((id) => conocidos[id]).filter(Boolean);
-    const frase = String(accion ?? '').toLowerCase();
-    return presentes.find((n) => n.nombre && frase.includes(n.nombre.toLowerCase()))
-      ?? (presentes.length === 1 ? presentes[0] : null);
+    const frase = sinAcentos(String(accion ?? '').toLowerCase());
+    const nombrado = presentes.find((n) => n.nombre && frase.includes(sinAcentos(n.nombre.toLowerCase())));
+    if (nombrado || soloNombrado) return nombrado ?? null;
+    return presentes.length === 1 ? presentes[0] : null;
   }
 
   /**

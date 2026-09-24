@@ -25,7 +25,7 @@
  */
 
 import { SystemBase } from '../core/SystemBase.js';
-import { obtenerSublugar } from '../data/locations.data.js';
+import { obtenerSublugar, obtenerLugar } from '../data/locations.data.js';
 import { evaluarAmbicion } from './Ambicion.js';
 import * as Tablas from '../world/EncounterTables.js';
 
@@ -62,6 +62,17 @@ export class ActionRouter extends SystemBase {
     };
 
     if (!intencion) return vacio;
+
+    // Entrar y salir de un interior, dicho con palabras.
+    //
+    // El estado tenía `world.sublugar` y nadie lo escribía desde la caja de
+    // texto: solo lo hacía la exploración. Así, «entro en la taberna» narraba
+    // la entrada y el juego seguía creyendo que estabas en la calle, de modo
+    // que al turno siguiente volvía a describir los campos y los caminos.
+    //
+    // Va antes del switch porque no depende de qué intención se haya deducido:
+    // quien dice que entra, entra.
+    this._ajustarSublugar(intencion);
 
     // ─── Comprobaciones que rechazan ────────────────────────────────────
     const rechazo = this._comprobarRechazos(intencion, contexto);
@@ -199,6 +210,52 @@ export class ActionRouter extends SystemBase {
       pistaDirector: null,
       resultado: { tipo: 'consumo', objeto: elegido.nombre },
     };
+  }
+
+  /**
+   * Actualiza dónde está el personaje cuando dice que entra o que sale.
+   *
+   * Se compara con el nombre del sublugar y con alias de su tipo, porque nadie
+   * escribe «entro en la posada de los Tres Clavos»: escribe «entro en la
+   * taberna».
+   *
+   * @param {Object} intencion
+   * @private
+   */
+  _ajustarSublugar(intencion) {
+    const texto = String(intencion.texto ?? '')
+      .normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    if (!texto) return;
+
+    const world = this.sistema('world');
+    if (!world) return;
+
+    // Salir: solo si está dentro de algo.
+    if (this.leer('world.sublugar') && /\b(salgo|salir|me voy)\b.{0,20}\b(fuera|de aqui|a la calle|del local|de la taberna|de la posada|de la fragua)\b|\bsalgo fuera\b/.test(texto)) {
+      world.entrarEn(null);
+      return;
+    }
+
+    if (!/\b(entro|entrar|paso a|me meto|voy a la|voy al|subo a|bajo a|cruzo la puerta)\b/.test(texto)) return;
+
+    const lugar = obtenerLugar(this.leer('world.ubicacion'));
+    const sublugares = lugar?.sublugares ?? [];
+    if (!sublugares.length) return;
+
+    const ALIAS = {
+      posada: ['posada', 'taberna', 'meson'],
+      herrero: ['fragua', 'herreria', 'herrero'],
+      mercado: ['mercado', 'plaza', 'puesto'],
+      templo: ['templo', 'santuario', 'capilla'],
+    };
+
+    const destino = sublugares.find((s) => {
+      const nombre = String(s.nombre ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+      if (nombre && texto.includes(nombre)) return true;
+      return (ALIAS[s.tipo] ?? [s.tipo]).some((a) => new RegExp(`\\b${a}`).test(texto));
+    });
+
+    if (destino) world.entrarEn(destino.refId);
   }
 
   /**

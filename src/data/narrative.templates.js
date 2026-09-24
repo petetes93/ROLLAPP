@@ -652,8 +652,154 @@ export const AMBIENTE = Object.freeze({
 });
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   ATMÓSFERA DE INTERIOR
+   ---------------------------------------------------------------------------
+   La atmósfera estaba indexada solo por terreno, así que dentro de una taberna
+   el director seguía describiendo el campo de fuera: «Te sientas en la taberna.
+   Los surcos de carro marcan la tierra. El viento mueve el trigo con un sonido
+   de agua.» Cuatro paredes y un techo, y le contaba los trigales.
+
+   Las claves son el `tipo` de los sublugares de `locations.data.js`. Lo que no
+   tenga tabla propia cae en `generico`, que vale para cualquier sitio cerrado:
+   ni campos ni caminos, que es lo que importa.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export const INTERIOR = Object.freeze({
+
+  posada: {
+    vista: [
+      'Las mesas están gastadas por el centro y pegajosas por los bordes',
+      'El fuego de la chimenea se ha consumido hasta las brasas',
+      'Media docena de parroquianos ocupan los bancos del fondo',
+      'Las vigas del techo están negras de humo de años',
+      'Detrás del mostrador hay más jarras que botellas',
+      'Alguien ha dejado una partida de dados a medias sobre una mesa',
+    ],
+    sonido: [
+      'Un murmullo de conversaciones que baja de tono cuando pasas cerca',
+      'Alguien arrastra un banco en el otro extremo de la sala',
+      'Se oye una risa corta que se apaga enseguida',
+      'Del fondo llega el sonido de una cuchara contra un cuenco',
+      'La puerta de la cocina chirría cada vez que se abre',
+    ],
+    olfato: [
+      'Huele a caldo, a leña quemada y a ropa sin lavar',
+      'El aire está cargado de humo y de cerveza derramada',
+      'Huele a pan reciente, que es lo mejor que hay aquí dentro',
+    ],
+    detalle: [
+      'Hay marcas de cuchillo en el canto de la mesa, contadas como días.',
+      'Un perro flaco duerme bajo un banco y no levanta la cabeza.',
+      'En la pared cuelga un mapa de la región con media comarca borrada.',
+      'Una vela gotea cera sobre la mesa y nadie la endereza.',
+    ],
+  },
+
+  herrero: {
+    vista: [
+      'La fragua está encendida y tiñe de naranja la mitad del taller',
+      'Herramientas colgadas por tamaño cubren la pared del fondo',
+      'Hay piezas a medio terminar apiladas junto al yunque',
+      'El suelo está cubierto de una capa fina de ceniza y limaduras',
+    ],
+    sonido: [
+      'El martillo marca un ritmo que no se interrumpe por tu llegada',
+      'El fuelle respira hondo y la fragua ruge un momento',
+      'El metal caliente chista al entrar en el agua',
+    ],
+    olfato: [
+      'Huele a carbón, a metal caliente y a sudor',
+      'El aire raspa la garganta: hierro y humo',
+    ],
+    detalle: [
+      'Una espada sin empuñadura espera clavada en un tocón.',
+      'Hay una lista de encargos garabateada con carbón en la pared.',
+      'El yunque tiene una muesca profunda que no se hizo trabajando.',
+    ],
+  },
+
+  mercado: {
+    vista: [
+      'Los puestos se aprietan unos contra otros bajo toldos remendados',
+      'Hay más gente mirando que comprando',
+      'Un tenderete de telas ocupa el mejor sitio de la plaza',
+      'Cajones de fruta a medio vaciar cierran el paso por un lado',
+    ],
+    sonido: [
+      'Dos voces regatean el mismo precio por décima vez',
+      'Alguien pregona algo que no llegas a entender',
+      'El ruido se vuelve un rumor continuo en cuanto dejas de escuchar',
+    ],
+    olfato: [
+      'Huele a especias, a fruta pasada y a animal',
+      'Un puesto de pescado deja su rastro tres tenderetes más allá',
+    ],
+    detalle: [
+      'Un crío observa los puestos con demasiada atención.',
+      'Hay un hueco entre dos puestos que nadie ocupa.',
+      'Una balanza tiene el plato derecho más hundido de lo que debería.',
+    ],
+  },
+
+  templo: {
+    vista: [
+      'La luz entra en columnas desde unos ventanucos muy altos',
+      'Los bancos están vacíos salvo por una figura arrodillada al fondo',
+      'Las ofrendas se amontonan al pie de una talla sin cara',
+    ],
+    sonido: [
+      'Tus pasos suenan más de lo que quisieras',
+      'Alguien reza en voz muy baja y no se entiende qué',
+      'El silencio aquí dentro tiene otro peso',
+    ],
+    olfato: [
+      'Huele a cera quemada y a piedra fría',
+      'Un resto de incienso se sostiene en el aire',
+    ],
+    detalle: [
+      'Alguien ha dejado pan y sal a los pies de la talla.',
+      'Hay nombres grabados en la piedra, algunos recientes.',
+    ],
+  },
+
+  generico: {
+    vista: [
+      'El techo está más bajo de lo que parecía desde fuera',
+      'La única luz entra por una ventana estrecha',
+      'Hay cosas apiladas contra las paredes sin orden claro',
+      'El suelo de tablas cede un poco en el centro de la sala',
+    ],
+    sonido: [
+      'Desde dentro, los ruidos de la calle llegan amortiguados',
+      'Algo cruje arriba: madera asentándose, o pasos',
+      'Se oye tu propia respiración más de lo normal',
+    ],
+    olfato: [
+      'Huele a polvo y a encierro',
+      'El aire está quieto y sabe a madera vieja',
+    ],
+    detalle: [
+      'Hay una marca en el suelo donde algo pesado estuvo mucho tiempo.',
+      'Una puerta al fondo está entornada y no se ve qué hay detrás.',
+    ],
+  },
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
    CONSULTAS
    ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Bloque de atmósfera de un interior.
+ *
+ * @param {string} tipo Tipo del sublugar: posada, herrero, mercado, templo…
+ * @returns {Object}
+ */
+export function atmosferaInterior(tipo) {
+  // La taberna y la posada son el mismo sitio con dos nombres.
+  const clave = tipo === 'taberna' ? 'posada' : tipo;
+  return INTERIOR[clave] ?? INTERIOR.generico;
+}
 
 /**
  * Bloque de atmósfera de un terreno.

@@ -522,6 +522,27 @@ try {
     throw new Error(`«Volver en ti» dejó ${JSON.stringify(revivido)}`);
   }
 
+  // La segunda caída de la sesión también detiene la partida. El aviso se
+  // guardaba con una marca que solo se rearmaba al crear personaje: tras
+  // volver en ti, caer otra vez dejaba la fase en `fin` sin pantalla y con
+  // la caja abierta.
+  for (let golpe = 0; golpe < 3; golpe += 1) {
+    await evaluate(`ARCANVEIL.store.dispatch('player/danar', { cantidad: 999, origen: 'regresion' })`);
+    await wait(300);
+    if (await evaluate(`ARCANVEIL.store.select('meta.fase')`) === 'fin') break;
+  }
+  await wait(400);
+  const segunda = await evaluate(`({
+    fase: ARCANVEIL.store.select('meta.fase'),
+    modal: !document.getElementById('caida-modal').hidden,
+    entrada: document.getElementById('entrada').disabled,
+  })`);
+  if (segunda.fase !== 'fin' || !segunda.modal || !segunda.entrada) {
+    throw new Error(`la segunda caída no detuvo la partida: ${JSON.stringify(segunda)}`);
+  }
+  await evaluate(`[...document.querySelectorAll('#caida-acciones button')].find(b => /volver/i.test(b.textContent))?.click()`);
+  await wait(1200);
+
   // La jugada escrita cuenta en combate: «le lanzo arena a los ojos y le
   // golpeo» es un ataque con +1 por usar la escena, y el enemigo enseña su
   // ficha. Va al final porque el combate se queda abierto: la recarga sin red

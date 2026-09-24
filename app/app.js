@@ -2758,10 +2758,15 @@ function conectarEventos() {
   // por hambre, sed o agotamiento. Solo se escuchaba el primero, así que morir
   // de hambre no sacaba rótulo, ni aviso, ni nada: el personaje llegaba a cero
   // de vida y la partida seguía como si tal cosa.
-  let yaCaido = false;
+  //
+  // Los dos pueden llegar juntos. Si la pantalla de caída ya está abierta,
+  // basta con asegurar la caja cerrada. Se mira la pantalla y no una marca:
+  // la marca solo se rearmaba al crear personaje, así que tras «Volver en ti»
+  // o cargar partida la segunda caída de la sesión dejaba la fase en `fin`
+  // sin pantalla y con la caja abierta.
   const caer = (motivo) => {
-    if (yaCaido) return;           // los dos avisos pueden llegar juntos
-    yaCaido = true;
+    const modal = $('#caida-modal');
+    if (modal && !modal.hidden) { bloquear(true); return; }
     rotuloMomento('HAS CAÍDO', 'sangre');
     abrirCaida(motivo);
   };
@@ -2769,9 +2774,7 @@ function conectarEventos() {
   bus.on('player:defeated', () => caer('El combate te ha podido.'));
   bus.on('player:down', ({ causa } = {}) => caer(causa ? `Te ha podido ${causa}.` : 'No has aguantado más.'));
 
-  // Empezar de nuevo rearma el aviso: si no, una segunda caída en la misma
-  // sesión pasaría sin que nadie se enterara.
-  bus.on('player:created', () => { yaCaido = false; escenaIA = null; });
+  bus.on('player:created', () => { escenaIA = null; });
 
   // Solo un cambio de escena trae ilustración nueva.
   bus.on('scene:changed', (escena) => pedirIlustracion(escena));

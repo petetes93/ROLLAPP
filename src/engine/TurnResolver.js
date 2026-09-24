@@ -33,6 +33,7 @@ import { interpretar, tipoDeTurno, COMANDOS } from './IntentParser.js';
 import { validarRespuesta } from '../ai/ResponseSchema.js';
 import { MemoryStore } from '../ai/MemoryStore.js';
 import { leerTurno } from '../ai/Cronica.js';
+import { preguntaDeMesa, cerrarConPregunta, terminaEnPregunta } from '../ai/Pregunta.js';
 import { ContextComposer } from '../ai/ContextComposer.js';
 import { ProceduralProvider } from '../ai/providers/ProceduralProvider.js';
 import { PROVEEDORES } from '../config/ai.config.js';
@@ -92,6 +93,9 @@ export class TurnResolver extends SystemBase {
 
     /** true mientras hay un turno resolviéndose. @private */
     this._ocupado = false;
+
+    /** La última pregunta de mesa, para no repetirla seguida. @private */
+    this._ultimaPregunta = null;
   }
 
   /* ═══════════════════════════════════════════════════════════════════════
@@ -317,7 +321,12 @@ export class TurnResolver extends SystemBase {
 
       if (ruta?.ruta === 'local') {
         // La ruta puede pedir voz: un gesto se narra, no es un aviso del sistema.
-        if (ruta.narracion) this._anadirEntrada(ruta.voz ?? VOCES.SISTEMA, ruta.narracion, { turno: numeroTurno });
+        // Y si lo narra el máster, lo cierra devolviendo la palabra.
+        if (ruta.narracion) {
+          const voz = ruta.voz ?? VOCES.SISTEMA;
+          const texto = voz === VOCES.DM ? this._cerrarTurno(ruta.narracion) : ruta.narracion;
+          this._anadirEntrada(voz, texto, { turno: numeroTurno });
+        }
         await this.sistema('clock').turno({ tipo: 'exploracion' });
         this.store.descartarInstantanea('turno');
         return { turno: numeroTurno, local: true };
@@ -417,6 +426,17 @@ export class TurnResolver extends SystemBase {
 
       // ─── 8. Narración a la bitácora ───────────────────────────────────
       if (saneada.sceneBreak) this._cortarEscena();
+
+      // Con quién se ha hablado, ANTES de cerrar el texto: cumplir un
+      // «Hablar con…» puede abrir la siguiente misión principal, y quien la da
+      // lo cuenta dentro de este mismo turno, no en una entrada suelta.
+      this._registrarConversacion(saneada, tipo, limpio);
+      const relevo = this.sistema('quests')?.tomarRelevo?.();
+      if (relevo) saneada.story = this._antesDeLaPregunta(saneada.story, relevo);
+
+      // Cada turno termina devolviendo la palabra. La pone el modelo si la
+      // trae (`pregunta`); si no, el motor.
+      saneada.story = this._cerrarTurno(saneada.story, saneada.pregunta);
 
       this._anadirEntrada(VOCES.DM, saneada.story, {
         turno: numeroTurno,
@@ -743,6 +763,79 @@ export class TurnResolver extends SystemBase {
   }
 
   /**
+   * Avisa de con quién ha hablado el jugador.
+   *
+   * Es lo que hace avanzar los objetivos «Hablar con…»: el evento
+   * `npc:talked` se escuchaba desde siempre y no lo emitía nadie, así que
+   * ninguno se había cumplido nunca. Si el narrador lo declara (`npc_talk`),
+   * manda él; si no —un modelo no siempre lo hace—, se deduce de la frase.
+   *
+   * @private
+   */
+  _registrarConversacion(respuesta, tipo, accion) {
+    const declarado = (respuesta.events ?? []).find((e) => e.type === 'npc_talk' && e.payload?.refId)?.payload;
+    const npc = declarado ?? (tipo === 'dialogo' ? this._aQuienSeHablo(accion) : null);
+    if (npc?.refId) this.emitir('npc:talked', { refId: npc.refId, nombre: npc.nombre });
+  }
+
+  /**
+   * De los presentes, el nombrado en la frase; si solo hay uno, ese.
+   * @private
+   */
+  _aQuienSeHablo(accion) {
+    const conocidos = this.leer('npcs.conocidos.porId', {}) ?? {};
+    const presentes = (this.leer('npcs.presentes', []) ?? []).map((id) => conocidos[id]).filter(Boolean);
+    const frase = String(accion ?? '').toLowerCase();
+    return presentes.find((n) => n.nombre && frase.includes(n.nombre.toLowerCase()))
+      ?? (presentes.length === 1 ? presentes[0] : null);
+  }
+
+  /**
+   * Mete unas líneas justo antes de la pregunta final, si la hay.
+   * @private
+   */
+  _antesDeLaPregunta(texto, lineas) {
+    const t = String(texto ?? '').trimEnd();
+    if (!terminaEnPregunta(t)) return `${t}\n${lineas}`;
+    const partes = t.split('\n');
+    const pregunta = partes.pop();
+    return [...partes, lineas, pregunta].join('\n');
+  }
+
+  /**
+   * Cierra una narración con la pregunta de mesa.
+   *
+   * @param {string} texto
+   * @param {string} [propuesta] La que trae el modelo, si trae.
+   * @returns {string}
+   * @private
+   */
+  _cerrarTurno(texto, propuesta) {
+    const pregunta = String(propuesta ?? '').trim() || this._preguntar();
+    this._ultimaPregunta = pregunta;
+    return cerrarConPregunta(texto, pregunta);
+  }
+
+  /**
+   * Elige la pregunta según quién está en escena.
+   * @returns {string}
+   * @private
+   */
+  _preguntar() {
+    const conocidos = this.leer('npcs.conocidos.porId', {}) ?? {};
+    const npcs = (this.leer('npcs.presentes', []) ?? []).map((id) => conocidos[id]).filter(Boolean);
+    const enemigos = this.leer('combat.activo', false)
+      ? Object.values(this.leer('combat.combatientes', {}) ?? {}).filter((c) => c.bando === 'enemigo' && c.vida?.actual > 0)
+      : [];
+
+    const flujo = this.rng?.flujo?.('narrativa');
+    return preguntaDeMesa(
+      { npcs, enemigos, franja: this.leer('world.tiempo.franja') },
+      { anterior: this._ultimaPregunta, elegir: (lista) => flujo?.elegir(lista) ?? lista[0] },
+    );
+  }
+
+  /**
    * @param {boolean} bloqueada
    * @private
    */
@@ -770,6 +863,10 @@ export class TurnResolver extends SystemBase {
     this._bloquearEntrada(true);
 
     try {
+      // La misión principal existe antes de que se narre nada: la apertura
+      // tiene que poder presentarla, y el panel de misiones mostrarla ya.
+      const principal = this.sistema('quests')?.iniciarPrincipal?.() ?? null;
+
       const peticion = {
         accion: '',
         intencion: { tipo: 'custom', requiereTirada: false, confianza: 1 },
@@ -781,20 +878,31 @@ export class TurnResolver extends SystemBase {
 
       if (this._idDirector() !== PROVEEDORES.PROCEDURAL) {
         const compuesto = this._compositor.componer({ accion: '', tipo: 'narracion' });
-        peticion.prompt = `${compuesto.texto}\n\nESTE ES EL PRIMER TURNO. Abre la crónica situando al personaje en un lugar concreto, con algo que reclame su atención de inmediato.`;
+        const encargo = principal
+          ? `\n\nMISIÓN PRINCIPAL: ${principal.objetivo} ${principal.pista} Preséntala al final de la apertura en dos o tres frases cortas, nombrando a ${principal.npc.nombre} y el lugar.`
+          : '';
+        peticion.prompt = `${compuesto.texto}\n\nESTE ES EL PRIMER TURNO. Abre la crónica situando al personaje en un lugar concreto, con algo que reclame su atención de inmediato.${encargo}`;
       }
 
       const resultado = await this.director.dirigir(peticion);
       const validacion = validarRespuesta(resultado.respuesta);
       const respuesta = validacion.valida ? validacion.respuesta : resultado.respuesta;
 
-      this._anadirEntrada(VOCES.DM, respuesta.story, { turno: 1, escenaAbierta: true });
+      // La misión se presenta en golpes cortos, uno por línea. Si el modelo ya
+      // la ha contado —nombra a quien da la pista—, no se repite.
+      let story = respuesta.story;
+      if (principal && !story.includes(principal.npc.nombre)) {
+        story = `${story.trimEnd()}\nY hoy, por fin, hay por dónde empezar.\n${principal.objetivo}\n${principal.pista}`;
+      }
+      story = this._cerrarTurno(story, respuesta.pregunta);
+
+      this._anadirEntrada(VOCES.DM, story, { turno: 1, escenaAbierta: true });
       this.despachar('narrative/opciones', { opciones: respuesta.choices ?? [] });
 
       this.memoria.registrarTurno({
         numero: 1,
         accion: '(inicio)',
-        narracion: respuesta.story,
+        narracion: story,
         mood: respuesta.mood,
       });
 

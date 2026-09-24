@@ -221,6 +221,20 @@ try {
   if (!aperturaLore.memoria.some(h => h.relacionadoCon === 'player_lore')) throw new Error('el lore no abrió un hilo persistente');
   if (!aperturaLore.memoria.some(h => h.tipo === 'relacion')) throw new Error('el lore no reconoció el hilo familiar');
 
+  // Misión principal desde el turno 1: un lugar, alguien con nombre y una
+  // pista, ya aceptada y visible. Y la apertura devuelve la palabra.
+  const mision = await evaluate(`(() => {
+    const a = ARCANVEIL.ver('quests.activas', { porId: {}, orden: [] });
+    const m = a.orden.map(id => a.porId[id]).find(x => x?.tipo === 'principal');
+    const apertura = ARCANVEIL.ver('narrative.entradas', []).filter(e => e.voz === 'dm').at(-1)?.texto ?? '';
+    return { m, apertura };
+  })()`);
+  if (!mision.m) throw new Error('la partida empezó sin misión principal');
+  if (mision.m.estado !== 'aceptada') throw new Error(`la misión principal está ${mision.m.estado}`);
+  if (!mision.m.nombreOrigen || !mision.m.lugar) throw new Error('la misión principal no tiene a quién ni dónde');
+  if (!mision.apertura.includes(mision.m.nombreOrigen)) throw new Error('la apertura no presenta la misión');
+  if (!/\?$/.test(mision.apertura.trim().split('\n').at(-1))) throw new Error(`la apertura no pregunta: «${mision.apertura.split('\n').at(-1)}»`);
+
   const acciones = [
     'miro alrededor','escucho tras la puerta','exploro con cuidado','examino las huellas',
     'pregunto por rumores','busco un camino seguro','registro el lugar','observo el cielo',
@@ -234,6 +248,13 @@ try {
     turns.push(result);
     if (result.disabled || result.failures) throw new Error(`turno fallido: ${a}`);
   }
+
+  // Cada turno del máster termina devolviendo la palabra.
+  const sinPregunta = await evaluate(`ARCANVEIL.ver('narrative.entradas', [])
+    .filter(e => e.voz === 'dm' && (e.texto ?? '').trim())
+    .map(e => e.texto.trim().split('\\n').at(-1))
+    .filter(ultima => !/\\?[»"]?$/.test(ultima))`);
+  if (sinPregunta.length) throw new Error(`turnos que no terminan en pregunta: ${sinPregunta.slice(0, 3).join(' | ')}`);
 
   // La apertura desde el lore se cuenta una vez. Salía otra vez en el primer
   // «miro alrededor» con otra de sus tres variantes.

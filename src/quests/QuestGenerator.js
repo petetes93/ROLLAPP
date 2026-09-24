@@ -31,6 +31,8 @@ import { obtenerLugar, obtenerRegion, lugaresDe } from '../data/locations.data.j
 import { apropiados as enemigosApropiados } from '../data/enemies.data.js';
 import { obtenerFaccion } from '../data/factions.data.js';
 import { xpPorMision } from '../player/Progression.js';
+import { nombreAleatorio } from '../player/CharacterRandom.js';
+import { trasPreposicion, sinAcentos } from '../utils/text.js';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PLANTILLAS
@@ -463,6 +465,236 @@ function _tituloDesde(gancho) {
   }
 
   return limpio.length > 60 ? `${limpio.slice(0, 57)}…` : limpio;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MISIÓN PRINCIPAL DESDE LA HISTORIA DEL PERSONAJE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Oficio de quien da la pista, según de qué hable la historia.
+ *
+ * «Perdí la forja de mi padre» pide un herrero: es quien sabría de hierro con
+ * una marca. Si la historia no da pistas de oficio, una posadera, que en
+ * cualquier pueblo es quien más oye.
+ */
+const OFICIO_POR_TEMA = Object.freeze([
+  [/forj|herrer|hierro|yunque|acero|martillo/, { m: 'herrero', f: 'herrera' }],
+  [/barc|rio|vado|puerto|barqu|pesca/, { m: 'barquero', f: 'barquera' }],
+  [/templo|sacerdot|dios|diosa|fe|monj|rezo|oracion/, { m: 'sacerdote', f: 'sacerdotisa' }],
+  [/bosque|caza|arco|rastro|lobo/, { m: 'cazador', f: 'cazadora' }],
+  [/libro|mapa|saber|escrib|biblioteca|runa/, { m: 'escriba', f: 'escriba' }],
+  [/mercad|comerci|oro|deuda|caravana/, { m: 'mercader', f: 'mercader' }],
+]);
+
+const VINCULOS = /\b(hermana|hermano|madre|padre|hija|hijo|maestra|maestro|mentora|mentor|amiga|amigo|esposa|esposo|abuela|abuelo)\b/;
+const OBJETOS = /\b(medallon|anillo|espada|libro|mapa|llave|reliquia|amuleto|colgante|daga|diario|carta)\b/;
+const OBJETO_GENERO = { medallon: 'm', anillo: 'm', libro: 'm', mapa: 'm', diario: 'm', amuleto: 'm', colgante: 'm', espada: 'f', llave: 'f', reliquia: 'f', daga: 'f', carta: 'f' };
+const CON_TILDE = { medallon: 'medallón' };
+
+/**
+ * De qué va la historia, en el mismo orden de prioridad que los hilos del
+ * lore: una relación pesa más que una amenaza, y una amenaza más que un
+ * objeto, porque es lo que más empuja a moverse.
+ * @private
+ */
+function _temaDeHistoria(llano) {
+  const vinculo = llano.match(VINCULOS)?.[1];
+
+  // El pariente es a quien se busca solo si es el objeto de la pérdida:
+  // «busco a mi hermana», «mi hermana cruzó el Umbral». En «la forja de mi
+  // padre» el padre es de quién era la forja, y lo que se perdió es la forja.
+  const V = VINCULOS.source.replace(/^\\b\(|\)\\b$/g, '');
+  const buscado = new RegExp(
+    `\\b(?:busco a|perdi a|encontrar a|llevaron a|secuestraron a|mataron a)\\s+(?:mi|nuestra|nuestro)\\s+(${V})\\b`
+    + `|\\b(?:mi|nuestra|nuestro)\\s+(${V})\\s+(?:cruzo|se fue|desaparecio|no volvio|huyo|partio|se marcho)`,
+  );
+  const m = llano.match(buscado);
+  if (m) return { tipo: 'relacion', vinculo: m[1] ?? m[2] };
+
+  // Un robo de un objeto es una misión de objeto, no de venganza: lo que se
+  // quiere es recuperarlo.
+  const objeto = llano.match(OBJETOS)?.[1];
+  const perdioObjeto = /perd|rob|quitaron|llevaron|vendi/.test(llano);
+  if (objeto && /rob|quitaron/.test(llano)) return { tipo: 'objeto', objeto, perdido: true };
+
+  if (/quem|incendi|provoc|mat[oóa]|asesin|venganz|traicion|persig|enemig|arras|destru/.test(llano)) return { tipo: 'amenaza' };
+  if (objeto) return { tipo: 'objeto', objeto, perdido: perdioObjeto };
+  if (vinculo) return { tipo: 'relacion', vinculo };
+  if (/prometi|jure|juramento/.test(llano)) return { tipo: 'promesa' };
+  return { tipo: 'misterio' };
+}
+
+/**
+ * Lo que la historia dice que se perdió, como sintagma: «la forja de tu
+ * padre». Sirve para que el encargo nombre el caso del jugador y no uno
+ * cualquiera.
+ * @private
+ */
+function _loPerdido(llano) {
+  const m = llano.match(/\b(?:la|el|mi|nuestra|nuestro)\s+(forja|casa|aldea|pueblo|taller|granja|barco|templo|familia|tienda|posada)(\s+de\s+(?:mi|nuestro|nuestra)\s+[a-zñ]+)?/);
+  if (!m) return null;
+  const articulo = ['forja', 'casa', 'aldea', 'granja', 'familia', 'tienda', 'posada'].includes(m[1]) ? 'la' : 'el';
+  const de = m[2] ? m[2].replace(/\b(mi|nuestro|nuestra)\b/, 'tu') : '';
+  return `${articulo} ${m[1]}${de}`;
+}
+
+/**
+ * Dónde está la pista: un pueblo al que se llega desde aquí.
+ *
+ * Mejor uno vecino que el de salida, para que la misión mueva; si no hay, el
+ * propio lugar si está poblado. Nunca un sitio sin gente: la pista la da
+ * alguien.
+ * @private
+ */
+function _lugarDeLaPista(flujo, refIdActual) {
+  const actual = obtenerLugar(refIdActual);
+  const poblado = (l) => l && l.tipo === 'asentamiento' && (l.servicios?.length ?? 0) > 0;
+
+  const vecinos = (actual?.conexiones ?? [])
+    .map((c) => obtenerLugar(c.hasta))
+    .filter(poblado);
+
+  if (vecinos.length) return flujo.elegir(vecinos);
+  if (poblado(actual)) return actual;
+
+  const region = lugaresDe(actual?.region ?? '').filter(poblado);
+  return region.length ? flujo.elegir(region) : actual;
+}
+
+/**
+ * La misión principal con que empieza la partida.
+ *
+ * La apertura era atmósfera y lore —«Hoy ese hilo vuelve a tensarse»— sin
+ * nada que hacer. Esto da un objetivo concreto desde el turno 1: un lugar del
+ * mapa, alguien con nombre y oficio, y una pista. Sale de la historia del
+ * jugador cuando la hay; si no, de su trasfondo y su oficio.
+ *
+ * No inventa hechos del pasado del personaje: la pista es lo que otro dice
+ * haber visto, y puede ser verdad o no. El pasado lo escribe el jugador.
+ *
+ * @param {import('../core/RNG.js').Flujo} flujo
+ * @param {Object} contexto
+ * @param {string} contexto.lugar refId del lugar de salida.
+ * @param {string} [contexto.lore]
+ * @param {string} [contexto.trasfondo] Nombre legible.
+ * @param {string} [contexto.clase] Nombre legible.
+ * @param {number} [contexto.turno]
+ * @param {number} [contexto.orden] 1 para la primera, 2 para la que la sigue…
+ * @returns {{mision: import('./Quest.js').Mision, npc: Object, lugar: Object}}
+ */
+export function principalDesdeHistoria(flujo, contexto = {}) {
+  const lore = String(contexto.lore ?? '').trim();
+  const llano = sinAcentos(lore.toLowerCase());
+  const lugar = _lugarDeLaPista(flujo, contexto.lugar);
+  const enLugar = trasPreposicion('En', lugar?.nombre ?? 'el camino');
+
+  // ─── Quién da la pista ──────────────────────────────────────────────────
+  const genero = flujo.moneda() ? 'f' : 'm';
+  const porTema = OFICIO_POR_TEMA.find(([re]) => re.test(llano))?.[1];
+  const rol = (porTema ?? { m: 'posadero', f: 'posadera' })[genero];
+  const nombre = nombreAleatorio('valdes', genero, () => flujo.next());
+  const refIdNpc = `npc_${sinAcentos(nombre.toLowerCase()).replace(/\s+/g, '_')}`;
+  const quien = `${nombre}, ${genero === 'f' ? 'la' : 'el'} ${rol}`;
+
+  // ─── Qué se busca ───────────────────────────────────────────────────────
+  let titulo;
+  let objetivo;
+  let pista;
+
+  if (lore) {
+    const tema = _temaDeHistoria(llano);
+    const perdido = _loPerdido(llano);
+
+    switch (tema.tipo) {
+      case 'relacion': {
+        const ella = /a$/.test(tema.vinculo);
+        titulo = `Tras la pista de tu ${tema.vinculo}`;
+        objetivo = `Encuentra a tu ${tema.vinculo}.`;
+        pista = `${enLugar}, ${quien}, dice haber visto a alguien que encaja con ${ella ? 'ella' : 'él'}.`;
+        break;
+      }
+      case 'amenaza':
+        titulo = 'Una cuenta pendiente';
+        objetivo = perdido
+          ? `Averigua quién está detrás de lo que le pasó a ${perdido}.`
+          : 'Averigua quién está detrás de lo que te pasó.';
+        pista = /herrer/.test(rol)
+          ? `Dicen que ${enLugar.charAt(0).toLowerCase()}${enLugar.slice(1)}, ${quien}, compró hierro con una marca que conoces.`
+          : `${enLugar}, ${quien}, ha visto a alguien que encaja con quien buscas.`;
+        break;
+      case 'objeto': {
+        const g = OBJETO_GENERO[tema.objeto] ?? 'm';
+        const dicho = CON_TILDE[tema.objeto] ?? tema.objeto;
+        const Dicho = `${dicho.charAt(0).toUpperCase()}${dicho.slice(1)}`;
+        const uno = g === 'f' ? 'una' : 'uno';
+        const tuyo = `${g === 'f' ? 'la' : 'el'} tuy${g === 'f' ? 'a' : 'o'}`;
+
+        // Perdido o no: «Tengo un medallón que no sé de dónde viene» no pide
+        // recuperar nada, pide saber de dónde sale.
+        if (tema.perdido) {
+          titulo = `${Dicho} ${g === 'f' ? 'perdida' : 'perdido'}`;
+          objetivo = `Recupera tu ${dicho}.`;
+          pista = `${enLugar}, ${quien}, ha oído que alguien intenta vender ${uno} como ${tuyo}.`;
+        } else {
+          titulo = `De dónde viene tu ${dicho}`;
+          objetivo = `Averigua de dónde viene tu ${dicho}.`;
+          pista = `${enLugar}, ${quien}, ha visto antes ${uno} como ${tuyo}.`;
+        }
+        break;
+      }
+      case 'promesa':
+        titulo = 'Lo que prometiste';
+        objetivo = 'Cumple lo que prometiste.';
+        pista = `${enLugar}, ${quien}, sabe por dónde empezar.`;
+        break;
+      default:
+        titulo = 'Lo que dejaste atrás';
+        objetivo = 'Hay alguien que sabe algo de tu pasado.';
+        pista = `${enLugar}, ${quien}, quiere hablar contigo.`;
+    }
+  } else {
+    // Sin historia escrita: el oficio del personaje abre la puerta.
+    const oficio = String(contexto.clase ?? '').toLowerCase() || 'alguien de fiar';
+    titulo = 'Un primer encargo';
+    objetivo = 'Necesitas trabajo, y hay quien paga.';
+    pista = `${enLugar}, ${quien}, busca a un ${oficio} y paga bien.`;
+  }
+
+  // ─── Objetivos que el motor puede seguir ────────────────────────────────
+  const objetivos = [];
+  if (lugar && lugar.refId !== contexto.lugar) {
+    objetivos.push(Obj.crear({ clase: 'llegar', objetivo: lugar.refId, nombreObjetivo: lugar.nombre }));
+  }
+  // Nada de objetivos «libres»: solo los puede cerrar un modelo, y sin él la
+  // misión principal no terminaría nunca ni abriría la siguiente. Llegar y
+  // hablar los cierra el motor.
+  objetivos.push(Obj.crear({ clase: 'hablar', objetivo: refIdNpc, nombreObjetivo: nombre }));
+
+  const mision = Q.crear({
+    titulo,
+    resumen: `${objetivo} ${pista}`,
+    tipo: 'principal',
+    objetivos,
+    recompensa: { xp: xpPorMision('principal'), oro: flujo.entero(40, 90) },
+    origen: refIdNpc,
+    nombreOrigen: nombre,
+    lugar: lugar?.refId ?? contexto.lugar,
+    turnoOferta: contexto.turno ?? 1,
+    orden: contexto.orden ?? 1,
+    promptDirector:
+      `Misión principal del personaje. ${objetivo} ${pista} ` +
+      `${nombre} es ${rol} y está en ${lugar?.nombre ?? 'el camino'}. Lo que sabe es una pista, ` +
+      'no la solución: que lleve al siguiente paso, no al final.',
+  });
+
+  return {
+    mision,
+    objetivo,
+    pista,
+    lugar,
+    npc: { refId: refIdNpc, nombre, rol, genero, lugar: lugar?.refId ?? contexto.lugar },
+  };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

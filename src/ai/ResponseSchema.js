@@ -120,8 +120,10 @@ const ESQUEMA_COMBATE = S.objeto({
 
 /** Un evento del mundo. */
 const ESQUEMA_EVENTO = S.objeto({
+  // `npc_talk`: el jugador ha hablado con alguien presente. Hace avanzar los
+  // objetivos «Hablar con…», que hasta ahora no avanzaba nadie.
   type: S.enumerado(
-    ['weather', 'npc_meet', 'discovery', 'faction', 'ambient', 'time', 'location', 'container'],
+    ['weather', 'npc_meet', 'npc_talk', 'discovery', 'faction', 'ambient', 'time', 'location', 'container'],
     { defecto: 'ambient' },
   ),
   payload: S.objeto({}, { adicionales: true, defecto: {} }),
@@ -158,6 +160,10 @@ export const ESQUEMA_RESPUESTA = S.objeto({
   memory: S.lista(S.texto({ max: 200 }), { max: COTAS_IA.memoriaPorTurno, defecto: [] }),
 
   mood: S.texto({ max: 24, defecto: 'neutro' }),
+
+  // La pregunta de mesa con que cierra el turno: «Corlin espera tu respuesta.
+  // ¿Qué haces?». Opcional: si falta, el motor pone una (ver `Pregunta.js`).
+  pregunta: S.texto({ max: 140 }),
 
   sceneBreak: S.booleano({ defecto: false }),
 

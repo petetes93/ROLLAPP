@@ -230,6 +230,37 @@ export class FactionSystem extends SystemBase {
   }
 
   /**
+   * Da residencia a un PNJ en un lugar concreto.
+   *
+   * Es para quien la historia ya ha nombrado —el herrero de la misión
+   * principal— antes de que el jugador llegue. Queda como residente de ese
+   * sitio, y `_alLlegar` lo pone en escena al entrar como a cualquier vecino.
+   * Si el jugador ya está allí, aparece en el acto.
+   *
+   * @param {{refId: string, nombre: string, rol: string, genero?: string, lugar: string}} propuesta
+   * @returns {Object|null}
+   */
+  residir(propuesta) {
+    if (!propuesta?.refId || !propuesta?.lugar) return null;
+
+    const existente = this.leer(`npcs.conocidos.porId.${propuesta.refId}`);
+    const npc = existente ?? Fabrica.desdeDirector(this.rng.flujo('npc'), propuesta, {
+      lugar: propuesta.lugar,
+      franja: this.leer('world.tiempo.franja'),
+    });
+
+    // Vive fuera, a la vista: no dentro de un interior al que haya que entrar.
+    const residente = { ...npc, lugar: propuesta.lugar, sublugar: null, genero: propuesta.genero ?? npc.genero };
+    if (!existente) this._registrar(residente);
+
+    if (propuesta.lugar === this.leer('world.ubicacion') && !this.leer('world.sublugar')) {
+      this._anadirPresente(residente.refId);
+    }
+
+    return residente;
+  }
+
+  /**
    * Registra un PNJ en el estado.
    * @param {Object} npc
    * @private

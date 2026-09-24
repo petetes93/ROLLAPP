@@ -148,12 +148,15 @@ Campos:
 · events: sucesos del mundo, cada uno {type, payload, silent}.
 · combat: si empieza una pelea, {start: true, enemies: [{refId, count}]}.
 · mood: el tono de la escena (tenso, tranquilo, sombrio, esperanzado, festivo…).
+· pregunta: la pregunta de mesa que cierra el turno y devuelve la palabra al
+  jugador. Breve. «¿Qué haces?» a secas, o con algo de la escena delante:
+  «El herrero espera tu respuesta. ¿Qué haces?». No la repitas dentro de story.
 · sceneBreak: true si cambia de escena por completo.
 · memory: hechos que conviene recordar, como lista de cadenas.
 · timeAdvance: minutos que pasan, si son más de los habituales.
 
 Ejemplo mínimo válido:
-{"story":"El herrero levanta la vista del yunque y te mide con los ojos.","choices":[{"label":"Preguntar por el encargo","intent":"talk","risk":"low"},{"label":"Ofrecerle el hierro","intent":"trade","risk":"low"}],"mood":"tranquilo"}`;
+{"story":"El herrero levanta la vista del yunque y te mide con los ojos.","choices":[{"label":"Preguntar por el encargo","intent":"talk","risk":"low"},{"label":"Ofrecerle el hierro","intent":"trade","risk":"low"}],"mood":"tranquilo","pregunta":"El herrero espera. ¿Qué haces?"}`;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

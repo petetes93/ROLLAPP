@@ -1003,7 +1003,9 @@ export class ProceduralProvider extends IDMProvider {
       newItems: [],
       quests: [],
       combat: {},
-      events: [],
+      // Se ha hablado con alguien concreto: los objetivos «Hablar con…» lo
+      // necesitan saber.
+      events: npc.refId ? [{ type: 'npc_talk', payload: { refId: npc.refId, nombre: npc.nombre }, silent: true }] : [],
       memory: [],
       mood: 'neutro',
     };
@@ -1095,7 +1097,7 @@ export class ProceduralProvider extends IDMProvider {
       || /\b(pregunt|le digo si|si ha visto|si sabe|sabe algo|ha oido|has oido|que sabe|quien|donde|cuando|por que|cuanto)/.test(plano);
     if (!esPregunta) return null;
 
-    const tema = this._temaDePregunta(accion);
+    const tema = this._temaDePregunta(accion, npc.nombre);
     const nombre = npc.nombre ?? 'quien tienes delante';
 
     // Lo que este lugar puede ofrecer de verdad como pista.
@@ -1164,9 +1166,13 @@ export class ProceduralProvider extends IDMProvider {
    * @returns {string}
    * @private
    */
-  _temaDePregunta(accion) {
+  _temaDePregunta(accion, aQuien = '') {
+    // El nombre de a quien se pregunta no es el tema: «pregunto a Corlia por
+    // el hierro» es sobre el hierro. Salía «Cuando nombras Corlia, Corlia mira
+    // alrededor…».
     const propio = accion.match(/\b([A-ZÁÉÍÓÚÑ][a-záéíóúñü]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñü]+)*)\b/g)
-      ?.filter((p) => !/^(Pregunto|Preguntar|Le|Si|El|La|Los|Las|Un|Una|Y|Que|Por|Del?)$/i.test(p));
+      ?.filter((p) => !/^(Pregunto|Preguntar|Le|Si|El|La|Los|Las|Un|Una|Y|Que|Por|Del?)$/i.test(p))
+      .filter((p) => !aQuien || p.toLowerCase() !== String(aQuien).toLowerCase());
 
     if (propio?.length) return propio[propio.length - 1];
 

@@ -132,6 +132,10 @@ export function crear(datos) {
 
     promptDirector: datos.promptDirector ?? datos.resumen ?? '',
     consecuenciaFracaso: datos.consecuenciaFracaso ?? null,
+
+    // Posición en la cadena de misiones principales: 1 la primera, 2 la que
+    // abre al cumplirla… Solo las principales lo llevan.
+    orden: datos.orden ?? null,
   };
 }
 

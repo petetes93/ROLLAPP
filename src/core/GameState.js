@@ -364,6 +364,23 @@ export function crearIA() {
 }
 
 /**
+ * El grupo: quien acompaña al personaje.
+ *
+ * Cada miembro guarda su identificador de PNJ y lo que cambia con el viaje
+ * —la vida y si va herido—; la ficha de combate sale de su oficio y no hace
+ * falta guardarla. Como mucho tres: más es un ejército, y el protagonista
+ * deja de serlo.
+ *
+ * @returns {Object}
+ */
+export function crearGrupo() {
+  return {
+    /** @type {Array<{refId: string, vida: {actual: number, max: number}, herido: boolean, desde: string|null}>} */
+    miembros: [],
+  };
+}
+
+/**
  * Estadísticas de partida y logros.
  * @returns {Object}
  */
@@ -452,6 +469,7 @@ export function crearEstadoInicial() {
     narrative: crearNarrativa(),
     ai: crearIA(),
     hazanas: crearRegistroHazanas(),
+    party: crearGrupo(),
     ui: crearUI(),
     runtime: crearRuntime(),
   };
@@ -469,7 +487,7 @@ export const RAMAS_VOLATILES = Object.freeze(['ui', 'runtime']);
  */
 export const RAMAS_PERSISTENTES = Object.freeze([
   'meta', 'settings', 'player', 'inventory', 'world',
-  'quests', 'npcs', 'factions', 'combat', 'narrative', 'ai', 'hazanas',
+  'quests', 'npcs', 'factions', 'combat', 'narrative', 'ai', 'hazanas', 'party',
 ]);
 
 /**

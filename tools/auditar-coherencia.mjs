@@ -24,6 +24,9 @@ import { IDMProvider } from '../src/ai/providers/IDMProvider.js';
 import { ProceduralProvider } from '../src/ai/providers/ProceduralProvider.js';
 import { esGolpe } from '../src/ai/Cadencia.js';
 import { Exploration } from '../src/world/Exploration.js';
+import { PartySystem } from '../src/npc/PartySystem.js';
+import { fichaDeCompanero, comentario } from '../src/npc/Companero.js';
+import { migrar } from '../src/persistence/Migrations.js';
 
 let fallos = 0;
 
@@ -200,6 +203,50 @@ const HACHA = { id: 'o1', refId: 'hacha_mano', nombre: 'Hacha de mano', categori
   const conPosadera = await turno([{ nombre: 'Maela', rol: 'posadera' }], { habilidad: 'trato_social', exito: true });
   comprobar(!/No hay/.test(conPosadera.story) && /Maela/.test(conPosadera.story),
     'si hay posadera, «el tabernero» es ella', conPosadera.story);
+}
+
+/* ── El grupo ─────────────────────────────────────────────────────────────── */
+
+{
+  for (const frase of ['¿vienes conmigo?', 'Grom, únete a mí', 'acompáñame hasta el vado', 'te pago para que me guíes']) {
+    comprobar(interpretar(frase).tipo === 'recruit', `«${frase}» pide que se una`, interpretar(frase).tipo);
+  }
+  comprobar(interpretar('te pago para que me guíes').pago === true, 'ofrecer dinero se nota');
+  for (const frase of ['vete a casa, Grom', 'puedes irte, Maela']) {
+    comprobar(interpretar(frase).tipo === 'dismiss', `«${frase}» despide`, interpretar(frase).tipo);
+  }
+  comprobar(interpretar('hablo con Grom del camino').tipo !== 'recruit', 'hablar con alguien no es reclutarlo');
+
+  const herrera = fichaDeCompanero({ refId: 'npc_maela', nombre: 'Maela', rol: 'herrera', genero: 'f', rasgo: 'brazos quemados' });
+  comprobar(herrera.ataque.nombre === 'Martillo de forja' && herrera.vidaMax === 22, 'la ficha sale del oficio, en masculino y en femenino');
+  comprobar(/^mujer, herrera/.test(herrera.descripcion), 'su retrato se pide con su sexo y su oficio', herrera.descripcion);
+
+  const dicho = comentario(herrera, { nombreLugar: 'El Vado del Yunque', titulo: 'Una cuenta pendiente' }, (l) => l[1]);
+  comprobar(dicho.includes('del Vado del Yunque') && !/«[^»]*«/.test(dicho), 'lo que comenta nombra la misión sin «de El» ni comillas anidadas', dicho);
+
+  // Lo que pasa tras el combate: herido salvo en Brutal.
+  const tras = (puedenMorir) => {
+    const estado = { party: { miembros: [{ refId: 'npc_maela', vida: { actual: 22, max: 22 }, herido: false }] } };
+    const hechos = [];
+    const grupo = Object.create(PartySystem.prototype);
+    grupo.leer = (ruta, d) => ruta.split('.').reduce((o, k) => o?.[k], estado) ?? d;
+    grupo.despachar = (tipo, datos) => hechos.push({ tipo, datos });
+    grupo.sistema = () => ({ actualizar: (id, c) => hechos.push({ tipo: 'npc', c }) });
+    const lineas = grupo.despuesDelCombate([{ esCompanero: true, refId: 'npc_maela', nombre: 'Maela', genero: 'f', vivo: false, vida: { actual: 0, max: 22 } }], { puedenMorir });
+    return { lineas, hechos };
+  };
+  const normal = tras(false);
+  comprobar(normal.hechos.some((h) => h.datos?.cambios?.herido === true) && /Maela está herida, pero viva/.test(normal.lineas[0] ?? ''),
+    'fuera de Brutal, un compañero caído queda herido', normal.lineas[0]);
+  const brutal = tras(true);
+  comprobar(brutal.hechos.some((h) => h.tipo === 'party/despedir') && brutal.hechos.some((h) => h.c?.situacion === 'muerto'),
+    'en Brutal, un compañero caído no se levanta');
+
+  // Las partidas guardadas antes del grupo siguen cargando.
+  const viejo = { version: 5, estado: { player: { nombre: 'X' }, meta: {} } };
+  const migrado = migrar(viejo);
+  comprobar(migrado.guardado?.estado?.party?.miembros?.length === 0 && migrado.guardado.version === 6,
+    'una partida del formato 5 carga con el grupo vacío', JSON.stringify(migrado.guardado?.estado?.party));
 }
 
 /* ── La intensidad manda en los encuentros ──────────────────────────────── */

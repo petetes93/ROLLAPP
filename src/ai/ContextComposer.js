@@ -293,6 +293,20 @@ export class ContextComposer {
   }
 
   /**
+   * La misión principal aceptada, en lo justo: título y lugar.
+   * @returns {{titulo: string, nombreLugar: string|null}|null}
+   * @private
+   */
+  _misionPrincipal() {
+    const misiones = this.store.select('quests.activas', { porId: {}, orden: [] });
+    const m = misiones.orden.map((id) => misiones.porId[id])
+      .find((x) => x?.tipo === 'principal' && x.estado === 'aceptada');
+    if (!m) return null;
+    const lugar = m.lugar ? this.store.select(`world.localizaciones.porId.${m.lugar}.nombre`, null) : null;
+    return { titulo: m.titulo, nombreLugar: lugar };
+  }
+
+  /**
    * Misiones activas, con sus objetivos pendientes.
    * @returns {string}
    * @private
@@ -467,6 +481,12 @@ export class ContextComposer {
       // solo puede repetir lo que hay aquí, nunca añadir: de esa limitación
       // sale la concordancia.
       canon: this.memoria.canonDestacado(null, 6),
+
+      // Quién viaja con el personaje, para que comenten de vez en cuando.
+      grupo: (this.registry?.obtener('party')?.miembros?.() ?? []).map((m) => ({ ...m.ficha, herido: m.herido })),
+
+      // La misión principal en curso: los compañeros la tienen presente.
+      misionPrincipal: this._misionPrincipal(),
     };
   }
 }

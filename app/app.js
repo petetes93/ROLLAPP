@@ -29,6 +29,7 @@ import { World } from '../src/world/World.js';
 import { RelationshipSystem } from '../src/npc/RelationshipSystem.js';
 import { ReputationSystem } from '../src/npc/ReputationSystem.js';
 import { FactionSystem } from '../src/npc/FactionSystem.js';
+import { PartySystem } from '../src/npc/PartySystem.js';
 import { DialogueSystem } from '../src/npc/DialogueSystem.js';
 import { MerchantSystem } from '../src/npc/MerchantSystem.js';
 import { EconomySystem } from '../src/economy/EconomySystem.js';
@@ -183,7 +184,7 @@ async function arrancarMotor() {
     Clock, Player, Inventory,
     TimeSystem, WeatherSystem, DynamicEvents, Travel, Exploration, World,
     RelationshipSystem, ReputationSystem, FactionSystem, DialogueSystem,
-    MerchantSystem, EconomySystem, QuestSystem,
+    MerchantSystem, EconomySystem, QuestSystem, PartySystem,
     StatsTracker, AchievementSystem, Milestones, SaveManager,
     RulesEngine, EffectApplier, CombatManager,
     DungeonMaster, ActionRouter, ConsequenceEngine, DifficultyDirector,
@@ -1803,6 +1804,14 @@ function pintarPersonaje() {
       }),
     ));
   }
+
+  // El grupo, bajo el personaje. En pantallas estrechas se esconde por CSS y
+  // se ve en su pestaña del lateral.
+  if ((ver('party.miembros', []) ?? []).length) {
+    const grupo = el('div', { class: 'grupo', id: 'grupo-pj' }, el('p', { class: 'sub-eti', text: 'Grupo' }));
+    caja.append(grupo);
+    pintarGrupo(grupo);
+  }
 }
 
 /* ── lateral: inventario, mapa, misiones ──────────────────────────────── */
@@ -1816,12 +1825,17 @@ function pintarLateral() {
 
   vaciar(caja);
 
+  // El grupo tiene pestaña propia cuando hay alguien: en móvil es donde se
+  // ve, porque el bloque bajo el personaje no cabe.
+  const hayGrupo = (ver('party.miembros', []) ?? []).length > 0;
   const pestanas = [
     ['inventario', 'Bolsa'],
     ['mapa', 'Mapa'],
     ['misiones', 'Encargos'],
     ['gente', 'Gente'],
-  ];
+    hayGrupo ? ['grupo', 'Grupo'] : null,
+  ].filter(Boolean);
+  if (pestanaActiva === 'grupo' && !hayGrupo) pestanaActiva = 'inventario';
 
   caja.append(el('div', { class: 'pestanas' },
     ...pestanas.map(([clave, eti]) => el('button', {
@@ -1838,9 +1852,43 @@ function pintarLateral() {
     if (pestanaActiva === 'inventario') pintarInventario(cuerpo);
     else if (pestanaActiva === 'mapa') pintarMapa(cuerpo);
     else if (pestanaActiva === 'misiones') pintarMisiones(cuerpo);
+    else if (pestanaActiva === 'grupo') pintarGrupo(cuerpo);
     else pintarGente(cuerpo);
   } catch (e) {
     avisarFallo('panel ' + pestanaActiva, e);
+  }
+}
+
+/**
+ * Quien viaja con el personaje: su cara, su vida y con qué pelea.
+ *
+ * Se pinta bajo la ficha del personaje y en la pestaña «Grupo», con la misma
+ * función, para que las dos vistas no se contradigan nunca.
+ */
+function pintarGrupo(caja) {
+  const miembros = sistema('party')?.miembros?.() ?? [];
+  if (!miembros.length) {
+    caja.append(el('p', { class: 'lateral__vacio', text: 'Viajas solo. Pregúntale a alguien si viene contigo.' }));
+    return;
+  }
+
+  for (const m of miembros) {
+    const f = m.ficha;
+    const cara = el('div', { class: 'grupo__cara' });
+    const vida = m.vida ?? { actual: f.vidaMax, max: f.vidaMax };
+
+    caja.append(el('div', { class: `grupo__miembro${m.herido ? ' es-herido' : ''}`, 'data-companero': f.refId },
+      cara,
+      el('div', { class: 'grupo__datos' },
+        el('strong', { class: 'grupo__nombre', text: f.nombre }),
+        el('span', { class: 'grupo__rol', text: `${f.rol} · ${f.especialidad}` }),
+        el('span', { class: 'grupo__vida', text: m.herido ? `Herido · ${vida.actual}/${vida.max}` : `Vida ${vida.actual}/${vida.max}` }),
+        el('span', { class: 'grupo__ataque', text: `${f.ataque.nombre} ${f.ataque.dano} · ${f.rasgo}` }),
+      ),
+    ));
+
+    // Su retrato sale con las mismas reglas que el del jugador.
+    pintarRetrato(cara, { raza: 'valdes', nombre: f.nombre, descripcion: f.descripcion, genero: f.genero });
   }
 }
 

@@ -110,6 +110,10 @@ export class ActionRouter extends SystemBase {
     // que el personaje lleva de verdad.
     if (intencion.gesto) return this._gesto(intencion);
 
+    // ─── El grupo ───────────────────────────────────────────────────────
+    if (intencion.tipo === 'recruit') return this._reclutar(intencion);
+    if (intencion.tipo === 'dismiss') return this._despedir(intencion);
+
     // ─── Curarse con palabras ───────────────────────────────────────────
     // «Vendo la herida» fuera de combate: tirada de medicina y, con éxito,
     // algo de vida. En combate lo resuelve la jugada escrita.
@@ -303,6 +307,59 @@ export class ActionRouter extends SystemBase {
     if (encuentro.nombre) terminos.add(limpiar(encuentro.nombre));
 
     return [...terminos].filter((t) => t.length >= 4);
+  }
+
+  /**
+   * «¿Vienes conmigo?»: se lo pide a alguien de la escena.
+   *
+   * A quien nombre la frase, o si solo hay uno delante, a ese. Lo que conteste
+   * sale de una tirada social contra lo bien que le cae el personaje; ver
+   * `PartySystem.reclutar`.
+   *
+   * @private
+   */
+  _reclutar(intencion) {
+    const party = this.sistema('party');
+    if (!party) return this._rechazar('Aquí no puede unirse nadie.');
+
+    const conocidos = this.leer('npcs.conocidos.porId', {}) ?? {};
+    const presentes = (this.leer('npcs.presentes', []) ?? []).map((id) => conocidos[id]).filter(Boolean);
+    const frase = sinAcentos(String(intencion.texto ?? '').toLowerCase());
+
+    const nombrado = presentes.find((n) => frase.includes(sinAcentos(n.nombre.toLowerCase())))
+      ?? presentes.find((n) => n.rol && frase.includes(sinAcentos(n.rol.toLowerCase())));
+    const npc = nombrado ?? (presentes.length === 1 ? presentes[0] : null);
+
+    if (!npc) {
+      return this._rechazar(presentes.length
+        ? `¿A quién se lo pides? Aquí están ${presentes.map((n) => n.nombre).join(' y ')}.`
+        : 'No hay nadie aquí a quien pedírselo.');
+    }
+
+    const r = party.reclutar(npc, { pago: Boolean(intencion.pago) });
+    return {
+      ruta: RUTA.LOCAL, motivo: null, narracion: r.texto, voz: VOCES.DM,
+      pistaDirector: null, resultado: { tipo: 'reclutar', unido: r.unido, npc: npc.refId },
+    };
+  }
+
+  /**
+   * «Vete a casa, Grom»: el compañero nombrado, o el único que hay.
+   * @private
+   */
+  _despedir(intencion) {
+    const party = this.sistema('party');
+    const miembros = party?.miembros?.() ?? [];
+    if (!miembros.length) return this._rechazar('No va nadie contigo.');
+
+    const miembro = party.porNombreEn(intencion.texto) ?? (miembros.length === 1 ? miembros[0] : null);
+    if (!miembro) return this._rechazar(`¿A quién despides? Van contigo ${miembros.map((m) => m.ficha.nombre).join(' y ')}.`);
+
+    const r = party.despedir(miembro.refId);
+    return {
+      ruta: RUTA.LOCAL, motivo: null, narracion: r.texto, voz: VOCES.DM,
+      pistaDirector: null, resultado: { tipo: 'despedir', npc: miembro.refId },
+    };
   }
 
   /**
@@ -656,6 +713,10 @@ export class ActionRouter extends SystemBase {
     });
 
     this.sistema('clock')?.avanzarTiempo(seguro ? 480 : 120, 'descanso');
+
+    // Un descanso largo pone en pie también al grupo: es lo que cura a un
+    // compañero herido en combate.
+    if (seguro) this.sistema('party')?.descansar?.();
 
     const pistas = [];
 

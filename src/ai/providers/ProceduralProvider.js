@@ -30,6 +30,7 @@ import { capitalizar, trasPreposicion } from '../../utils/text.js';
 import { aSegundaPersona, esPrimeraPersona } from '../Persona.js';
 import { obtenerLugar } from '../../data/locations.data.js';
 import * as Cadencia from '../Cadencia.js';
+import { comentario } from '../../npc/Companero.js';
 
 export class ProceduralProvider extends IDMProvider {
   static id = 'procedural';
@@ -222,6 +223,17 @@ export class ProceduralProvider extends IDMProvider {
     // la interfaz ya escribe línea a línea y con pausa, la máquina de escribir
     // deja de ser un adorno y pasa a marcar el tiempo.
     const t = peticion.tirada;
+
+    // ─── Lo que dice el grupo ───────────────────────────────────────────
+    // Con la misma regla que el resto del adorno: solo cuando pasa algo, o
+    // uno de cada tres turnos. Un compañero que comenta todo es ruido. Habla
+    // uno cada vez, por turnos, y los heridos callan.
+    const grupo = (ctx.grupo ?? []).filter((c) => !c.herido);
+    const turnoActual = peticion.turno ?? ctx.turno ?? 0;
+    if (grupo.length && (escena || t?.critico || t?.pifia || turnoActual % 3 === 0)) {
+      const quien = grupo[turnoActual % grupo.length];
+      parrafos.push(comentario(quien, ctx.misionPrincipal, (lista) => this._unico(lista)));
+    }
 
     // UN golpe por turno, y nunca dos seguidos.
     //

@@ -334,6 +334,13 @@ export function comprobarFin(combatientes) {
   const aliados = vivos.filter((c) => c.bando === Comb.BANDO.ALIADO);
   const enemigos = vivos.filter((c) => c.bando === Comb.BANDO.ENEMIGO);
 
+  // Con compañeros puede quedar alguien en pie cuando cae el jugador. Aun
+  // así es derrota: la partida la cuenta él, y su caída tiene su propia salida
+  // (ver la pantalla de caída). Sin esto el combate seguía con el jugador en
+  // el suelo.
+  const jugador = Object.values(combatientes).find((c) => c.esJugador);
+  if (jugador && !jugador.vivo) return { terminado: true, resultado: 'derrota' };
+
   if (!aliados.length) return { terminado: true, resultado: 'derrota' };
   if (!enemigos.length) return { terminado: true, resultado: 'victoria' };
 

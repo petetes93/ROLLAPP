@@ -236,11 +236,22 @@ export class Travel extends SystemBase {
       // nombre a media frase iba en mayúscula y la descripción, que sale de
       // `Mapa.describir` pensada para ir detrás de una coma, empezaba en
       // minúscula tras el punto.
-      texto: `Emprendes el camino ${trasPreposicion('hacia', obtenerLugar(destino)?.nombre)}. ${capitalizar(plan.descripcion)}`,
+      texto: `Emprendes el camino ${trasPreposicion('hacia', obtenerLugar(destino)?.nombre)}${this._conQuien()}. ${capitalizar(plan.descripcion)}`,
       voz: 'system',
     });
 
     return this._recorrer();
+  }
+
+  /**
+   * « con Grom», « con Grom y Maela», o nada si viaja solo: el grupo va con
+   * el personaje a todas partes.
+   * @private
+   */
+  _conQuien() {
+    const nombres = (this.sistema('party')?.miembros?.() ?? []).map((m) => m.ficha.nombre);
+    if (!nombres.length) return '';
+    return ` con ${nombres.length > 1 ? `${nombres.slice(0, -1).join(', ')} y ${nombres.at(-1)}` : nombres[0]}`;
   }
 
   /**

@@ -385,6 +385,31 @@ export function leerGesto(texto) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   EL GRUPO
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Pedirle a alguien que se una, o despedir a quien va con él.
+ *
+ * Son frases que no se parecen a ninguna otra intención —«¿vienes conmigo?»
+ * no es hablar a secas— y por eso se miran antes que el análisis léxico.
+ */
+const RECLUTA = /\b(vienes conmigo|te vienes|quieres venir conmigo|vente conmigo|venid conmigo|unete a mi|unete a nosotros|te unes|acompaname|acompañame|me acompanas|me acompañas|te pago para que|te pagare para que|necesito un guia|guiame|me guias|hazme de guia)\b/;
+const DESPIDE = /\b(vete a casa|vuelve a casa|puedes irte|te puedes ir|despido a|nuestros caminos se separan|hasta aqui hemos llegado|ya no te necesito)\b/;
+const PAGO = /\b(te pago|te pagare|te doy (?:oro|monedas|dinero)|pagarte|a cambio de (?:oro|monedas))\b/;
+
+/**
+ * @param {string} texto
+ * @returns {{tipo: 'recruit'|'dismiss', pago: boolean}|null}
+ */
+export function leerGrupo(texto) {
+  const t = sinAcentos(String(texto ?? '').toLowerCase());
+  if (DESPIDE.test(t)) return { tipo: 'dismiss', pago: false };
+  if (RECLUTA.test(t)) return { tipo: 'recruit', pago: PAGO.test(t) };
+  return null;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    ANÁLISIS
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -448,6 +473,12 @@ export function interpretar(texto, contexto = {}) {
       objetivo: extraerObjetivo(original),
       confianza: 0.95,
     };
+  }
+
+  // ─── 2a. El grupo ───────────────────────────────────────────────────────
+  const grupo = leerGrupo(original);
+  if (grupo) {
+    return { ...base, tipo: grupo.tipo, pago: grupo.pago, requiereTirada: false, objetivo: extraerObjetivo(original), confianza: 0.9 };
   }
 
   // ─── 2b. Gestos con el equipo ───────────────────────────────────────────

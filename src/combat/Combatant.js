@@ -115,6 +115,56 @@ export function desdeJugador(jugador, bonificadores = {}) {
 }
 
 /**
+ * Un compañero del grupo, en el bando del jugador.
+ *
+ * Lo mueve la misma IA que a los enemigos: elige objetivo entre los del otro
+ * bando, así que pelea contra ellos sin reglas nuevas. La vida es la que trae
+ * del viaje, no la máxima: si llegó herido, pelea herido.
+ *
+ * @param {Object} ficha De `npc/Companero.fichaDeCompanero`.
+ * @param {{vida: {actual: number, max: number}}} [miembro] Lo que guarda el grupo.
+ * @returns {Object}
+ */
+export function desdeCompanero(ficha, miembro = {}) {
+  const max = miembro.vida?.max ?? ficha.vidaMax;
+  const actual = Math.max(1, Math.min(miembro.vida?.actual ?? max, max));
+
+  return {
+    id: `companero_${ficha.refId}`,
+    refId: ficha.refId,
+    nombre: ficha.nombre,
+    genero: ficha.genero,
+    bando: BANDO.ALIADO,
+    esJugador: false,
+    esCompanero: true,
+
+    vida: { actual, max },
+    mana: { actual: 0, max: 0 },
+
+    defensa: ficha.defensa,
+    reduccionDano: 0,
+    esquiva: 0.05,
+
+    atributos: { vigor: 12, destreza: 12, temple: 11, intelecto: 10, astucia: 11, carisma: 10 },
+    nivel: 1,
+    ataques: [{ ...ficha.ataque }],
+    estados: [],
+
+    // Mantiene la posición y usa la cabeza: un compañero no se tira a lo loco.
+    tactica: 'disciplinado',
+    iniciativa: 0,
+    vivo: true,
+    recargas: {},
+
+    resistencias: [],
+    inmunidades: [],
+    vulnerabilidades: [],
+    // No huye: si cae, cae herido (ver CombatManager).
+    huye: false,
+  };
+}
+
+/**
  * Construye los ataques disponibles del jugador desde su equipo.
  *
  * @param {Object} bonificadores
@@ -584,6 +634,7 @@ export function paraDirector(c) {
 export default {
   BANDO,
   desdeJugador,
+  desdeCompanero,
   desdeEnemigo,
   crearGrupo,
   modificadoresDeEstados,

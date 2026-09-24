@@ -1,6 +1,6 @@
 // Generado por tools/generar-sw.mjs. No editar a mano.
 // La lista se recorre del disco: un archivo nuevo entra solo al regenerar.
-const CACHE = 'arcanveil-mwkqo9';
+const CACHE = 'arcanveil-3c78qp';
 const SHELL = [
   './manifest.webmanifest',
   './app/app.js',
@@ -95,11 +95,13 @@ const SHELL = [
   './src/inventory/LootGenerator.js',
   './src/inventory/Rarity.js',
   './src/main.js',
+  './src/npc/Companero.js',
   './src/npc/DialogueSystem.js',
   './src/npc/FactionSystem.js',
   './src/npc/MerchantSystem.js',
   './src/npc/NPC.js',
   './src/npc/NPCFactory.js',
+  './src/npc/PartySystem.js',
   './src/npc/RelationshipSystem.js',
   './src/npc/ReputationSystem.js',
   './src/persistence/CharacterRoster.js',

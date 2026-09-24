@@ -230,6 +230,46 @@ export class FactionSystem extends SystemBase {
   }
 
   /**
+   * Cambia campos de un PNJ conocido.
+   *
+   * @param {string} refId
+   * @param {Object} cambios
+   * @returns {Object|null} El PNJ resultante.
+   */
+  actualizar(refId, cambios) {
+    const npc = this.leer(`npcs.conocidos.porId.${refId}`);
+    if (!npc) return null;
+    const nuevo = { ...npc, ...cambios };
+    // `npc/situacion` apunta además a los caídos cuando muere alguien.
+    this.despachar(cambios.situacion ? 'npc/situacion' : 'npc/registrar', { npc: nuevo });
+    return nuevo;
+  }
+
+  /**
+   * Un PNJ se une al grupo: deja de vivir en un sitio y sale de la escena.
+   *
+   * Sin lugar, `_alLlegar` no lo vuelve a poner como vecino de ningún pueblo:
+   * va con el jugador, no le espera en ninguna parte.
+   *
+   * @param {string} refId
+   */
+  acompanar(refId) {
+    this.actualizar(refId, { lugar: null, sublugar: null });
+    const presentes = this.leer('npcs.presentes', []) ?? [];
+    this.despachar('npc/presentes', { presentes: presentes.filter((id) => id !== refId) });
+  }
+
+  /**
+   * Un compañero despedido vuelve a vivir donde se unió.
+   *
+   * @param {string} refId
+   * @param {string|null} lugar
+   */
+  dejarEn(refId, lugar) {
+    this.actualizar(refId, { lugar: lugar ?? this.leer('world.ubicacion'), sublugar: null });
+  }
+
+  /**
    * Da residencia a un PNJ en un lugar concreto.
    *
    * Es para quien la historia ya ha nombrado —el herrero de la misión

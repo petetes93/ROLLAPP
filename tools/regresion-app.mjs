@@ -319,6 +319,55 @@ try {
   if (turns.at(-1).lines < 20) throw new Error(`la bitácora no avanzó: ${turns.at(-1).lines}`);
   await shot(`03-partida-20-turnos-${viewport.label}.png`);
 
+  // El grupo: reclutar a alguien de la escena, viajar con él, pelear juntos
+  // y verlo en el parte. Se le deja con buena actitud y se insiste unas veces
+  // para que la prueba no dependa de un dado; la tirada misma ya la fija la
+  // auditoría.
+  await evaluate(`(() => {
+    const npcs = ARCANVEIL.sistema('npcs');
+    if (!ARCANVEIL.ver('npcs.presentes', []).length) npcs.introducir({ nombre: 'Grom', rol: 'herrero', actitud: 'amable' });
+    const id = ARCANVEIL.ver('npcs.presentes', [])[0];
+    npcs.actualizar(id, { actitud: 100 });
+  })()`);
+  const reclutado = await evaluate(`(async () => {
+    const id = ARCANVEIL.ver('npcs.presentes', [])[0];
+    const nombre = ARCANVEIL.ver('npcs.conocidos.porId.' + id + '.nombre');
+    for (let i = 0; i < 6 && !(ARCANVEIL.ver('party.miembros', []) ?? []).length; i += 1) {
+      await ARCANVEIL.jugar(nombre + ', ¿vienes conmigo?');
+    }
+    return { nombre, miembros: (ARCANVEIL.ver('party.miembros', []) ?? []).map((m) => m.refId), presentes: ARCANVEIL.ver('npcs.presentes', []) };
+  })()`);
+  if (!reclutado.miembros.length) throw new Error(`nadie se unió al grupo: ${JSON.stringify(reclutado)}`);
+  const panelGrupo = await evaluate(`document.querySelector('#grupo-pj, .grupo__miembro')?.textContent ?? ''`);
+  if (!panelGrupo.includes(reclutado.nombre)) throw new Error('el compañero no sale en el lateral');
+
+  const viajeGrupo = await evaluate(`(async () => {
+    const destino = ARCANVEIL.sistema('world').lugarActual()?.plantilla?.conexiones?.[0]?.hasta;
+    const antes = ARCANVEIL.ver('narrative.entradas', []).length;
+    await ARCANVEIL.sistema('travel').viajar(destino, { forzar: true });
+    return ARCANVEIL.ver('narrative.entradas', []).slice(antes).map((e) => e.texto ?? '').join(' ');
+  })()`);
+  if (!viajeGrupo.includes(`con ${reclutado.nombre}`)) throw new Error(`el viaje no lleva al compañero: «${viajeGrupo.slice(0, 160)}»`);
+
+  await until('!ARCANVEIL.ver("combat.activo", false)', 8000);
+  await evaluate(`window.__ataquesGrupo = []; ARCANVEIL.bus.on('combat:attack', (e) => window.__ataquesGrupo.push(e))`);
+  await evaluate(`ARCANVEIL.bus.emit('combat:request', { enemies: [{ refId: 'saqueador', count: 2 }], playerAmbush: true })`);
+  await until('ARCANVEIL.ver("combat.activo", false) && ARCANVEIL.sistema("combat").esperandoJugador', 8000);
+  const peleaGrupo = await evaluate(`(async () => {
+    const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 25 && ARCANVEIL.ver('combat.activo', false); i += 1) {
+      for (let k = 0; k < 40 && ARCANVEIL.ver('combat.activo', false) && !ARCANVEIL.sistema('combat').esperandoJugador; k += 1) await espera(100);
+      if (!ARCANVEIL.ver('combat.activo', false)) break;
+      await ARCANVEIL.jugar('le golpeo');
+    }
+    const { paraJugador } = await import('/src/combat/CombatLog.js');
+    const suyos = window.__ataquesGrupo.filter((e) => e.atacante?.nombre === ${JSON.stringify(reclutado.nombre)});
+    return { lineas: suyos.map(paraJugador), activo: ARCANVEIL.ver('combat.activo', false) };
+  })()`);
+  if (!peleaGrupo.lineas.length) throw new Error(`${reclutado.nombre} no actuó en el combate`);
+  if (!peleaGrupo.lineas[0].startsWith(`${reclutado.nombre} ataca a`)) throw new Error(`el parte no cuenta al compañero: «${peleaGrupo.lineas[0]}»`);
+  if (peleaGrupo.activo) throw new Error('el combate del grupo no terminó');
+
   // El retrato vale por cualquiera de sus dos vías.
   //
   // Esto buscaba `.retrato-rasgo--cicatriz`, que solo existe en el retrato

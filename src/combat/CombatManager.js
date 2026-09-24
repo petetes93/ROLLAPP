@@ -140,8 +140,15 @@ export class CombatManager extends SystemBase {
 
     this._jugadorInicial = { vida: { ...jugador.vida } };
 
+    // ─── El grupo ───────────────────────────────────────────────────────
+    // Los compañeros pelean a su lado; los heridos se quedan atrás hasta que
+    // descansen.
+    const companeros = (this.sistema('party')?.miembros?.() ?? [])
+      .filter((m) => !m.herido)
+      .map((m) => Comb.desdeCompanero(m.ficha, m));
+
     // ─── Iniciativa ─────────────────────────────────────────────────────
-    const todos = [jugador, ...enemigos];
+    const todos = [jugador, ...companeros, ...enemigos];
 
     const tirada = Iniciativa.tirarIniciativa(flujo, todos, {
       emboscadaJugador: Boolean(peticion.playerAmbush),
@@ -149,8 +156,9 @@ export class CombatManager extends SystemBase {
     });
 
     this._combatientes = Object.fromEntries(tirada.combatientes.map((c) => [c.id, c]));
-    // Cada combate empieza sin caídos apuntados.
+    // Cada combate empieza sin caídos apuntados ni órdenes dadas.
     this._caidos = new Set();
+    this._ordenes = {};
     this._registro = [];
     this._rondaActual = [];
 
@@ -173,6 +181,15 @@ export class CombatManager extends SystemBase {
       }),
       voz: 'system',
     });
+
+    if (companeros.length) {
+      const nombres = companeros.map((c) => c.nombre);
+      const quienes = nombres.length > 1 ? `${nombres.slice(0, -1).join(', ')} y ${nombres.at(-1)}` : nombres[0];
+      this.emitir('narrative:direct', {
+        texto: `${quienes} ${nombres.length > 1 ? 'se ponen' : 'se pone'} a tu lado.`,
+        voz: 'system',
+      });
+    }
 
     this.emitir(EVENTOS_COMBATE.INICIO, {
       enemigos: enemigos.map((e) => ({ id: e.id, nombre: e.nombre, amenaza: e.amenaza })),
@@ -285,7 +302,8 @@ export class CombatManager extends SystemBase {
         return;
       }
 
-      await this._turnoEnemigo(this._combatientes[actor.id], ronda);
+      if (actor.esCompanero) await this._turnoCompanero(this._combatientes[actor.id], ronda);
+      else await this._turnoEnemigo(this._combatientes[actor.id], ronda);
       await this._terminarTurnoDe(this._combatientes[actor.id]);
 
       // Pausa para que los turnos enemigos se puedan leer.
@@ -502,6 +520,81 @@ export class CombatManager extends SystemBase {
   }
 
   /**
+   * El turno de un compañero.
+   *
+   * Si el jugador le ha dado una orden («Grom, cúbreme», «Grom, al herido»),
+   * la cumple ahora. Si no, decide con la misma IA que los enemigos, que ya
+   * elige objetivo en el otro bando.
+   *
+   * @private
+   */
+  async _turnoCompanero(actor, ronda) {
+    const orden = this._ordenes?.[actor.id];
+    if (orden) delete this._ordenes[actor.id];
+
+    if (orden?.tipo === 'cubrir') {
+      const jugador = this._combatientes.jugador;
+      if (jugador?.vivo) {
+        const r = Estados.aplicar(jugador, 'protegido', { rondas: 1 });
+        this._guardar(r.combatiente);
+        this.emitir('narrative:direct', { texto: `${actor.nombre} se pone delante de ti y te cubre.`, voz: 'system' });
+        return;
+      }
+    }
+
+    if (orden?.tipo === 'atacar' && this._combatientes[orden.objetivo]?.vivo) {
+      await this._ejecutarAtaque(actor, { objetivo: orden.objetivo, ataque: actor.ataques[0] }, ronda);
+      return;
+    }
+
+    await this._turnoEnemigo(actor, ronda);
+  }
+
+  /**
+   * Una orden a un compañero dentro de la jugada escrita.
+   *
+   * «Grom, cúbreme», «Grom, ataca al herido». Dar una orden no gasta el turno
+   * del jugador: si la frase no trae nada más, se le vuelve a ceder la palabra.
+   *
+   * @returns {{orden: Object|null, resto: string, texto: string|null}}
+   * @private
+   */
+  _leerOrden(texto) {
+    const miembro = this.sistema('party')?.porNombreEn?.(texto);
+    if (!miembro) return { orden: null, resto: texto, texto: null };
+
+    const actor = Object.values(this._combatientes).find((c) => c.esCompanero && c.refId === miembro.refId && c.vivo);
+    if (!actor) return { orden: null, resto: texto, texto: `${miembro.ficha.nombre} no puede ahora.` };
+
+    const llano = (t) => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const t = llano(texto);
+    const nombre = llano(miembro.ficha.nombre);
+
+    // Lo que va detrás del nombre es la orden; lo que va delante, la jugada
+    // del propio jugador, si la hay («le golpeo y tú, Grom, cúbreme»).
+    const i = t.indexOf(nombre);
+    const tras = t.slice(i + nombre.length).replace(/^[\s,:]+/, '');
+    const antes = texto.slice(0, i).replace(/\b(y tú|y tu|y)[\s,]*$/i, '').trim();
+
+    let orden = null;
+    if (/\b(cubre|cubreme|protege|protegeme|defiende|defiendeme|ponte delante)/.test(tras)) {
+      orden = { tipo: 'cubrir' };
+    } else if (/\b(ataca|a por|al |a la |golpea|carga)/.test(tras)) {
+      const enemigos = Object.values(this._combatientes).filter((c) => c.vivo && c.bando === Comb.BANDO.ENEMIGO);
+      const objetivo = leerJugada(`ataco ${tras}`, { enemigos }).objetivo ?? enemigos[0]?.id;
+      orden = { tipo: 'atacar', objetivo };
+    }
+
+    if (!orden) return { orden: null, resto: texto, texto: null };
+
+    this._ordenes[actor.id] = orden;
+    const eco = orden.tipo === 'cubrir'
+      ? `${actor.nombre} asiente y se acerca a ti.`
+      : `${actor.nombre} asiente y va a por ${this._combatientes[orden.objetivo]?.nombre ?? 'ellos'}.`;
+    return { orden, resto: antes, texto: eco };
+  }
+
+  /**
    * Ejecuta un ataque individual.
    * @private
    */
@@ -698,6 +791,16 @@ export class CombatManager extends SystemBase {
     const jugador = this._combatientes.jugador;
     const objetos = this.leer('inventory.objetos.porId', {}) ?? {};
     const arma = objetos[this.leer('inventory.equipado.armaPrincipal')]?.nombre ?? jugador?.ataques?.[0]?.nombre ?? null;
+
+    // Órdenes al grupo. Si la frase era solo eso, el jugador sigue teniendo
+    // su turno: se le devuelve la palabra sin gastarlo.
+    const orden = this._leerOrden(texto);
+    if (orden.texto) this.emitir('narrative:direct', { texto: orden.texto, voz: 'system' });
+    if (orden.orden && !orden.resto) {
+      this.emitir(EVENTOS_COMBATE.ESPERANDO, { ronda: this.leer('combat.ronda', 1), acciones: Iniciativa.accionesDisponibles(jugador) });
+      return { tipo: 'orden', orden: orden.orden };
+    }
+    if (orden.orden) texto = orden.resto;
 
     const jugada = leerJugada(texto, {
       enemigos: Object.values(this._combatientes).filter((c) => c.vivo && c.bando === Comb.BANDO.ENEMIGO),
@@ -915,7 +1018,9 @@ export class CombatManager extends SystemBase {
    */
   async _terminar(resultado) {
     const flujo = this.rng.combate;
-    const enemigos = Object.values(this._combatientes).filter((c) => !c.esJugador);
+    // Enemigos son los del otro bando: un compañero caído no da experiencia
+    // ni botín.
+    const enemigos = Object.values(this._combatientes).filter((c) => c.bando === Comb.BANDO.ENEMIGO);
     const jugador = this._combatientes.jugador;
 
     // ─── Resumen ────────────────────────────────────────────────────────
@@ -936,6 +1041,17 @@ export class CombatManager extends SystemBase {
     // ─── Recompensas ────────────────────────────────────────────────────
     if (resultado === 'victoria') {
       await this._repartirRecompensas(enemigos, flujo);
+    }
+
+    // ─── El grupo ───────────────────────────────────────────────────────
+    // Vida y heridas de vuelta al grupo. Solo en Brutal un compañero caído
+    // no se levanta.
+    const companeros = Object.values(this._combatientes).filter((c) => c.esCompanero);
+    if (companeros.length) {
+      const lineas = this.sistema('party')?.despuesDelCombate?.(companeros, {
+        puedenMorir: this.leer('settings.dificultad', 'equilibrado') === 'implacable',
+      }) ?? [];
+      for (const texto of lineas) this.emitir('narrative:direct', { texto, voz: 'system' });
     }
 
     // ─── Memoria ────────────────────────────────────────────────────────
@@ -961,6 +1077,7 @@ export class CombatManager extends SystemBase {
     this._registro = [];
     this._rondaActual = [];
     this._esperando = false;
+    this._ordenes = {};
   }
 
   /**
@@ -1041,6 +1158,13 @@ export class CombatManager extends SystemBase {
 
     if (combatiente.esJugador) {
       this._sincronizarJugador(combatiente);
+      return;
+    }
+
+    // Un compañero no es una baja enemiga: ni experiencia, ni misiones de
+    // «acabar con», ni «X cae» como quien derriba a un saqueador.
+    if (combatiente.esCompanero) {
+      this.emitir('narrative:direct', { texto: `${combatiente.nombre} cae, malherido.`, voz: 'system' });
       return;
     }
 

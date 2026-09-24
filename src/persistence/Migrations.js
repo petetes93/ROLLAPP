@@ -209,6 +209,29 @@ export const MIGRACIONES = Object.freeze([
       return { guardado: { ...g, estado, version: 5 }, avisos };
     },
   },
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     5 → 6 · Grupo de compañeros, sexo y semilla del retrato
+     ───────────────────────────────────────────────────────────────────────── */
+  {
+    desde: 5,
+    descripcion: 'añade el grupo de compañeros y el sexo y la semilla del retrato del personaje',
+    aplicar: (g) => {
+      const avisos = [];
+      const estado = clonar(g.estado);
+
+      estado.party ??= { miembros: [] };
+
+      if (estado.player) {
+        // Las partidas anteriores no guardaban el sexo: sin dato, el parte
+        // habla en masculino, que es lo que ya hacía.
+        estado.player.genero ??= 'm';
+        estado.player.semillaRetrato ??= null;
+      }
+
+      return { guardado: { ...g, estado, version: 6 }, avisos };
+    },
+  },
 ]);
 
 /* ═══════════════════════════════════════════════════════════════════════════

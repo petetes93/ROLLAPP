@@ -46,6 +46,7 @@ import { World } from './world/World.js';
 import { RelationshipSystem } from './npc/RelationshipSystem.js';
 import { ReputationSystem } from './npc/ReputationSystem.js';
 import { FactionSystem } from './npc/FactionSystem.js';
+import { PartySystem } from './npc/PartySystem.js';
 import { DialogueSystem } from './npc/DialogueSystem.js';
 import { MerchantSystem } from './npc/MerchantSystem.js';
 import { EconomySystem } from './economy/EconomySystem.js';
@@ -223,7 +224,7 @@ async function arrancar() {
     RelationshipSystem, ReputationSystem, FactionSystem, DialogueSystem,
     MerchantSystem, EconomySystem,
 
-    QuestSystem,
+    QuestSystem, PartySystem,
 
     StatsTracker, AchievementSystem, Milestones, SaveManager,
 

@@ -83,6 +83,13 @@ function conjugar(verbo) {
   const bajo = verbo.toLowerCase();
   if (IRREGULARES[bajo]) return IRREGULARES[bajo];
   if (PRETERITOS[bajo]) return PRETERITOS[bajo];
+  // Futuro de primera: descansaré → descansarás, volveré → volverás.
+  //
+  // Va ANTES del pretérito porque «-ré» también acaba en «-é» y la regla de
+  // abajo lo convertiría en «descansaraste». Aparece en cuanto el jugador
+  // promete algo, que es justo cuando el texto se lee con más atención.
+  if (/[aei]ré$/.test(bajo) && bajo.length > 4) return `${bajo.slice(0, -1)}ás`;
+
   // Pretérito regular: crecí → creciste, crucé → cruzaste, busqué → buscaste.
   if (/í$/.test(bajo) && bajo.length > 3) return `${bajo.slice(0, -1)}iste`;
   if (/qué$/.test(bajo)) return `${bajo.slice(0, -3)}caste`;
@@ -208,6 +215,7 @@ export function aSegundaPersona(texto) {
   if (inf !== null) return inf;
   const partes = t.split(/(\s+|[,.;:!?¡¿«»"()]+)/u);
   let anterior = null;       // última palabra vista
+  let anteanterior = null;   // la de antes, para reconocer «el que»
   let inicioClausula = true;
 
   return partes.map((p) => {
@@ -217,9 +225,24 @@ export function aSegundaPersona(texto) {
     const bajo = p.toLowerCase();
     let salida = p;
 
+    // ¿Venimos de un relativo que señala a otra persona?
+    const relativoAjeno = anterior === 'quien'
+      || (anterior === 'que' && ['el', 'la', 'los', 'las'].includes(anteanterior));
+
     // "me" delante de verbo es reflexivo; "yo" también cambia.
     if (PRONOMBRES[bajo]) {
       salida = conMayuscula(p, PRONOMBRES[bajo]);
+    } else if (relativoAjeno) {
+      // Detrás de «el que», «quien», «los que»… se habla de OTRO, no de ti.
+      //
+      // «Busco al capitán Verros, el que quemó mi forja» salía como «el que
+      // quemas tu forja»: el jugador contaba qué hizo Verros y el narrador se
+      // lo atribuía al propio personaje. Es la misma confusión de persona que
+      // destrozaba el trasfondo, metida dentro de una frase.
+      //
+      // Los posesivos SÍ se convierten —«mi forja» es del jugador y pasa a
+      // «tu forja»—; lo que no se toca es el verbo.
+      salida = PRONOMBRES[bajo] ? conMayuscula(p, PRONOMBRES[bajo]) : p;
     } else if (anterior === 'que' && SUBJUNTIVOS[bajo]) {
       // Subjuntivo tras «que»: solo aquí, porque fuera de esa posición estas
       // formas son casi siempre tercera persona («la puerta que cierra mal»).
@@ -234,6 +257,7 @@ export function aSegundaPersona(texto) {
     }
 
     inicioClausula = false;
+    anteanterior = anterior;
     anterior = bajo;
     return salida;
   }).join('');

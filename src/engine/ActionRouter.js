@@ -27,6 +27,7 @@
 import { SystemBase } from '../core/SystemBase.js';
 import { obtenerSublugar } from '../data/locations.data.js';
 import { evaluarAmbicion } from './Ambicion.js';
+import * as Tablas from '../world/EncounterTables.js';
 
 /** Destinos posibles. */
 export const RUTA = Object.freeze({
@@ -68,6 +69,7 @@ export class ActionRouter extends SystemBase {
 
     // ─── Acciones que resuelve el motor ─────────────────────────────────
     switch (intencion.tipo) {
+      case 'attack': return this._atacar(intencion, contexto);
       case 'use_item': return this._usarObjeto(intencion);
       case 'travel': return this._viajar(intencion);
       case 'rest': return this._descansar(intencion, contexto);
@@ -196,6 +198,92 @@ export class ActionRouter extends SystemBase {
       narracion: `Usas ${elegido.nombre.toLowerCase()}.`,
       pistaDirector: null,
       resultado: { tipo: 'consumo', objeto: elegido.nombre },
+    };
+  }
+
+  /**
+   * Atacar cuando no hay a quién.
+   *
+   * En combate esto no se llama: el panel de combate lleva sus turnos. Esto es
+   * para el jugador que escribe «ataco al primer enemigo que vea» caminando
+   * por un camino vacío.
+   *
+   * Antes caía al director con una tirada de ataque y ya está: salía «d20 17 ·
+   * 16 vs 15 · ÉXITO» y una narración de que atacas, sin enemigo, sin panel de
+   * combate y con `combat.activo` en falso. Una tirada de ataque sin objetivo
+   * no significa nada, y el arte de criaturas no se llegaba a ver nunca por
+   * esta vía.
+   *
+   * Ahora hay dos caminos, y ninguno tira el dado al aire:
+   *
+   *   · Sitio con peligro: se saca un encuentro hostil de las mismas tablas
+   *     que usan la exploración y el viaje, y se abre el combate con su
+   *     criatura. Buscar pelea donde la hay, la encuentra.
+   *   · Sitio seguro: lo narra el director. No hay a quién atacar, y desenvainar
+   *     en un pueblo con guardia tiene sus propias consecuencias.
+   *
+   * @private
+   */
+  _atacar(intencion, contexto) {
+    // Con un combate en curso, el panel manda.
+    if (contexto.enCombate) return { ruta: RUTA.DIRECTOR, motivo: null, narracion: null, pistaDirector: null, resultado: null };
+
+    const world = this.sistema('world');
+    const lugar = world?.lugarActual();
+    const peligro = lugar?.plantilla?.peligroBase ?? 0;
+    const terreno = this.leer('world.terreno', 'camino');
+
+    // Quien esté delante y sea hostil es el objetivo, sin necesidad de tablas.
+    const hostil = (this.leer('npcs.presentes', []) ?? [])
+      .map((id) => this.leer(`npcs.conocidos.porId.${id}`))
+      .find((n) => n?.hostil);
+
+    if (hostil?.refId) {
+      this.emitir('combat:request', { enemies: [{ refId: hostil.refId, count: 1 }] });
+
+      return {
+        ruta: RUTA.LOCAL,
+        motivo: null,
+        narracion: null,
+        pistaDirector: null,
+        resultado: { tipo: 'combate', origen: 'npc_presente' },
+      };
+    }
+
+    if (peligro > 0 || terreno === 'camino') {
+      // `Tablas.elegir` NO sirve aquí: sortea la familia por peso y pisa la que
+      // se le pase, así que devolvía encuentros neutros y útiles. Buscando
+      // pelea, un mercader ambulante no vale. Se piden los hostiles de frente.
+      const hostiles = Tablas.candidatos({ terreno, peligro: Math.max(peligro, 1), familia: 'hostil' })
+        .filter((e) => e.combate);
+
+      const flujo = this.rng?.flujo('encuentros') ?? this.rng?.flujo('mundo');
+      const encuentro = hostiles.length
+        ? (flujo?.elegirPonderado(hostiles.map((e) => ({ valor: e, peso: e.peso }))) ?? hostiles[0])
+        : null;
+
+      if (encuentro?.combate) {
+        this.emitir('combat:request', encuentro.combate);
+
+        return {
+          ruta: RUTA.LOCAL,
+          motivo: null,
+          narracion: null,
+          pistaDirector: `El personaje buscaba pelea y la ha encontrado: ${encuentro.apertura}`,
+          resultado: { tipo: 'combate', origen: 'encuentro', encuentro: encuentro.refId },
+        };
+      }
+    }
+
+    // Sitio tranquilo: lo cuenta el director, y sin tirada.
+    return {
+      ruta: RUTA.DIRECTOR,
+      motivo: null,
+      narracion: null,
+      pistaDirector: 'El personaje busca pelea y aquí no hay contra quién. '
+        + 'Narra que no encuentra enemigo: el sitio está tranquilo, o quien hay no le sigue el juego. '
+        + 'Si hay guardia o gente alrededor, que reparen en que va buscando bronca. No hagas ninguna tirada de ataque.',
+      resultado: { tipo: 'sin_objetivo' },
     };
   }
 

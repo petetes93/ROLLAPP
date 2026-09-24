@@ -359,7 +359,12 @@ button{font-family:inherit;cursor:pointer}
 /* El retrato generado viene más alto que el marco: se ancla arriba para que
    lo que se pierda sea la banda inferior, donde el servicio pone su marca. */
 .arte--ia{object-position:50% 0}
-.retrato-pj>.arte--ia,.tarjeta-pj__cara>.arte--ia{object-position:50% 0}
+/* En el panel lateral NO se ancla arriba del todo.
+   El marco es más apaisado que la imagen —lo aplasta `max-height`— así que con
+   el anclaje a cero solo se veía desde el pelo hasta la nariz: la frente contra
+   el borde curvo y la cara cortada a la mitad. Bajarlo un 18 % recoloca los
+   ojos en su sitio y sigue dejando fuera la banda de marca de agua de abajo. */
+.retrato-pj>.arte--ia,.tarjeta-pj__cara>.arte--ia{object-position:50% 18%}
 /* Cada marco es un contexto aislado: ningún retrato cargado tarde puede
    escapar del recorte ni quedar flotando encima de la siguiente elección. */
 .eleccion__cara,.retrato-pj,.combate__criatura,.escena__lienzo{isolation:isolate;contain:paint}
@@ -390,7 +395,13 @@ button{font-family:inherit;cursor:pointer}
 /* ── retrato en el panel de personaje ───────────────────────────────── */
 .retrato-pj{
   position:relative;
-  width:100%;aspect-ratio:5/6;max-height:10rem;overflow:hidden;
+  /* El tope de alto sigue existiendo porque el lateral reparte su altura con
+     la ficha y las barras, pero 10rem lo apretaba demasiado: a 227 px de ancho
+     el marco quedaba en 227x160, mas apaisado que un retrato, y el recorte de
+     `cover` se comia la cara entera en vez de la banda de marca de agua. Con
+     14rem el marco es casi cuadrado y, junto al anclaje al 18 % de mas abajo,
+     se ve la cara y los hombros. */
+  width:100%;aspect-ratio:5/6;max-height:14rem;overflow:hidden;
   border:1px solid var(--linea);border-radius:var(--r);
   background:var(--fondo-3);margin-bottom:.8rem;
 }

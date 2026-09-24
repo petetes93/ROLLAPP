@@ -285,6 +285,24 @@ export class ActionRouter extends SystemBase {
     // Con un combate en curso, el panel manda.
     if (contexto.enCombate) return { ruta: RUTA.DIRECTOR, motivo: null, narracion: null, pistaDirector: null, resultado: null };
 
+    // Empezar una pelea exige que el jugador lo haya dicho claro.
+    //
+    // Abrir combate es de lo poco que este juego hace de forma irreversible, y
+    // el analizador lo deduce por palabras sueltas: nombrar un arma bastaba
+    // para que «guardo la espada» o «me acerco con la mano lejos de la espada»
+    // acabaran en una pelea a tres contra uno. Con poca confianza se manda al
+    // director, que lo narra sin desenvainar por su cuenta.
+    if ((intencion.confianza ?? 0) < 0.6) {
+      return {
+        ruta: RUTA.DIRECTOR,
+        motivo: null,
+        narracion: null,
+        pistaDirector: 'El personaje menciona un arma o hace un gesto que podría ser hostil, '
+          + 'pero no ha declarado que ataque. Narra el gesto y su efecto en quien lo vea. No empieces un combate.',
+        resultado: null,
+      };
+    }
+
     const world = this.sistema('world');
     const lugar = world?.lugarActual();
     const peligro = lugar?.plantilla?.peligroBase ?? 0;

@@ -29,6 +29,7 @@ import { APP } from '../../config/app.config.js';
 import { capitalizar } from '../../utils/text.js';
 import { aSegundaPersona, esPrimeraPersona } from '../Persona.js';
 import { obtenerLugar } from '../../data/locations.data.js';
+import * as Cadencia from '../Cadencia.js';
 
 export class ProceduralProvider extends IDMProvider {
   static id = 'procedural';
@@ -162,8 +163,8 @@ export class ProceduralProvider extends IDMProvider {
     // Reacciona si ha pasado algo —hay escena, o la tirada salió redonda o
     // desastrosa— y si no, una de cada tres veces.
     const npc = ctx.npcsPresentes?.[0];
-    const t = peticion.tirada;
-    const mereceLaPena = Boolean(escena) || Boolean(t?.critico) || Boolean(t?.pifia);
+    const tir = peticion.tirada;
+    const mereceLaPena = Boolean(escena) || Boolean(tir?.critico) || Boolean(tir?.pifia);
 
     if (accion && npc?.nombre && !String(r.story).includes(npc.nombre)
         && (mereceLaPena || this._flujo().entero(0, 2) === 0)) {
@@ -210,9 +211,39 @@ export class ProceduralProvider extends IDMProvider {
       }
     }
 
+    // El turno se monta por golpes, no por párrafos.
+    //
+    // Antes esto era `parrafos.join('\n\n')`: cuatro o cinco frases apelmazadas
+    // en dos bloques. Se leen de un vistazo y se olvidan igual, porque todo
+    // pesa lo mismo: una pifia y el viento en el trigo ocupaban el mismo sitio
+    // y sonaban igual.
+    //
+    // Una frase por línea, y el silencio entre ellas hace de puntuación. Como
+    // la interfaz ya escribe línea a línea y con pausa, la máquina de escribir
+    // deja de ser un adorno y pasa a marcar el tiempo.
+    const t = peticion.tirada;
+
+    // UN golpe por turno, y nunca dos seguidos.
+    //
+    // El sonido y la antesala hacen lo mismo —parar el ojo— así que puestos
+    // juntos se anulan: salía «BUM.» y debajo «Hasta que...», dos frenos
+    // pegados que dejan de frenar. Se elige el que corresponde.
+    //
+    // El sonido es para el golpe físico: un crítico, una pifia. Una escena que
+    // se abre no suena, se anuncia, y para eso está la antesala. «BUM» delante
+    // de un carro volcado es ruido en el sentido literal.
+    const golpe = t?.critico ? 'critico' : t?.pifia ? 'pifia' : '';
+
     return {
       ...r,
-      story: parrafos.join('\n\n'),
+      story: Cadencia.montar(parrafos, {
+        golpe,
+        // La antesala se gana: solo cuando de verdad gira algo, y solo si no
+        // hay sonido. Puesta en cada turno se convierte en muletilla y deja de
+        // anunciar nada.
+        antesala: !golpe && Boolean(escena),
+        elegir: (lista) => this._unico(lista),
+      }),
       choices: this._sugerenciasDeEscena(ctx, r.choices ?? []),
     };
   }
@@ -866,9 +897,15 @@ export class ProceduralProvider extends IDMProvider {
       }
     }
 
+    // En combate la cadencia importa el doble: una frase por línea y el golpe
+    // sonando en el crítico y en la pifia. Es donde el ritmo se nota, porque
+    // es donde el jugador está pendiente de cada línea.
     return {
       schemaVersion: APP.versionContratoIA,
-      story: partes.join(' '),
+      story: Cadencia.montar(partes, {
+        golpe: t?.critico ? 'critico' : t?.pifia ? 'pifia' : '',
+        elegir: (lista) => this._unico(lista),
+      }),
       choices: OPCIONES.combate.map((o, i) => ({ ...o, id: `c${i + 1}` })),
       playerUpdates: {},
       newItems: [],

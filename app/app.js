@@ -61,6 +61,7 @@ import { TRASFONDOS } from '../src/data/backgrounds.data.js';
 import { obtenerLugar } from '../src/data/locations.data.js';
 import { ESTADOS } from '../src/data/statuses.data.js';
 import { importarHistoria } from '../src/ai/Importar.js';
+import { esGolpe } from '../src/ai/Cadencia.js';
 import * as Comb from '../src/combat/Combatant.js';
 import { PROVEEDORES } from '../src/config/ai.config.js';
 import {
@@ -1322,9 +1323,30 @@ function pintarBitacora() {
     const esNueva = primeraNueva + indice >= entradasVistas;
     const seEscribe = esNueva && (e.voz === 'dm' || e.voz === 'narrador');
 
+    // La letra capital solo abre el turno, no cada línea.
+    //
+    // La narración va ahora por golpes —una frase por línea— y con la regla
+    // anterior cada una llevaba su capitular de dos cuerpos: diez capitulares
+    // seguidas no son una página iluminada, son un sarpullido. La capital
+    // marca dónde empieza a hablar el máster, y eso ocurre una vez.
+    let primeraDelTurno = true;
+
     for (const parrafo of String(e.texto ?? '').split('\n')) {
       if (!parrafo.trim()) continue;
-      const nodo = el('p', { class: clase + (indice >= desdeReciente ? ' es-reciente' : ''), text: seEscribe ? '' : parrafo });
+
+      const clases = [clase];
+      if (indice >= desdeReciente) clases.push('es-reciente');
+
+      if (e.voz === 'dm' || e.voz === 'narrador') {
+        // Los golpes —«CLANG.», «Y entonces...»— piden su propio peso: van
+        // centrados, espaciados y sin capitular. Es la línea que el ojo tiene
+        // que ver sola.
+        if (esGolpe(parrafo)) clases.push('linea--golpe');
+        else if (!primeraDelTurno) clases.push('linea--seguida');
+        primeraDelTurno = false;
+      }
+
+      const nodo = el('p', { class: clases.join(' '), text: seEscribe ? '' : parrafo });
       caja.append(nodo);
       if (seEscribe) colaEscritura.push({ nodo, texto: parrafo });
     }

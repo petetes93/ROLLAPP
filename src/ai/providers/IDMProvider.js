@@ -278,7 +278,12 @@ export class IDMProvider {
     //
     // Corta y honesta: sale o no sale.
     let story;
-    if (tirada) {
+    if (tirada && tirada.habilidad === 'percepcion') {
+      // Mirar no se falla: como mucho no hay nada que ver.
+      story = tirada.exito
+        ? 'Te haces una idea del sitio.'
+        : 'Nada fuera de lo corriente.';
+    } else if (tirada) {
       story = tirada.exito
         ? 'Sale. No de forma vistosa, pero sale.'
         : 'No sale. Algo se tuerce y te quedas donde estabas.';

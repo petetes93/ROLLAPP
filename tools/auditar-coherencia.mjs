@@ -19,6 +19,8 @@
 import { TimeSystem } from '../src/world/TimeSystem.js';
 import { ActionRouter } from '../src/engine/ActionRouter.js';
 import { interpretar } from '../src/engine/IntentParser.js';
+import { resultadosDe, categoriaDe, RESULTADOS } from '../src/data/narrative.templates.js';
+import { IDMProvider } from '../src/ai/providers/IDMProvider.js';
 
 let fallos = 0;
 
@@ -127,6 +129,25 @@ const HACHA = { id: 'o1', refId: 'hacha_mano', nombre: 'Hacha de mano', categori
 {
   const i = interpretar('guardo la espada y ataco al bandido');
   comprobar(i.tipo === 'attack', 'guardar y atacar en la misma frase sigue siendo un ataque', `tipo=${i.tipo}`);
+}
+
+/* ── Mirar alrededor no se falla ─────────────────────────────────────────── */
+
+{
+  const i = interpretar('miro alrededor');
+  const categoria = categoriaDe(i.habilidad);
+  const FALLO = /No sale|Falla|No consigues|No hay manera|empeora|Sale mal|peor/;
+
+  const malas = Object.keys(RESULTADOS)
+    .flatMap((grado) => resultadosDe(grado, categoria))
+    .filter((f) => FALLO.test(f));
+
+  comprobar(!malas.length, '«miro alrededor» no puede narrarse como un fracaso',
+    `frases posibles: ${malas.join(' | ')}`);
+
+  const idm = Object.create(IDMProvider.prototype);
+  const minimo = idm.turnoMinimo({ tirada: { habilidad: i.habilidad, exito: false } })?.story ?? '';
+  comprobar(!FALLO.test(minimo), 'tampoco en el narrador de reserva', `salió: ${minimo}`);
 }
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);

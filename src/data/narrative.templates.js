@@ -379,6 +379,13 @@ export const RESULTADOS = Object.freeze({
       'La respuesta te llega completa y ordenada',
       'Reconoces no solo qué es, sino de dónde viene',
     ],
+    // Mirar. Aquí no hay fracaso posible: como mucho, no hay nada que ver.
+    // «miro alrededor» contestaba «No consigues lo que buscabas», y mirar no
+    // se falla. Los dos grados malos dicen lo que ve quien no ve nada.
+    mirada: [
+      'Lo abarcas todo de un vistazo, hasta lo que otros pasarían por alto',
+      'Nada se te escapa: ni lo evidente ni lo que estaba medio escondido',
+    ],
   },
 
   exitoClaro: {
@@ -391,6 +398,7 @@ export const RESULTADOS = Object.freeze({
     social: ['Consigues lo que buscabas', 'Te escuchan y ceden'],
     sigilo: ['Pasas sin ser visto', 'Nadie levanta la vista'],
     saber: ['Lo reconoces con seguridad', 'Sabes lo que estás mirando'],
+    mirada: ['Te haces una idea clara del sitio', 'Ves lo que hay que ver'],
   },
 
   exitoJusto: {
@@ -404,6 +412,7 @@ export const RESULTADOS = Object.freeze({
     social: ['Cede, aunque sin convencimiento', 'Consigues algo, no todo'],
     sigilo: ['Pasas, pero alguien mira en tu dirección un segundo de más'],
     saber: ['Te suena, aunque no acabas de situarlo del todo'],
+    mirada: ['Te haces una idea, aunque algo se queda en sombra', 'Ves lo principal; los detalles, no tanto'],
   },
 
   fracaso: {
@@ -417,6 +426,7 @@ export const RESULTADOS = Object.freeze({
     social: ['No cuela', 'La otra parte no se mueve'],
     sigilo: ['Alguien te ve', 'Un ruido te delata'],
     saber: ['No consigues situarlo', 'Se te escapa'],
+    mirada: ['Nada fuera de lo corriente', 'No ves nada que llame la atención'],
   },
 
   fracasoGrave: {
@@ -430,6 +440,7 @@ export const RESULTADOS = Object.freeze({
     social: ['Dices exactamente lo que no había que decir', 'La has empeorado'],
     sigilo: ['Tropiezas y todo el mundo se gira', 'Te descubren de la peor forma posible'],
     saber: ['Sacas una conclusión equivocada y actúas en consecuencia'],
+    mirada: ['Nada te llama la atención', 'Todo parece en orden, o eso crees'],
   },
 });
 
@@ -834,6 +845,7 @@ export function categoriaDe(habilidad) {
     trato_social: 'social', intimidacion: 'social', engano: 'social', perspicacia: 'social',
     saber_arcano: 'saber', historia: 'saber', saber_oculto: 'saber', medicina: 'saber',
     artesania: 'saber', tasacion: 'saber',
+    percepcion: 'mirada',
   };
   return mapa[habilidad] ?? 'generico';
 }

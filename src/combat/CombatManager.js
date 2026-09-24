@@ -923,8 +923,11 @@ export class CombatManager extends SystemBase {
 
     switch (accion.tipo) {
       case 'atacar': {
-        const objetivo = accion.objetivo
-          ? this._combatientes[accion.objetivo]
+        // Solo se acepta un objetivo del otro bando y en pie: un id de un
+        // compañero, del propio jugador o de un caído cae al de por defecto.
+        const pedido = accion.objetivo ? this._combatientes[accion.objetivo] : null;
+        const objetivo = pedido?.vivo && pedido.bando === Comb.BANDO.ENEMIGO
+          ? pedido
           : this._objetivoPorDefecto();
 
         if (!objetivo) break;

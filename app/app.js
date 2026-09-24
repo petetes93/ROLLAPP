@@ -2336,8 +2336,11 @@ function pintarCombate() {
 
   // Retrato del enemigo vivo más amenazante. Si hay varios, manda el de más
   // nivel: es el que decide cómo va el combate y el que conviene mirar.
+  // Solo se mira al otro bando: un compañero de más nivel se quedaba el
+  // hueco y, sin ficha de enemigo, la del rival desaparecía.
+  const esEnemigo = (c) => c.bando === 'enemigo';
   const rival = datos.combatientes
-    .filter((c) => !c.esJugador && c.vivo)
+    .filter((c) => esEnemigo(c) && c.vivo)
     .sort((a, b) => (b.nivel ?? 0) - (a.nivel ?? 0))[0];
 
   if (rival?.refId) {
@@ -2382,7 +2385,11 @@ function pintarCombate() {
 
   // El objetivo deja de valer cuando cae: se pasa al siguiente en pie en vez
   // de dejar al jugador apuntando a un cadáver.
-  const enemigosVivos = datos.combatientes.filter((c) => !c.esJugador && c.vivo);
+  //
+  // Solo se apunta al otro bando. Con «no es el jugador» bastaba mientras
+  // se peleaba solo; con compañeros, el primero de la lista era el compañero
+  // y el botón decía «Atacar a Cornis».
+  const enemigosVivos = datos.combatientes.filter((c) => esEnemigo(c) && c.vivo);
   if (!enemigosVivos.some((c) => c.id === objetivoCombate)) {
     objetivoCombate = enemigosVivos[0]?.id ?? null;
   }
@@ -2392,7 +2399,7 @@ function pintarCombate() {
   for (const c of datos.combatientes) {
     const frac = Math.round(c.fraccionVida * 100);
     const esObjetivo = c.id === objetivoCombate;
-    const elegible = !c.esJugador && c.vivo;
+    const elegible = esEnemigo(c) && c.vivo;
 
     // Se puede elegir a quién pegar.
     //
@@ -2451,7 +2458,11 @@ function pintarCombate() {
     // El retrato se pinta después de montar la fila: `pintarCriatura` compara
     // una firma contra el nodo y necesita que ya esté en su sitio.
     if (c.esJugador) pintarRetrato(cara, fichaRetrato(ver('player', {})));
-    else {
+    else if (c.bando === 'aliado') {
+      // Un compañero, con la misma cara que en la pestaña Grupo.
+      const f = (sistema('party')?.miembros?.() ?? []).find((m) => m.ficha?.refId === c.refId)?.ficha;
+      if (f) pintarRetrato(cara, { raza: 'valdes', nombre: f.nombre, descripcion: f.descripcion, genero: f.genero });
+    } else {
       const plantilla = obtenerEnemigo(c.refId);
       if (plantilla) pintarCriatura(cara, plantilla);
     }

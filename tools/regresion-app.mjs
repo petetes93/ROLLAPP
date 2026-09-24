@@ -354,6 +354,28 @@ try {
   await evaluate(`window.__ataquesGrupo = []; ARCANVEIL.bus.on('combat:attack', (e) => window.__ataquesGrupo.push(e))`);
   await evaluate(`ARCANVEIL.bus.emit('combat:request', { enemies: [{ refId: 'saqueador', count: 2 }], playerAmbush: true })`);
   await until('ARCANVEIL.ver("combat.activo", false) && ARCANVEIL.sistema("combat").esperandoJugador', 8000);
+
+  // Al compañero no se le apunta: ni el panel lo ofrece ni el motor acepta
+  // un ataque contra él. El botón llegó a decir «Atacar a Cornis».
+  const apuntado = await evaluate(`({
+    elegibles: [...document.querySelectorAll('.luchador--elegible')].map((b) => b.dataset.luchador),
+    marcado: document.querySelector('.luchador.es-objetivo')?.dataset.luchador ?? null,
+    cara: Boolean(document.querySelector('[data-luchador^="companero_"] .luchador__cara .arte')),
+  })`);
+  if (apuntado.elegibles.some((id) => id.startsWith('companero_')) || apuntado.marcado?.startsWith('companero_')) {
+    throw new Error(`el panel deja apuntar al compañero: ${JSON.stringify(apuntado)}`);
+  }
+  if (!apuntado.cara) throw new Error('el compañero sale sin cara en el combate');
+  const golpeAlAliado = await evaluate(`(async () => {
+    const id = Object.keys(ARCANVEIL.sistema('combat')._combatientes).find((k) => k.startsWith('companero_'));
+    const antes = window.__ataquesGrupo.length;
+    await ARCANVEIL.sistema('combat').accionJugador({ tipo: 'atacar', objetivo: id });
+    return window.__ataquesGrupo.slice(antes).filter((e) => e.atacante?.esJugador).map((e) => e.objetivo?.id ?? e.objetivo);
+  })()`);
+  if (golpeAlAliado.some((id) => String(id).startsWith('companero_'))) {
+    throw new Error(`el motor dejó al jugador atacar a su compañero: ${golpeAlAliado}`);
+  }
+
   const peleaGrupo = await evaluate(`(async () => {
     const espera = (ms) => new Promise((r) => setTimeout(r, ms));
     for (let i = 0; i < 25 && ARCANVEIL.ver('combat.activo', false); i += 1) {

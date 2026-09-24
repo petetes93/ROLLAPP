@@ -928,8 +928,11 @@ textarea.entrada{resize:none;overflow-y:auto;line-height:1.45;max-height:180px;d
 
 /* Cada luchador con su cara al lado de la barra. Se reconoce de un vistazo,
    que es lo que hace falta cuando decides a cuál rematas. */
-.luchador{display:grid;grid-template-columns:38px minmax(0,1fr);gap:.5rem;align-items:center}
-.luchador__cara{
+.luchador{display:grid;grid-template-columns:38px minmax(0,1fr);gap:.2rem .5rem;align-items:center}
+/* La cara ocupa las dos filas; la barra y los estados van en la columna del
+   nombre. Sin esto, la barra caía en la columna de la cara y medía 38 px. */
+.luchador>.barra,.luchador>.luchador__estados{grid-column:2}
+.luchador__cara{grid-row:span 2;
   position:relative;width:38px;height:44px;overflow:hidden;
   border:1px solid #6B352C;border-radius:2px 8px 2px 8px;background:#0C0808;
   isolation:isolate;contain:paint;

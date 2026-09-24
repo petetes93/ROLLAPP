@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** RegresiÃ³n real de la PWA en Chrome, sin dependencias externas. */
+/** Regresión real de la PWA en Chrome, sin dependencias externas. */
 import { spawn, spawnSync } from 'node:child_process';
 import { writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -144,7 +144,7 @@ try {
       const p = pending.get(m.id); pending.delete(m.id);
       if (m.error) p.reject(new Error(m.error.message)); else p.resolve(m.result);
     } else if (m.method === 'Runtime.exceptionThrown') {
-      exceptions.push(m.params.exceptionDetails?.text ?? 'excepciÃ³n');
+      exceptions.push(m.params.exceptionDetails?.text ?? 'excepción');
     }
   };
   await cdp('Runtime.enable'); await cdp('Page.enable'); await cdp('Network.enable');
@@ -157,7 +157,7 @@ try {
 
   await until('window.ARCANVEIL?.motor?.listo && document.body.classList.contains("esta-listo")');
   const boot = await evaluate(`({screen:document.body.dataset.activeScreen, systems:ARCANVEIL.inspeccionar().total, failures:document.querySelectorAll('#fallos').length})`);
-  if (boot.screen !== 'inicio' || boot.failures) throw new Error(`arranque invÃ¡lido ${JSON.stringify(boot)}`);
+  if (boot.screen !== 'inicio' || boot.failures) throw new Error(`arranque inválido ${JSON.stringify(boot)}`);
   await shot(`01-inicio-${viewport.label}.png`);
 
   const menu = await evaluate(`[...document.querySelectorAll('.menu-btn')].filter(b=>!b.hidden && getComputedStyle(b).display!=='none').map(b=>b.id)`);
@@ -276,7 +276,7 @@ try {
     };
   })()`);
   if (gesto.tiradas) throw new Error('guardar la espada tiró dados');
-  if (!/guardas|No llevas/.test(gesto.texto)) throw new Error(`guardar la espada narró otra cosa: «${gesto.texto}»`);
+  if (!/guardas|no llevas/i.test(gesto.texto)) throw new Error(`guardar la espada narró otra cosa: «${gesto.texto}»`);
   if (/[A-Z]{4,}\.?$/.test(gesto.texto.trim())) throw new Error(`guardar la espada acabó en sonido: «${gesto.texto}»`);
   if (turns.at(-1).lines < 20) throw new Error(`la bitácora no avanzó: ${turns.at(-1).lines}`);
   await shot(`03-partida-20-turnos-${viewport.label}.png`);
@@ -362,7 +362,7 @@ try {
   await until('window.ARCANVEIL?.motor?.listo && document.body.classList.contains("esta-listo")', 15000);
   const offline = await evaluate(`({screen:document.body.dataset.activeScreen, title:document.title, failures:document.querySelectorAll('#fallos .fallos__linea').length})`);
   await shot(`04-offline-${viewport.label}.png`);
-  if (offline.title !== 'ARCANVEIL' || offline.failures) throw new Error(`offline invÃ¡lido ${JSON.stringify(offline)}`);
+  if (offline.title !== 'ARCANVEIL' || offline.failures) throw new Error(`offline inválido ${JSON.stringify(offline)}`);
 
   const report = {
     viewport: viewport.label, systems: boot.systems, turns: turns.length,

@@ -26,6 +26,7 @@ import { esGolpe } from '../src/ai/Cadencia.js';
 import { Exploration } from '../src/world/Exploration.js';
 import { PartySystem } from '../src/npc/PartySystem.js';
 import { CombatManager } from '../src/combat/CombatManager.js';
+import { paraJugador } from '../src/combat/CombatLog.js';
 import { fichaDeCompanero, comentario } from '../src/npc/Companero.js';
 import { migrar } from '../src/persistence/Migrations.js';
 
@@ -232,6 +233,14 @@ const HACHA = { id: 'o1', refId: 'hacha_mano', nombre: 'Hacha de mano', categori
 
   const dicho = comentario(herrera, { nombreLugar: 'El Vado del Yunque', titulo: 'Una cuenta pendiente' }, (l) => l[1]);
   comprobar(dicho.includes('del Vado del Yunque') && !/«[^»]*«/.test(dicho), 'lo que comenta nombra la misión sin «de El» ni comillas anidadas', dicho);
+
+  // Si el enemigo esquiva al compañero, el ataque no era tuyo.
+  const esquiva = paraJugador({
+    tipo: 'ataque',
+    atacante: { nombre: 'Ulmir', esCompanero: true }, objetivo: { nombre: 'Saqueador A' },
+    resultado: 'esquivado', tirada: { total: 9, umbral: 12 },
+  });
+  comprobar(esquiva === 'Saqueador A esquiva el ataque de Ulmir.', 'si esquivan al compañero, el parte no dice «tu ataque»', esquiva);
 
   // Lo que pasa tras el combate: herido salvo en Brutal.
   const tras = (puedenMorir) => {

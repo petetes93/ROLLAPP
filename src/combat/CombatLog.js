@@ -193,9 +193,10 @@ function _lineaAtaque(e) {
 
   switch (e.resultado) {
     case RESULTADO.ESQUIVADO:
-      return recibeJugador
-        ? `Esquivas el ataque de ${e.atacante.nombre}.`
-        : `${e.objetivo.nombre} esquiva tu ataque.`;
+      // Con compañeros hay un tercer caso: ni atacas tú ni te atacan a ti.
+      if (recibeJugador) return `Esquivas el ataque de ${e.atacante.nombre}.`;
+      if (atacaJugador) return `${e.objetivo.nombre} esquiva tu ataque.`;
+      return `${e.objetivo.nombre} esquiva el ataque de ${e.atacante.nombre}.`;
 
     case RESULTADO.FALLO:
       return `${ataque} y ${conjugar('fallas', 'falla')}.${dados || ` (${e.tirada?.total} contra ${e.tirada?.umbral})`}`;

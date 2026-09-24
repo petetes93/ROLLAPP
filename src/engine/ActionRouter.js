@@ -36,6 +36,7 @@ import { ARMAS } from './IntentParser.js';
 import { aSegundaPersona } from '../ai/Persona.js';
 import { articulo, capitalizar, sinAcentos } from '../utils/text.js';
 import { VOCES } from '../config/ui.config.js';
+import { curarConTexto, PIDE_CURAR } from '../player/Curacion.js';
 
 /**
  * Cómo llama la gente a los enemigos cuando escribe libremente.
@@ -108,6 +109,17 @@ export class ActionRouter extends SystemBase {
     // Guardar, colgar o limpiar un arma: sin dados, sin director y contra lo
     // que el personaje lleva de verdad.
     if (intencion.gesto) return this._gesto(intencion);
+
+    // ─── Curarse con palabras ───────────────────────────────────────────
+    // «Vendo la herida» fuera de combate: tirada de medicina y, con éxito,
+    // algo de vida. En combate lo resuelve la jugada escrita.
+    if (!contexto.enCombate && PIDE_CURAR.test(sinAcentos(String(intencion.texto ?? '').toLowerCase()))) {
+      const r = curarConTexto(this, null);
+      return {
+        ruta: RUTA.LOCAL, motivo: null, narracion: r.texto, voz: VOCES.DM,
+        pistaDirector: null, resultado: { tipo: 'curacion', cantidad: r.cantidad },
+      };
+    }
 
     // ─── Acciones que resuelve el motor ─────────────────────────────────
     switch (intencion.tipo) {

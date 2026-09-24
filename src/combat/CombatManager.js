@@ -33,8 +33,13 @@ import * as Iniciativa from './InitiativeTracker.js';
 import * as IA from './EnemyAI.js';
 import * as Jefes from './BossPatterns.js';
 import * as Registro from './CombatLog.js';
+import { narrarBotin } from './CombatLog.js';
 import { buscarPorNombre } from '../data/enemies.data.js';
 import { deEnemigo as botinDeEnemigo } from '../inventory/LootGenerator.js';
+import { leerJugada } from './Jugada.js';
+import { curarConTexto } from '../player/Curacion.js';
+import { obtenerEstado } from '../data/statuses.data.js';
+import { concordar } from '../utils/text.js';
 import { xpPorEnemigo } from '../player/Progression.js';
 import { COMBATE } from '../config/balance.config.js';
 import { TIEMPOS } from '../config/app.config.js';
@@ -516,8 +521,17 @@ export class CombatManager extends SystemBase {
       objetivo,
       ataque: decision.ataque,
       ronda,
-      circunstancias: { rodeado },
+      circunstancias: { rodeado, creatividad: decision.creatividad ?? 0 },
     });
+
+    // Una jugada que además de golpear deja al enemigo tocado —«le lanzo
+    // arena a los ojos y le golpeo»— aplica su estado si el golpe entra.
+    if (decision.estadoAlAcertar && resultado.dano && !resultado.cayo) {
+      const { refId, rondas } = decision.estadoAlAcertar;
+      const r = Estados.aplicar(resultado.objetivo, refId, { rondas });
+      resultado.objetivo = r.combatiente;
+      resultado.estadosAplicados = [...(resultado.estadosAplicados ?? []), { refId }];
+    }
 
     this._guardar(resultado.atacante);
     this._guardar(resultado.objetivo);
@@ -664,6 +678,126 @@ export class CombatManager extends SystemBase {
   /* ═══════════════════════════════════════════════════════════════════════
      ACCIÓN DEL JUGADOR
      ═══════════════════════════════════════════════════════════════════════ */
+
+  /**
+   * El jugador describe su jugada con palabras.
+   *
+   * Se lee con `leerJugada` —qué es, a quién, con qué y cuánto premia— y se
+   * resuelve con el mismo d20 de siempre: la creatividad suma a la tirada, no
+   * la sustituye. Lo que contradice el mundo o el inventario se dice en una
+   * línea y resta.
+   *
+   * @param {string} texto
+   * @param {Object} [opciones]
+   * @param {string|null} [opciones.marcado] Objetivo marcado en el panel.
+   * @returns {Promise<Object|null>} La jugada leída.
+   */
+  async jugadaLibre(texto, { marcado = null } = {}) {
+    if (!this._esperando) return null;
+
+    const jugador = this._combatientes.jugador;
+    const objetos = this.leer('inventory.objetos.porId', {}) ?? {};
+    const arma = objetos[this.leer('inventory.equipado.armaPrincipal')]?.nombre ?? jugador?.ataques?.[0]?.nombre ?? null;
+
+    const jugada = leerJugada(texto, {
+      enemigos: Object.values(this._combatientes).filter((c) => c.vivo && c.bando === Comb.BANDO.ENEMIGO),
+      inventario: Object.values(objetos),
+      arma,
+      marcado,
+      anterior: this._ultimaJugada ?? null,
+    });
+
+    if (jugada.aviso) this.emitir('narrative:direct', { texto: jugada.aviso, voz: 'system' });
+
+    this._ultimaJugada = null;
+
+    switch (jugada.tipo) {
+      case 'huir':
+        await this.accionJugador({ tipo: 'huir' });
+        return jugada;
+
+      case 'defender':
+        await this.accionJugador({ tipo: 'defender' });
+        return jugada;
+
+      case 'curar':
+        this._esperando = false;
+        this._curarEnCombate(jugada);
+        await this._terminarTurnoDe(this._combatientes.jugador);
+        await this._avanzar();
+        return jugada;
+
+      case 'maniobra':
+        this._esperando = false;
+        await this._maniobra(jugada);
+        await this._terminarTurnoDe(this._combatientes.jugador);
+        await this._avanzar();
+        return jugada;
+
+      default: {
+        this._esperando = false;
+        const objetivo = this._combatientes[jugada.objetivo] ?? this._objetivoPorDefecto();
+        if (objetivo && jugador?.vivo) {
+          await this._ejecutarAtaque(jugador, {
+            objetivo: objetivo.id,
+            ataque: jugador.ataques[0],
+            creatividad: jugada.creatividad.valor,
+            estadoAlAcertar: jugada.golpea ? jugada.estado : null,
+          }, this.leer('combat.ronda', 1));
+          if (jugada.estado && jugada.golpea) this._ultimaJugada = { estado: jugada.estado.refId };
+        }
+        await this._terminarTurnoDe(this._combatientes.jugador);
+        await this._avanzar();
+        return jugada;
+      }
+    }
+  }
+
+  /**
+   * Una maniobra sin golpe: arena a los ojos, un empujón al río.
+   *
+   * Se tira como un ataque —d20 más la jugada contra la defensa del enemigo—
+   * y si entra, el enemigo queda en el estado de la maniobra. No hace daño:
+   * lo que gana es la ronda siguiente.
+   *
+   * @private
+   */
+  async _maniobra(jugada) {
+    const jugador = this._combatientes.jugador;
+    const objetivo = this._combatientes[jugada.objetivo];
+    if (!objetivo?.vivo || !jugador?.vivo) return;
+
+    const tirada = this.sistema('rules').resolver({
+      habilidad: 'atletismo',
+      umbral: Comb.defensaEfectiva(objetivo),
+      bonoExtra: jugada.creatividad.valor,
+      fuenteExtra: 'Creativo',
+    });
+
+    const dados = `(d20 ${tirada.natural}${jugada.creatividad.valor ? `, ${jugada.creatividad.valor > 0 ? '+' : ''}${jugada.creatividad.valor} por la jugada` : ''}: ${tirada.total} contra ${tirada.umbral})`;
+
+    if (!tirada.exito) {
+      this.emitir('narrative:direct', { texto: `Lo intentas con ${objetivo.nombre}, pero no sale. ${dados}`, voz: 'system' });
+      return;
+    }
+
+    const r = Estados.aplicar(objetivo, jugada.estado.refId, { rondas: jugada.estado.rondas });
+    this._guardar(r.combatiente);
+    this._ultimaJugada = { estado: jugada.estado.refId };
+
+    const nombreEstado = concordar(obtenerEstado(jugada.estado.refId)?.nombre?.toLowerCase() ?? jugada.estado.refId, objetivo.genero);
+    this.emitir('narrative:direct', { texto: `${objetivo.nombre} queda ${nombreEstado}. ${dados}`, voz: 'system' });
+  }
+
+  /**
+   * Curarse en plena pelea: la poción si la lleva; si no, vendarse a toda prisa.
+   * @private
+   */
+  _curarEnCombate(jugada) {
+    const r = curarConTexto(this, jugada.objeto);
+    this._refrescarJugador();
+    this.emitir('narrative:direct', { texto: r.texto, voz: 'system' });
+  }
 
   /**
    * Procesa la acción que el jugador elige en su turno.
@@ -867,6 +1001,10 @@ export class CombatManager extends SystemBase {
 
     const inventario = this.sistema('inventory');
     inventario?.recibirBotin(botin);
+
+    // El botín también se cuenta, no solo se apunta en el inventario: «entre
+    // sus cosas encuentras…». Si no hay nada, se dice, que también es algo.
+    this.emitir('narrative:direct', { texto: narrarBotin(botin, caidos.length), voz: 'dm' });
 
     // ─── Reputación con la facción de los caídos ─────────────────────────
     // Matar a los miembros de una facción tiene consecuencias con toda ella.

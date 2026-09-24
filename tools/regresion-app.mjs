@@ -393,6 +393,35 @@ try {
     throw new Error(`«Volver en ti» dejó ${JSON.stringify(revivido)}`);
   }
 
+  // La jugada escrita cuenta en combate: «le lanzo arena a los ojos y le
+  // golpeo» es un ataque con +1 por usar la escena, y el enemigo enseña su
+  // ficha. Va al final porque el combate se queda abierto: la recarga sin red
+  // de después lo descarta, que no se guarda.
+  await evaluate(`ARCANVEIL.store.dispatch('player/curar', { cantidad: 99, origen: 'regresion' })`);
+  await evaluate(`ARCANVEIL.bus.emit('combat:request', { enemies: [{ refId: 'saqueador', count: 1 }], playerAmbush: true })`);
+  await until('ARCANVEIL.ver("combat.activo", false) && ARCANVEIL.sistema("combat").esperandoJugador', 8000);
+  const fichaRival = await evaluate(`document.querySelector('#combate-habilidades')?.textContent ?? ''`);
+  if (!/Machete/.test(fichaRival)) throw new Error(`la ficha del enemigo no enseña sus armas: «${fichaRival}»`);
+
+  // Se escucha el ataque al vuelo: si el saqueador huye tras el golpe (es
+  // cobarde), el combate termina y su registro se vacía antes de poder leerlo.
+  await evaluate(`window.__ataques = []; ARCANVEIL.bus.on('combat:attack', (e) => window.__ataques.push(e))`);
+  await evaluate(`ARCANVEIL.jugar('le lanzo arena a los ojos y le golpeo')`);
+  const jugada = await evaluate(`(() => {
+    const e = window.__ataques.find((x) => x.atacante?.esJugador);
+    return e ? { creativo: e.tirada?.creativo ?? null, resultado: e.resultado } : null;
+  })()`);
+  if (!jugada) {
+    const diag = await evaluate(`(() => { const cm = ARCANVEIL.sistema('combat'); return {
+      activo: ARCANVEIL.ver('combat.activo', false), esperando: cm.esperandoJugador,
+      registro: cm._registro.map((x) => x.tipo + ':' + (x.atacante?.nombre ?? x.nombre ?? '')),
+      entrada: document.getElementById('entrada').disabled, fase: ARCANVEIL.ver('meta.fase'),
+      ultimas: ARCANVEIL.ver('narrative.entradas', []).slice(-4).map((e) => e.voz + ': ' + e.texto),
+    }; })()`);
+    throw new Error(`la jugada escrita no llegó a atacar: ${JSON.stringify(diag)}`);
+  }
+  if (jugada.creativo !== 1) throw new Error(`«le lanzo arena a los ojos y le golpeo» dio ${jugada.creativo} en vez de +1`);
+
   const beforeOffline = await evaluate(`navigator.serviceWorker.ready.then(()=>({controlled:Boolean(navigator.serviceWorker.controller),lines:ARCANVEIL.ver('narrative.entradas',[]).length}))`);
   await wait(700);
   await cdp('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });

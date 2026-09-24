@@ -29,6 +29,7 @@ import * as Tablas from '../src/world/EncounterTables.js';
 import { ActionRouter } from '../src/engine/ActionRouter.js';
 import { obtenerEnemigo } from '../src/data/enemies.data.js';
 import { DIRECCION } from '../src/config/balance.config.js';
+import { leerJugada } from '../src/combat/Jugada.js';
 
 const VER = process.argv.includes('--ver');
 
@@ -231,6 +232,75 @@ for (const caso of CASOS) {
     const salio = elegidos.map((e) => e.refId).join(', ') || '(nada)';
     console.log(`MAL  «${caso.frase}» esperaba ${caso.espera} y salió: ${salio}`);
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LA JUGADA ESCRITA: 20 JUGADAS CON SU BONO
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// Una escena fija: dos saqueadores, uno medio muerto, y un guardia cegado.
+// Lleva un hacha de mano (la de siempre), una cuerda, una antorcha y una
+// poción. Con la misma escena, la misma frase da siempre el mismo bono.
+const ENEMIGOS = [
+  { id: 'a', nombre: 'Saqueador A', vida: { actual: 16, max: 16 }, estados: [] },
+  { id: 'b', nombre: 'Saqueador B', vida: { actual: 5, max: 16 }, estados: [] },
+  { id: 'g', nombre: 'Guardia corrupto', vida: { actual: 28, max: 28 }, estados: [{ refId: 'cegado' }] },
+];
+const INVENTARIO = [
+  { id: 'o1', nombre: 'Hacha de mano', categoria: 'arma' },
+  { id: 'o2', nombre: 'Cuerda', categoria: 'util' },
+  { id: 'o3', nombre: 'Antorcha', categoria: 'util' },
+  { id: 'o4', nombre: 'Poción de curación', categoria: 'consumible' },
+];
+const ESCENA_COMBATE = { enemigos: ENEMIGOS, inventario: INVENTARIO, arma: 'Hacha de mano', marcado: 'a' };
+const TRAS_CEGAR = { ...ESCENA_COMBATE, anterior: { estado: 'cegado' } };
+
+/** [frase, contexto, tipo, bono, objetivo esperado o null si no importa, qué más] */
+const JUGADAS = [
+  ['ataco al saqueador A', ESCENA_COMBATE, 'atacar', 0, 'a'],
+  ['salto sobre la roca y descargo el hacha sobre su cabeza', ESCENA_COMBATE, 'atacar', 1, 'a'],
+  ['le lanzo arena a los ojos y le golpeo', ESCENA_COMBATE, 'atacar', 1, 'a', (j) => j.estado?.refId === 'cegado'],
+  ['le lanzo arena a los ojos', ESCENA_COMBATE, 'maniobra', 1, 'a', (j) => j.estado?.refId === 'cegado'],
+  ['empujo al saqueador A al río', ESCENA_COMBATE, 'maniobra', 1, 'a', (j) => j.estado?.refId === 'derribado'],
+  ['ataco al herido', ESCENA_COMBATE, 'atacar', 1, 'b'],
+  ['le rodeo el cuello con la cuerda', ESCENA_COMBATE, 'atacar', 1, 'a', (j) => j.objeto?.id === 'o2'],
+  ['le prendo fuego con la antorcha', ESCENA_COMBATE, 'atacar', 1, 'a', (j) => j.objeto?.id === 'o3'],
+  ['salto desde la mesa con la antorcha y golpeo al guardia, que está cegado', ESCENA_COMBATE, 'atacar', 3, 'g'],
+  ['desde la mesa, con la antorcha, aprovecho que el guardia está cegado y le golpeo', TRAS_CEGAR, 'atacar', 3, 'g'],
+  ['aprovecho que está ciego y le golpeo al guardia', TRAS_CEGAR, 'atacar', 2, 'g'],
+  ['saco una pistola láser y le disparo', ESCENA_COMBATE, 'atacar', -2, null, (j) => /No hay pistolas/.test(j.aviso ?? '')],
+  ['le clavo la espada al saqueador B', ESCENA_COMBATE, 'atacar', -2, 'b', (j) => /No llevas espada/.test(j.aviso ?? '')],
+  ['huyo hacia el bosque', ESCENA_COMBATE, 'huir', 0, null],
+  ['me cubro detrás del carro', ESCENA_COMBATE, 'defender', 0, null],
+  ['bebo la poción', ESCENA_COMBATE, 'curar', 0, null, (j) => j.objeto?.id === 'o4'],
+  ['ataco al jefe', ESCENA_COMBATE, 'atacar', 0, 'g'],
+  ['ataco al de la derecha', ESCENA_COMBATE, 'atacar', 0, 'g'],
+  ['ataco a la b con el hacha', ESCENA_COMBATE, 'atacar', 0, 'b'],
+  ['le doy una patada en la rodilla', ESCENA_COMBATE, 'atacar', 0, 'a'],
+];
+
+console.log('');
+for (const [frase, ctx, tipo, bono, objetivo, extra] of JUGADAS) {
+  const j = leerJugada(frase, ctx);
+  const bien = j.tipo === tipo
+    && j.creatividad.valor === bono
+    && (objetivo === null || j.objetivo === objetivo)
+    && (!extra || extra(j));
+
+  if (bien) {
+    console.log(`OK   ${bono >= 0 ? '+' : ''}${bono}  «${frase}»`);
+  } else {
+    fallos += 1;
+    console.log(`MAL  «${frase}»`);
+    console.log(`     esperado ${tipo} ${bono} → ${objetivo ?? '-'}; salió ${j.tipo} ${j.creatividad.valor} → ${j.objetivo ?? '-'} (${j.creatividad.motivos.join(', ')}) ${j.aviso ?? ''}`);
+  }
+}
+
+// El techo es +3 aunque se sumen más motivos.
+{
+  const todo = leerJugada('desde la mesa, con la antorcha, aprovecho que el guardia está cegado y le golpeo', TRAS_CEGAR);
+  if (todo.creatividad.valor !== 3) { fallos += 1; console.log(`MAL  el bono no se queda en +3: ${todo.creatividad.valor}`); }
+  else console.log('OK   el bono tiene techo en +3 aunque se sumen cuatro motivos');
 }
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);

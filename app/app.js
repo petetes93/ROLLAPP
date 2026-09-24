@@ -2177,6 +2177,15 @@ function pintarCombate() {
       const enPie = datos.combatientes
         .filter((c) => !c.esJugador && c.vivo && c.refId === rival.refId).length;
 
+      // Su ficha: con qué pega y cómo se comporta. Saber que el saqueador
+      // tira piedras de lejos o que huye si pierde cambia lo que conviene
+      // escribir, y para eso hay que verlo.
+      const habilidades = [
+        ...(plantilla.ataques ?? []).map((a) => `${a.nombre} ${a.dano}${a.alcance === 'distancia' ? ' a distancia' : ''}`),
+        plantilla.huye ? 'huye si pierde' : null,
+        plantilla.negociable ? 'se puede negociar' : null,
+      ].filter(Boolean).slice(0, 3);
+
       capa.append(el('div', { class: 'combate__rival' },
         marco,
         el('div', { class: 'combate__quien' },
@@ -2186,6 +2195,9 @@ function pintarCombate() {
             text: `${plantilla.tipo} · ${plantilla.tamano}`
               + (enPie > 1 ? ` · ${enPie} en pie` : ''),
           }),
+          habilidades.length
+            ? el('span', { class: 'combate__habilidades', id: 'combate-habilidades', text: habilidades.join(' · ') })
+            : null,
         ),
       ));
 
@@ -2324,14 +2336,21 @@ function pintarCombate() {
 async function accionCombateLibre(desdeFuera) {
   const texto = String(desdeFuera ?? $('#combate-entrada')?.value ?? '').trim();
   if (!texto) return;
-  const normal = texto.toLocaleLowerCase('es');
-  const tipo = /huir|escap|retir|correr/.test(normal) ? 'huir'
-    : /defiend|bloque|cubrir|esquiv|proteg/.test(normal) ? 'defender' : 'atacar';
-  bus.emit('narrative:direct', { texto: `Intentas: ${texto}`, voz: 'player' });
 
-  // La jugada escrita respeta el objetivo elegido: quien ha marcado al
-  // saqueador tocado y escribe «le doy en la pierna» quiere decir a ÉSE.
-  await accionCombate(tipo, tipo === 'atacar' ? objetivoCombate : null);
+  const manager = sistema('combat');
+  if (!manager?.esperandoJugador) return;
+
+  bus.emit('narrative:direct', { texto, voz: 'player' });
+
+  // La jugada escrita la lee el motor: qué es, a quién, con qué y cuánto
+  // premia (ver `combat/Jugada.js`). Antes tres expresiones regulares la
+  // reducían a atacar, defender o huir, y lo escrito no contaba. El objetivo
+  // marcado vale si la frase no nombra otro: quien ha marcado al saqueador
+  // tocado y escribe «le doy en la pierna» quiere decir a ÉSE.
+  bloquear(true);
+  await manager.jugadaLibre(texto, { marcado: objetivoCombate });
+  bloquear(false);
+  refrescarTodo();
 
   const campo = $('#combate-entrada');
   if (campo) campo.value = '';

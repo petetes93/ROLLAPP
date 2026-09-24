@@ -26,7 +26,8 @@ import { TIPOS_DANO, magnitud } from './DamageCalculator.js';
 import { RESULTADO } from './AttackResolver.js';
 import { COMBATE as PLANTILLAS } from '../data/narrative.templates.js';
 import { obtenerEstado } from '../data/statuses.data.js';
-import { concordar } from '../utils/text.js';
+import { concordar, articuloIndet, enumerar, plural } from '../utils/text.js';
+import { obtenerPlantilla } from '../data/items.data.js';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ENTRADAS
@@ -59,8 +60,13 @@ export function entradaAtaque(resultado, contexto) {
           umbral: resultado.tirada.umbral,
           critico: resultado.tirada.critico,
           pifia: resultado.tirada.pifia,
+          // El bono de la jugada escrita, si lo hubo, para enseñarlo aparte.
+          creativo: (resultado.tirada.desglose ?? []).find((m) => m.fuente === 'Creativo')?.valor ?? 0,
         }
       : null,
+
+    // Con qué se hizo la jugada, en palabras del jugador: «desde la roca».
+    jugada: contexto.jugada ?? null,
 
     dano: resultado.dano
       ? {
@@ -178,6 +184,13 @@ function _lineaAtaque(e) {
   // terminas hablando de él.
   const conjugar = (tu, el) => (atacaJugador ? tu : el);
 
+  // Si la jugada escrita dio bono, se enseña la tirada entera: el jugador
+  // tiene que ver que lo que escribió ha contado, y cuánto.
+  const creativo = e.tirada?.creativo ?? 0;
+  const dados = creativo
+    ? ` (d20 ${e.tirada.natural}, ${creativo > 0 ? '+' : ''}${creativo} por la jugada: ${e.tirada.total} contra ${e.tirada.umbral})`
+    : '';
+
   switch (e.resultado) {
     case RESULTADO.ESQUIVADO:
       return recibeJugador
@@ -185,7 +198,7 @@ function _lineaAtaque(e) {
         : `${e.objetivo.nombre} esquiva tu ataque.`;
 
     case RESULTADO.FALLO:
-      return `${ataque} y ${conjugar('fallas', 'falla')}. (${e.tirada?.total} contra ${e.tirada?.umbral})`;
+      return `${ataque} y ${conjugar('fallas', 'falla')}.${dados || ` (${e.tirada?.total} contra ${e.tirada?.umbral})`}`;
 
     case RESULTADO.PIFIA:
       return `${ataque} y ${conjugar('fallas', 'falla')} estrepitosamente. (1 natural)`;
@@ -212,8 +225,12 @@ function _lineaAtaque(e) {
       if (e.dano.afinidad === 'vulnerable') notas.push('vulnerable');
       if (e.vidaRobada > 0) notas.push(`+${e.vidaRobada} de vida robada`);
 
+      // Notas y tirada en un solo paréntesis: dos seguidos se leen como dos
+      // frases sueltas.
       let linea = partes.join(' ');
-      if (notas.length) linea += ` (${notas.join(', ')})`;
+      const tiradaEnClaro = dados.trim().replace(/^\(|\)$/g, '');
+      const entreParentesis = [notas.join(', '), tiradaEnClaro].filter(Boolean).join('; ');
+      if (entreParentesis) linea += ` (${entreParentesis})`;
       linea += '.';
 
       // Estados aplicados.
@@ -420,6 +437,39 @@ export function apertura(flujo, enemigos, opciones = {}) {
   // presentan la lista en vez de cosérsela al verbo.
   const base = flujo.elegir(PLANTILLAS.inicio);
   return `${base}: ${descripcion}.`;
+}
+
+/**
+ * El botín contado como parte de la historia.
+ *
+ * Se apuntaba en el inventario sin decir nada, y el jugador no sabía si había
+ * sacado algo hasta abrir la mochila. Ahora se cuenta: «Entre sus cosas
+ * encuentras una daga oxidada y 14 monedas de oro.»
+ *
+ * @param {{oro: number, objetos: Array<Object>}} botin
+ * @param {number} [caidos=1] Cuántos cayeron, para el número del verbo.
+ * @returns {string}
+ */
+export function narrarBotin(botin = {}, caidos = 1) {
+  const cosas = (botin.objetos ?? []).map((o) => {
+    const nombre = String(o.nombre ?? 'algo').toLowerCase();
+    // «2 raciones», «3 pociones de curación»: el plural va en la primera palabra.
+    if ((o.cantidad ?? 1) > 1) {
+      const [cabeza, ...resto] = nombre.split(' ');
+      return [o.cantidad, plural(cabeza), ...resto].join(' ');
+    }
+    const genero = obtenerPlantilla(o.refId)?.genero ?? 'm';
+    return `${articuloIndet(nombre, genero)} ${nombre}`;
+  });
+
+  if (botin.oro > 0) cosas.push(`${botin.oro} ${botin.oro === 1 ? 'moneda' : 'monedas'} de oro`);
+
+  if (!cosas.length) {
+    return caidos > 1 ? 'No llevaban nada que valga la pena.' : 'No llevaba nada que valga la pena.';
+  }
+
+  const solo = !(botin.objetos ?? []).length ? 'solo hay ' : 'encuentras ';
+  return `Entre sus cosas ${solo}${enumerar(cosas)}.`;
 }
 
 /**

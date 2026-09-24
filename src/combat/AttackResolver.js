@@ -382,6 +382,12 @@ function _modificadoresAtaque(atacante, ataque, circunstancias) {
     modificadores.push({ fuente: 'Rodeado', valor: COMBATE.penalizacionRodeado });
   }
 
+  // La jugada escrita: de −2 a +3 según lo que usa y aprovecha (ver Jugada.js).
+  // Va con nombre propio para que el parte pueda decir de dónde sale.
+  if (circunstancias.creatividad) {
+    modificadores.push({ fuente: 'Creativo', valor: circunstancias.creatividad });
+  }
+
   return modificadores;
 }
 

@@ -1,6 +1,6 @@
 // Generado por tools/generar-sw.mjs. No editar a mano.
 // La lista se recorre del disco: un archivo nuevo entra solo al regenerar.
-const CACHE = 'arcanveil-p8lwll';
+const CACHE = 'arcanveil-mwkqo9';
 const SHELL = [
   './manifest.webmanifest',
   './app/app.js',
@@ -40,6 +40,7 @@ const SHELL = [
   './src/combat/DamageCalculator.js',
   './src/combat/EnemyAI.js',
   './src/combat/InitiativeTracker.js',
+  './src/combat/Jugada.js',
   './src/combat/StatusEffects.js',
   './src/config/ai.config.js',
   './src/config/app.config.js',
@@ -112,6 +113,7 @@ const SHELL = [
   './src/player/ClassSystem.js',
   './src/player/Correccion.js',
   './src/player/creation/CharacterInterview.js',
+  './src/player/Curacion.js',
   './src/player/Player.js',
   './src/player/Progression.js',
   './src/player/SkillSystem.js',

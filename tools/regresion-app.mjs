@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /** RegresiÃ³n real de la PWA en Chrome, sin dependencias externas. */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -23,6 +23,22 @@ const desktop = process.argv.includes('--desktop');
  */
 const sinIA = process.argv.includes('--sin-ia');
 const viewport = desktop ? { width: 1440, height: 900, label: '1440x900' } : { width: 390, height: 844, label: '390x844' };
+// Antes de abrir el navegador: ¿el trabajador de servicio conoce el código
+// actual?
+//
+// Tres módulos que se cargan al arrancar pasaron días fuera del cache y esta
+// regresión no lo vio: su prueba sin red corre con el cache HTTP del
+// navegador todavía caliente, así que el archivo aparecía aunque el
+// trabajador no lo tuviera. Instalado de verdad y sin conexión, el juego no
+// arrancaba. Comprobarlo aquí cuesta un instante y no depende del navegador.
+{
+  const sw = spawnSync(process.execPath, ['tools/generar-sw.mjs', '--revisar'], { cwd: ROOT, encoding: 'utf8' });
+  if (sw.status !== 0) {
+    console.error((sw.stdout || sw.stderr || '').trim() || 'sw.js está desfasado.');
+    process.exit(1);
+  }
+}
+
 const profile = await mkdtemp(join(tmpdir(), 'arcanveil-chrome-'));
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 const children = [];

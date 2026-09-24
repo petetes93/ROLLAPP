@@ -119,12 +119,37 @@ self.addEventListener('fetch', (event) => {
 `;
 }
 
+/** Extensiones que Git puede convertir entre LF y CRLF al sacar el archivo. */
+const DE_TEXTO = /\.(m?js|html|css|json|webmanifest|svg|txt|md)$/i;
+
+/**
+ * Tamaño de un archivo sin contar los retornos de carro.
+ *
+ * Con `core.autocrlf` un mismo commit sale en Windows con CRLF y en Linux o en
+ * GitHub Pages con LF: tamaños distintos, huella distinta, y `--revisar`
+ * decía que `sw.js` estaba desfasado en cualquier copia que no fuera la que lo
+ * generó. Los de texto se miden sin `\r`; las fuentes y las imágenes, que
+ * Git no toca y son casi todo el peso, siguen sin leerse.
+ *
+ * @param {string} ruta
+ * @returns {Promise<number>}
+ */
+async function tamanoSinRetornos(ruta) {
+  if (!DE_TEXTO.test(ruta)) return (await stat(ruta)).size;
+
+  const datos = await readFile(ruta);
+  let n = datos.length;
+  for (const b of datos) if (b === 13) n -= 1;
+  return n;
+}
+
 /**
  * Huella corta de la lista y del tamaño de cada archivo.
  *
- * No se leen los contenidos: con la ruta y el tamaño basta para detectar que
- * algo cambió, y leer 40MB de fuentes e imágenes para calcular un nombre de
- * cache sería pagar mucho por poco.
+ * Con la ruta y el tamaño basta para detectar que algo cambió. Solo se leen
+ * los archivos de texto, para medirlos sin `\r` (ver `tamanoSinRetornos`):
+ * leer 40MB de fuentes e imágenes para calcular un nombre de cache sería
+ * pagar mucho por poco.
  *
  * @param {string[]} rutas
  * @returns {Promise<string>}
@@ -135,8 +160,7 @@ async function huellaDe(rutas) {
   for (const r of rutas) {
     let marca = r;
     try {
-      const s = await stat(join(RAIZ, r.replace(/^\.\//, '')));
-      marca += `:${s.size}`;
+      marca += `:${await tamanoSinRetornos(join(RAIZ, r.replace(/^\.\//, '')))}`;
     } catch {
       // Un archivo declarado que falta también cambia la huella, que es justo
       // lo que interesa: el cache anterior ya no sirve.
@@ -162,7 +186,11 @@ const revisar = process.argv.includes('--revisar');
 
 const actual = await readFile(destino, 'utf-8').catch(() => '');
 
-if (nuevo === actual) {
+// Se compara sin retornos de carro por lo mismo que la huella: el `sw.js` que
+// Git saca en Windows lleva CRLF y el que se genera, LF.
+const sinCR = (t) => t.replace(/\r\n/g, '\n');
+
+if (sinCR(nuevo) === sinCR(actual)) {
   console.log('sw.js al día.');
   process.exit(0);
 }

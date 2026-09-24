@@ -243,6 +243,25 @@ const HACHA = { id: 'o1', refId: 'hacha_mano', nombre: 'Hacha de mano', categori
   comprobar(brutal.hechos.some((h) => h.tipo === 'party/despedir') && brutal.hechos.some((h) => h.c?.situacion === 'muerto'),
     'en Brutal, un compañero caído no se levanta');
 
+  // Reclutar se puede en una partida normal. La gente del pueblo empieza
+  // entre 0 y 12: con «neutral = contra 20» solo valía un 20 natural. Y quien
+  // te recomienda alguien que no puede ir, se convence fácil.
+  const umbralAlPedir = (npc) => {
+    let pedido = null;
+    const grupo = Object.create(PartySystem.prototype);
+    grupo.leer = (ruta, d) => ({ 'party.miembros': [], 'player.oro': 0 })[ruta] ?? d;
+    grupo.enGrupo = () => false;
+    grupo.sistema = (n) => (n === 'rules'
+      ? { resolver: (t) => { pedido = t.umbral; return { exito: false, natural: 1, total: 1, umbral: 0 }; } }
+      : null);
+    grupo._ofrecerRelevo = () => null;
+    grupo.reclutar({ refId: 'npc_x', nombre: 'Ulket', rol: 'aprendiz de forja', ...npc });
+    return pedido;
+  };
+  comprobar(umbralAlPedir({ actitud: 8 }) === 'moderada', 'a un vecino neutral se le convence con una tirada moderada', umbralAlPedir({ actitud: 8 }));
+  comprobar(umbralAlPedir({ actitud: -25 }) === 'dificil', 'a quien te tiene manía cuesta más');
+  comprobar(umbralAlPedir({ actitud: 25, recomendadoPor: 'npc_dadar' }) === 'facil', 'al recomendado por quien no puede ir se le convence fácil');
+
   // Las partidas guardadas antes del grupo siguen cargando.
   const viejo = { version: 5, estado: { player: { nombre: 'X' }, meta: {} } };
   const migrado = migrar(viejo);

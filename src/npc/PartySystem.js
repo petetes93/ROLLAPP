@@ -25,11 +25,18 @@ import { concordar } from '../utils/text.js';
 /** Cuántos pueden ir con el personaje a la vez. */
 export const GRUPO_MAX = 3;
 
-/** Lo que cuesta convencer a alguien, según lo bien que le cae el personaje. */
-function umbralPorActitud(actitud = 0) {
+/**
+ * Lo que cuesta convencer a alguien, según lo bien que le cae el personaje.
+ *
+ * La gente del pueblo empieza entre 0 y 12. Con «neutral = difícil (20)» un
+ * personaje de nivel 1 solo reclutaba con un 20 natural: el grupo no se
+ * formaba nunca en una partida normal. Neutral o mejor es moderada (15);
+ * difícil queda para quien te tiene manía.
+ */
+export function umbralPorActitud(actitud = 0) {
   if (actitud >= 40) return 'facil';
-  if (actitud >= 10) return 'moderada';
-  if (actitud >= -20) return 'dificil';
+  if (actitud >= 0) return 'moderada';
+  if (actitud >= -30) return 'dificil';
   return 'ardua';
 }
 
@@ -119,7 +126,9 @@ export class PartySystem extends SystemBase {
 
     const tirada = this.sistema('rules').resolver({
       habilidad: 'trato_social',
-      umbral: umbralPorActitud(npc.actitud),
+      // A quien te recomienda alguien que no puede ir, le vale su palabra:
+      // «pregúntale» tiene que ser una puerta, no otra tirada imposible.
+      umbral: npc.recomendadoPor ? 'facil' : umbralPorActitud(npc.actitud),
       bonoExtra: paga ? 2 : 0,
       fuenteExtra: paga ? 'Pago' : null,
     });
@@ -168,6 +177,7 @@ export class PartySystem extends SystemBase {
     const base = Fabrica.generar(flujo, { lugar: this.leer('world.ubicacion'), rolPreferido: RELEVOS[clave] });
     const nuevo = npcs?.introducir?.({ nombre: base?.nombre, rol: RELEVOS[clave], actitud: 'amable' });
     npcs?.actualizar?.(npc.refId, { ofrecioRelevo: true });
+    if (nuevo?.refId) npcs?.actualizar?.(nuevo.refId, { recomendadoPor: npc.refId });
     return nuevo;
   }
 

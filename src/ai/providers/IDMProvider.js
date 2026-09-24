@@ -264,16 +264,24 @@ export class IDMProvider {
    * @returns {RespuestaTurno}
    */
   turnoMinimo(peticion, motivo) {
-    const accion = peticion?.accion ?? '';
     const tirada = peticion?.tirada;
 
     // Se narra el resultado de la tirada, que el motor ya calculó. Aunque el
     // director esté mudo, la mecánica sigue siendo cierta.
+    // La acción del jugador NO se le devuelve entre comillas.
+    //
+    // Salía «"ataco con el hacha al saqueador más cercano" funciona, aunque
+    // los detalles se pierden en la confusión del momento»: el juego
+    // admitiendo que no sabe qué contar y devolviéndole al jugador sus propias
+    // palabras con un lazo. Y aparecía justo cuando el turno se había perdido,
+    // así que la frase de consuelo era además la señal de que no pasó nada.
+    //
+    // Corta y honesta: sale o no sale.
     let story;
     if (tirada) {
       story = tirada.exito
-        ? `Lo intentas y sale. ${accion ? `«${accion}»` : ''} funciona, aunque los detalles se pierden en la confusión del momento.`
-        : `Lo intentas y no sale. Algo se tuerce y te quedas donde estabas.`;
+        ? 'Sale. No de forma vistosa, pero sale.'
+        : 'No sale. Algo se tuerce y te quedas donde estabas.';
     } else {
       story = 'El momento pasa sin que ocurra nada digno de mención. El mundo sigue a su ritmo.';
     }

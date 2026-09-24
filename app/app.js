@@ -1855,6 +1855,21 @@ async function enviar(texto, intencion) {
   ocultarSugerencias();
   completarEscritura();
 
+  // En combate, la caja principal ES la caja de combate.
+  //
+  // Había dos sitios donde escribir, y el de abajo —el que tiene el foco y el
+  // que la mano busca— no hacía nada: mandaba el texto al turno normal, que
+  // con un combate en curso devolvía «el momento pasa sin que ocurra nada
+  // digno de mención». El jugador describía su jugada, leía una frase de
+  // relleno y ningún punto de vida se movía.
+  //
+  // Una sola caja acaba con el problema de raíz: no se puede escribir en el
+  // sitio equivocado si solo hay un sitio.
+  if (ver('combat.activo', false)) {
+    await accionCombateLibre(accion);
+    return;
+  }
+
   const turns = sistema('turns');
   if (!turns) return;
 
@@ -1907,6 +1922,15 @@ function pintarCombate() {
 
   const activo = ver('combat.activo', false);
   capa.hidden = !activo;
+
+  // La caja de abajo cambia de sombrero. Es la misma caja, pero durante el
+  // combate lo que se escriba ahí va al combate, y conviene que lo diga.
+  const entrada = $('#entrada');
+  if (entrada) {
+    entrada.placeholder = activo
+      ? 'Describe tu jugada: «le lanzo arena a los ojos»…'
+      : 'Escribe lo que haces o dices…';
+  }
 
   if (!activo) return;
 
@@ -2062,14 +2086,13 @@ function pintarCombate() {
       el('button', { class: 'btn btn--fantasma', onClick: protegido('huir', () => accionCombate('huir')) }, 'Huir'),
     ));
 
-    capa.append(el('div', { class: 'combate__libre' },
-      el('input', {
-        id: 'combate-entrada', class: 'entrada', type: 'text',
-        placeholder: 'O describe tu jugada con tus palabras…', maxlength: '180',
-        onKeydown: (e) => { if (e.key === 'Enter') accionCombateLibre(); },
-      }),
-      el('button', { class: 'btn', onClick: protegido('acción libre de combate', accionCombateLibre) }, 'Hacerlo'),
-    ));
+    // Ya no hay segunda caja.
+    //
+    // La había, y era la equivocada: el jugador escribía abajo —donde está el
+    // foco y donde la mano busca— y aquel texto se iba al turno normal, que
+    // devolvía una frase de relleno sin tocar un solo punto de vida. Dos
+    // sitios para escribir lo mismo es una trampa, no una comodidad.
+    capa.append(el('p', { class: 'combate__ayuda', text: 'O describe tu jugada abajo, con tus palabras.' }));
   } else {
     capa.append(el('p', { class: 'combate__espera', text: 'El enemigo actúa…' }));
   }
@@ -2080,8 +2103,8 @@ function pintarCombate() {
   if (parte) parte.scrollTop = parte.scrollHeight;
 }
 
-async function accionCombateLibre() {
-  const texto = ($('#combate-entrada')?.value ?? '').trim();
+async function accionCombateLibre(desdeFuera) {
+  const texto = String(desdeFuera ?? $('#combate-entrada')?.value ?? '').trim();
   if (!texto) return;
   const normal = texto.toLocaleLowerCase('es');
   const tipo = /huir|escap|retir|correr/.test(normal) ? 'huir'

@@ -127,6 +127,9 @@ export class TimeSystem extends SystemBase {
 
     /** Servicios abiertos en la última comprobación. @private */
     this._serviciosAnteriores = null;
+
+    /** Dónde se hizo esa comprobación. @private */
+    this._lugarServicios = null;
   }
 
   /* ═══════════════════════════════════════════════════════════════════════
@@ -325,8 +328,17 @@ export class TimeSystem extends SystemBase {
       .sort()
       .join(',');
 
-    if (this._serviciosAnteriores === null) {
+    // Los cierres se comparan en el MISMO sitio.
+    //
+    // Al salir del pueblo el parte decía «Cierran la fragua, el mercado, la
+    // posada y el templo». No había cerrado nada: el camino no tiene fragua, y
+    // la comparación leía «estaba abierta, ya no está» como un cierre. Cambiar
+    // de lugar reinicia la foto sin narrar nada; solo el reloj cierra puertas.
+    const aqui = this.leer('world.ubicacion');
+
+    if (this._serviciosAnteriores === null || this._lugarServicios !== aqui) {
       this._serviciosAnteriores = abiertos;
+      this._lugarServicios = aqui;
       return;
     }
 
@@ -553,6 +565,7 @@ export class TimeSystem extends SystemBase {
     return {
       estacionAnterior: this._estacionAnterior,
       serviciosAnteriores: this._serviciosAnteriores,
+      lugarServicios: this._lugarServicios,
     };
   }
 
@@ -560,6 +573,9 @@ export class TimeSystem extends SystemBase {
   restaurar(datos) {
     this._estacionAnterior = datos?.estacionAnterior ?? null;
     this._serviciosAnteriores = datos?.serviciosAnteriores ?? null;
+    // Las partidas anteriores no lo guardaban: con `null` la primera
+    // comprobación rehace la foto sin narrar, que es lo seguro.
+    this._lugarServicios = datos?.lugarServicios ?? null;
   }
 
   /** @returns {Object} */

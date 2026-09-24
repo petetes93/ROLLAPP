@@ -140,7 +140,11 @@ function _redactar(clase, datos) {
     .replace('{cantidad}', String(datos.cantidad ?? 1))
     .replace('{objetivo}', datos.nombreObjetivo ?? datos.objetivo ?? 'algo')
     .replace('{destinatario}', datos.nombreDestinatario ?? datos.destinatario ?? 'alguien')
-    .replace('{texto}', datos.descripcion ?? 'Hacer lo que haga falta'), 140);
+    .replace('{texto}', datos.descripcion ?? 'Hacer lo que haga falta')
+    // «Llegar a El Vado» → «Llegar al Vado»: los nombres de lugar llevan
+    // artículo y la plantilla los pone a media frase.
+    .replace(/\b(a|de) El\b/g, (_, p) => (p === 'a' ? 'al' : 'del'))
+    .replace(/\b(a|de|con|en|por|hacia) (La|Los|Las)\b/g, (_, p, art) => `${p} ${art.toLowerCase()}`), 140);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

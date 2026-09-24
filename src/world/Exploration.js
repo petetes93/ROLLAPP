@@ -26,6 +26,7 @@ import { SystemBase } from '../core/SystemBase.js';
 import * as Tablas from './EncounterTables.js';
 import * as Mapa from './MapGraph.js';
 import { obtenerLugar } from '../data/locations.data.js';
+import { MUNDO } from '../config/balance.config.js';
 
 /** Eventos publicados. */
 export const EVENTOS_EXPLORACION = Object.freeze({
@@ -56,10 +57,42 @@ export class Exploration extends SystemBase {
      ═══════════════════════════════════════════════════════════════════════ */
 
   alIniciar() {
+    this.reductores({
+      'exploracion/turno': (estado) => ({
+        world: { turnosDesdeEncuentro: (estado.world?.turnosDesdeEncuentro ?? 0) + 1 },
+      }),
+      'exploracion/encuentro': () => ({ world: { turnosDesdeEncuentro: 0 } }),
+    });
+
     // El viaje delega aquí sus encuentros.
     this.escuchar('exploration:encounter:trigger', ({ encuentro, contexto }) => {
       this._presentar(encuentro, contexto);
     });
+  }
+
+  /** Cada turno cuenta para el periodo de gracia entre encuentros. */
+  alTurno() {
+    this.despachar('exploracion/turno');
+  }
+
+  /**
+   * ¿Toca un encuentro aleatorio?
+   *
+   * Es la única puerta por la que pasan los encuentros de explorar y los de
+   * viajar. Aplica la intensidad elegida —en Pacífica casi no hay— y el
+   * periodo de gracia, que existía en la configuración y no hacía cumplir
+   * nadie: podía saltar un encuentro detrás de otro.
+   *
+   * @param {number} probabilidad La del sitio y el momento, antes de la intensidad.
+   * @param {import('../core/RNG.js').Flujo} flujo
+   * @returns {boolean}
+   */
+  tocaEncuentro(probabilidad, flujo) {
+    const intensidad = this.leer('settings.dificultad', 'equilibrado');
+    const regla = MUNDO.exploracion.porIntensidad[intensidad] ?? MUNDO.exploracion.porIntensidad.equilibrado;
+
+    if (this.leer('world.turnosDesdeEncuentro', 0) < regla.gracia) return false;
+    return flujo.oportunidad(Math.min(0.5, probabilidad * regla.factor));
   }
 
   /* ═══════════════════════════════════════════════════════════════════════
@@ -91,7 +124,7 @@ export class Exploration extends SystemBase {
 
     const probabilidad = Math.min(0.35, (peligro + (efectos.peligroRutas ?? 0)) * 0.07);
 
-    if (flujo.oportunidad(probabilidad)) {
+    if (this.tocaEncuentro(probabilidad, flujo)) {
       const encuentro = this.generarEncuentro({ terreno: lugar?.terreno, peligro });
 
       if (encuentro) {
@@ -323,6 +356,9 @@ export class Exploration extends SystemBase {
    * @private
    */
   _presentar(encuentro, contexto = {}) {
+    // Empieza el periodo de gracia hasta el siguiente.
+    this.despachar('exploracion/encuentro');
+
     this._encuentro = {
       ...encuentro,
       contexto,

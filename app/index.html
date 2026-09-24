@@ -748,6 +748,14 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
 .ajuste{margin-bottom:1rem}
 .ajuste__opciones{display:flex;flex-wrap:wrap;gap:.4rem}
 .ajuste__opcion{padding:.45rem .7rem;min-height:0}
+.intensidad{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
+.intensidad__opcion{display:flex;flex-direction:column;gap:.25rem;padding:.7rem .75rem;text-align:left;border:1px solid rgba(216,173,80,.2);border-radius:var(--r);background:rgba(255,255,255,.02);color:var(--texto-2);cursor:pointer;min-height:0}
+.intensidad__opcion:hover{border-color:rgba(216,173,80,.45)}
+.intensidad__opcion.es-activa{border-color:#D8AD50;background:rgba(216,173,80,.09);color:#E4D9C1}
+.intensidad__opcion:focus-visible{outline:2px solid #D8AD50;outline-offset:2px}
+.intensidad__nombre{font:600 .9rem var(--mono);letter-spacing:.06em;color:#E4D9C1}
+.intensidad__texto{font-size:.82rem;line-height:1.4}
+@media(max-width:560px){.intensidad{grid-template-columns:1fr}}
 </style>
 <style id="texto-y-sugerencias">
 /* Cuerpo un poco mayor y capitular 1-2 px menor: misma estética, más legible. */

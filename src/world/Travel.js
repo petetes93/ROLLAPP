@@ -400,7 +400,13 @@ export class Travel extends SystemBase {
     if (climaEfectos.encuentrosSorpresa) probabilidad *= climaEfectos.encuentrosSorpresa;
     if (efectos.encuentrosHostiles) probabilidad *= efectos.encuentrosHostiles;
 
-    if (!flujo.oportunidad(Math.min(probabilidad, 0.5))) return null;
+    // La intensidad de la partida y el periodo de gracia se aplican en un
+    // solo sitio para explorar y para viajar.
+    const exploracion = this.sistema('exploration');
+    const toca = exploracion?.tocaEncuentro
+      ? exploracion.tocaEncuentro(probabilidad, flujo)
+      : flujo.oportunidad(Math.min(probabilidad, 0.5));
+    if (!toca) return null;
 
     // El sistema de encuentros elige cuál.
     return this.sistema('exploration')?.generarEncuentro({

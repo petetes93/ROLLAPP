@@ -634,6 +634,20 @@ export const MUNDO = congelar({
     probabilidadHallazgo: 0.25,
     /** Turnos mínimos entre dos encuentros para evitar acoso. */
     turnosGracia: 3,
+    /**
+     * Encuentros aleatorios según la intensidad elegida al crear la partida.
+     *
+     * `factor` multiplica la probabilidad de cada tirada; `gracia` son los
+     * turnos que tienen que pasar tras un encuentro (y al empezar) antes de que
+     * pueda haber otro. En Pacífica la gracia es larga a propósito: en treinta
+     * turnos cabe como mucho uno.
+     */
+    porIntensidad: {
+      relato: { factor: 0.35, gracia: 16 },
+      equilibrado: { factor: 1, gracia: 3 },
+      duro: { factor: 1.2, gracia: 2 },
+      implacable: { factor: 1.4, gracia: 1 },
+    },
   },
 });
 

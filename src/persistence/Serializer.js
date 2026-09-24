@@ -128,7 +128,12 @@ export function cabecera(estado, nota) {
     clase: jugador.clase ?? null,
     // Para dibujar el rostro en «Cargar» sin deserializar la partida.
     retrato: jugador.retrato ?? '',
+    genero: jugador.genero ?? null,
+    semillaRetrato: jugador.semillaRetrato ?? null,
     personajeId: estado.meta?.personajeId ?? null,
+
+    // La intensidad elegida al crearla: «Nivel 3 · El Vado · Pacífica».
+    intensidad: estado.settings?.dificultad ?? 'equilibrado',
 
     lugar: mundo.ubicacion
       ? (mundo.localizaciones?.porId?.[mundo.ubicacion]?.nombre ?? mundo.ubicacion)

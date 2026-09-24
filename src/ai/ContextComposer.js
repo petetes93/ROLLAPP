@@ -170,6 +170,16 @@ export class ContextComposer {
     bloques.push('', `Extensión de la narración: alrededor de ${longitud.objetivo} palabras (entre ${longitud.min} y ${longitud.max}).`);
     bloques.push(`Ofrece entre ${DIRECTOR.opciones.min} y ${DIRECTOR.opciones.max} opciones.`);
 
+    // La intensidad que el jugador eligió al crear la partida cambia el tono,
+    // no las reglas: eso ya lo hacen los dados y los encuentros.
+    const TONO = {
+      relato: 'INTENSIDAD: Pacífica. La historia manda. Cuenta las peleas con elipsis, sin recrearte en heridas ni sangre, y prefiere salidas que no pasen por el acero.',
+      duro: 'INTENSIDAD: Dura. El mundo no regala nada: las heridas pesan y se notan.',
+      implacable: 'INTENSIDAD: Brutal. El mundo muerde. Las heridas se notan, los errores cuestan y nadie está a salvo por ser protagonista.',
+    };
+    const tono = TONO[this.store.select('settings.dificultad', 'equilibrado')];
+    if (tono) bloques.push('', tono);
+
     bloques.push('', instruccionesContrato());
 
     return bloques.join('\n');

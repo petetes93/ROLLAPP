@@ -175,6 +175,9 @@ try {
   if (tiradas.size < 3) throw new Error(`el generador aleatorio no varía: ${[...tiradas]}`);
   await evaluate(`(()=>{const fill=(q,v)=>{const n=document.querySelector(q);n.value=v;n.dispatchEvent(new Event('input',{bubbles:true}))};fill('#nombre','Lyra');fill('#retrato-descripcion','elfa exploradora de pelo plateado, ojos azul brillante, cicatriz en la ceja y armadura de cuero negro');fill('#lore-personaje','Mi hermana cruzó el Umbral con nuestro medallón. La busco desde entonces.');})()`);
   await shot(`02a-creacion-${viewport.label}.png`);
+  // Intensidad elegida en la creación: Pacífica. Se comprueba al empezar que
+  // llega a la partida y, tras 30 turnos, que casi no ha habido encuentros.
+  await evaluate(`document.querySelector('[data-intensidad="relato"]').click()`);
   await evaluate(`document.querySelector('#creacion-crear').click()`);
   await until('document.querySelector("#creacion-empezar") && document.querySelector("#creacion-cara .arte")');
   // Mismo criterio de dos vías que abajo: la cicatriz vectorial vale, y la
@@ -239,6 +242,9 @@ try {
   // Y se empieza escribiendo, sin buscar el botón.
   await escribirCambio('vale, empezamos');
   await until('document.body.dataset.activeScreen === "juego" && !document.querySelector("#entrada").disabled && ARCANVEIL.sistema("turns").inspeccionar().ocupado === false && ARCANVEIL.ver("narrative.entradas",[]).length > 0 && ARCANVEIL.ver("player.lore","").includes("hermana")', 15000);
+  const intensidad = await evaluate(`ARCANVEIL.ver('settings.dificultad')`);
+  if (intensidad !== 'relato') throw new Error(`la partida empezó en ${intensidad}, no en Pacífica`);
+  await evaluate(`window.__encuentros = 0; ARCANVEIL.bus.on('exploration:encounter', () => { window.__encuentros += 1; })`);
   const aperturaLore = await evaluate(`({texto:ARCANVEIL.ver('narrative.entradas',[]).map(e=>e.texto??'').join(' '), memoria:ARCANVEIL.ver('ai.memoria.hilos',[])})`);
   if (!/hermana|medallón|Umbral/i.test(aperturaLore.texto)) throw new Error('la apertura procedural ignoró el lore');
   if (!aperturaLore.memoria.some(h => h.relacionadoCon === 'player_lore')) throw new Error('el lore no abrió un hilo persistente');
@@ -286,6 +292,15 @@ try {
     .filter(t => /Tu pasado no te ha dejado llegar|Hay una razón personal detrás|Lo que dejaste atrás sigue viajando/.test(t))
     .length`);
   if (aperturas !== 1) throw new Error(`la apertura desde el lore salió ${aperturas} veces`);
+
+  // Pacífica: en los treinta primeros turnos, como mucho un encuentro.
+  for (let i = 0; i < 10; i += 1) {
+    await evaluate(`ARCANVEIL.jugar('exploro los alrededores con calma')`);
+  }
+  const encuentros = await evaluate('window.__encuentros');
+  const turnosJugados = await evaluate(`ARCANVEIL.ver('meta.turno', 0)`);
+  if (turnosJugados < 30) throw new Error(`solo se jugaron ${turnosJugados} turnos`);
+  if (encuentros > 1) throw new Error(`en Pacífica hubo ${encuentros} encuentros en ${turnosJugados} turnos`);
 
   // Guardar un arma no se tira ni suena, y se narra con lo que se lleva.
   const gesto = await evaluate(`(async () => {

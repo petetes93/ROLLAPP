@@ -363,7 +363,7 @@ function pintarCargar() {
         el('span', { class: 'tarjeta-pj__texto' },
           el('strong', { class: 'tarjeta-pj__nombre', text: c.nombre ?? 'Sin nombre' }),
           el('span', { class: 'tarjeta-pj__dato', text: `Nivel ${c.nivel ?? 1} · ${RAZAS[c.raza]?.nombre ?? ''} · ${CLASES[c.clase]?.nombre ?? ''}` }),
-          el('span', { class: 'tarjeta-pj__dato tarjeta-pj__dato--tenue', text: `${c.lugar ?? ''} · día ${c.dia ?? 1} · ${fecha}` }),
+          el('span', { class: 'tarjeta-pj__dato tarjeta-pj__dato--tenue', text: `${c.lugar ?? ''} · ${nombreIntensidad(c.intensidad)} · día ${c.dia ?? 1} · ${fecha}` }),
         ),
       ),
       el('button', {
@@ -446,7 +446,7 @@ function pintarPersonajes(elegidoId) {
 
 const borrador = {
   nombre: '', raza: 'valdes', clase: 'rastreador', trasfondo: 'errante',
-  genero: 'm', retrato: '', lore: '',
+  genero: 'm', retrato: '', lore: '', intensidad: 'equilibrado',
 };
 
 /** Personaje recién creado que se enseña con su ilustración. */
@@ -535,6 +535,7 @@ function pintarCreacion() {
       }),
       el('p', { class: 'campo__ayuda', text: 'El máster convertirá personas, promesas, lugares y conflictos de esta historia en la campaña.' }),
     ),
+    campoIntensidad(),
   );
 
   const pie = $('#creacion-pie');
@@ -542,6 +543,56 @@ function pintarCreacion() {
   pie.append(
     el('button', { class: 'btn btn--fantasma', id: 'creacion-volver', onClick: protegido('volver', () => (listarPersonajes().length ? abrirNuevaPartida() : mostrar('inicio'))) }, 'Atrás'),
     el('button', { class: 'btn btn--grande', id: 'creacion-crear', onClick: protegido('crear personaje', crearPersonajeNuevo) }, 'Crear personaje'),
+  );
+}
+
+/**
+ * Las tres intensidades que se ofrecen al crear, con texto de mesa.
+ *
+ * Se guardan en `settings.dificultad` con sus claves del motor. «Duro» queda
+ * en Ajustes para quien lo quiera: aquí se elige entre tres, que es lo que se
+ * decide bien sin conocer todavía el juego.
+ */
+const INTENSIDADES = Object.freeze([
+  { valor: 'relato', nombre: 'Pacífica', texto: 'La historia manda y casi no hay peleas.' },
+  { valor: 'equilibrado', nombre: 'Equilibrada', texto: 'Aventura con riesgo: se pelea cuando toca.' },
+  { valor: 'implacable', nombre: 'Brutal', texto: 'El mundo muerde y caer tiene precio.' },
+]);
+
+/** Nombre de mesa de una intensidad, incluido «Dura», que solo está en Ajustes. */
+function nombreIntensidad(valor) {
+  return INTENSIDADES.find((i) => i.valor === valor)?.nombre
+    ?? ({ duro: 'Dura' })[valor]
+    ?? 'Equilibrada';
+}
+
+/** Selector de intensidad de la creación. */
+function campoIntensidad() {
+  const elegida = borrador.intensidad ?? 'equilibrado';
+  const grupo = el('div', { class: 'intensidad', role: 'radiogroup', 'aria-labelledby': 'intensidad-eti', id: 'intensidad' });
+
+  for (const i of INTENSIDADES) {
+    grupo.append(el('button', {
+      type: 'button', role: 'radio',
+      class: `intensidad__opcion${i.valor === elegida ? ' es-activa' : ''}`,
+      'aria-checked': String(i.valor === elegida),
+      'data-intensidad': i.valor,
+      onClick: (e) => {
+        borrador.intensidad = i.valor;
+        for (const b of grupo.querySelectorAll('button')) {
+          const activa = b === e.currentTarget;
+          b.classList.toggle('es-activa', activa);
+          b.setAttribute('aria-checked', String(activa));
+        }
+      },
+    },
+    el('strong', { class: 'intensidad__nombre', text: i.nombre }),
+    el('span', { class: 'intensidad__texto', text: i.texto })));
+  }
+
+  return el('div', { class: 'campo' },
+    el('p', { class: 'campo__eti', id: 'intensidad-eti', text: 'Intensidad' }),
+    grupo,
   );
 }
 
@@ -633,7 +684,7 @@ function pintarRevelacion(p, eco = null) {
   const caja = $('#creacion-cuerpo');
   vaciar(caja);
   $('#creacion-titulo').textContent = p.nombre;
-  $('#creacion-nota').textContent = `${RAZAS[p.raza]?.nombre ?? ''} · ${CLASES[p.clase]?.nombre ?? ''} · ${TRASFONDOS[p.trasfondo]?.nombre ?? ''} · nivel 1`;
+  $('#creacion-nota').textContent = `${RAZAS[p.raza]?.nombre ?? ''} · ${CLASES[p.clase]?.nombre ?? ''} · ${TRASFONDOS[p.trasfondo]?.nombre ?? ''} · nivel 1 · ${nombreIntensidad(p.intensidad)}`;
 
   const cara = el('div', { class: 'eleccion__cara revelacion__cara', id: 'creacion-cara' });
   const estado = el('p', { class: 'revelacion__estado', id: 'retrato-estado', text: 'La IA está pintando tu retrato…' });
@@ -806,6 +857,9 @@ async function comenzarPartida(p) {
   activarPersistencia();
   store.fijar('meta.ranura', ranuraParaPartidaNueva());
   store.fijar('meta.personajeId', p.id);
+  // La intensidad elegida al crear es de esta partida: la leen los encuentros,
+  // el tamaño de los grupos, la caída y el tono del narrador.
+  store.fijar('settings.dificultad', p.intensidad ?? 'equilibrado');
 
   store.dispatch('player/crear', {
     borrador: {
@@ -866,7 +920,29 @@ function abrirAjustes() {
     }, eti))),
   );
 
+  // La intensidad es de la partida en curso, no una preferencia del
+  // navegador: se guarda con ella. Aquí están las cuatro, «Dura» incluida,
+  // que en la creación no se ofrece.
+  const enPartida = Boolean(ver('player.raza'));
+  const actual = ver('settings.dificultad', 'equilibrado');
+  const intensidad = enPartida
+    ? el('div', { class: 'ajuste' },
+      el('p', { class: 'sub-eti', text: 'Intensidad de esta partida' }),
+      el('div', { class: 'ajuste__opciones', id: 'ajuste-intensidad' },
+        ...['relato', 'equilibrado', 'duro', 'implacable'].map((valor) => el('button', {
+          class: `ficha ajuste__opcion${valor === actual ? ' es-elegida' : ''}`,
+          dataset: { intensidad: valor },
+          onClick: protegido('cambiar intensidad', () => {
+            store.fijar('settings.dificultad', valor);
+            guardarPartidaActual();
+            abrirAjustes();
+          }),
+        }, nombreIntensidad(valor)))),
+    )
+    : null;
+
   caja.append(
+    intensidad,
     grupo('Aparición del texto', 'velocidadTexto', [['lenta', 'Pausada'], ['normal', 'Normal'], ['rapida', 'Rápida'], ['instantanea', 'Instantánea']]),
     grupo('Sugerencias si no escribes', 'esperaSugerencias', [[5, 'A los 5 s'], [7, 'A los 7 s'], [10, 'A los 10 s'], [0, 'Nunca']]),
     el('div', { class: 'ajuste' },
@@ -1162,7 +1238,7 @@ function abrirCaida(motivo) {
 
   bloquear(true);
 
-  const dificultad = leerAjustes().dificultad ?? 'equilibrado';
+  const dificultad = ver('settings.dificultad', 'equilibrado');
   const implacable = dificultad === 'implacable';
 
   $('#caida-nota').textContent = implacable

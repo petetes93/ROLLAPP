@@ -23,6 +23,7 @@ import { resultadosDe, categoriaDe, RESULTADOS } from '../src/data/narrative.tem
 import { IDMProvider } from '../src/ai/providers/IDMProvider.js';
 import { ProceduralProvider } from '../src/ai/providers/ProceduralProvider.js';
 import { esGolpe } from '../src/ai/Cadencia.js';
+import { Exploration } from '../src/world/Exploration.js';
 
 let fallos = 0;
 
@@ -199,6 +200,48 @@ const HACHA = { id: 'o1', refId: 'hacha_mano', nombre: 'Hacha de mano', categori
   const conPosadera = await turno([{ nombre: 'Maela', rol: 'posadera' }], { habilidad: 'trato_social', exito: true });
   comprobar(!/No hay/.test(conPosadera.story) && /Maela/.test(conPosadera.story),
     'si hay posadera, «el tabernero» es ella', conPosadera.story);
+}
+
+/* ── La intensidad manda en los encuentros ──────────────────────────────── */
+
+/**
+ * Treinta turnos con un dado que SIEMPRE dice que sí: lo único que puede
+ * frenar los encuentros es la intensidad. Así la cuenta no depende de la
+ * suerte y la prueba no pasa por casualidad.
+ */
+function encuentrosEn30(dificultad) {
+  const estado = { settings: { dificultad }, world: { turnosDesdeEncuentro: 0 } };
+  const exploracion = Object.create(Exploration.prototype);
+  exploracion.leer = (ruta, porDefecto) => ruta.split('.').reduce((o, k) => o?.[k], estado) ?? porDefecto;
+
+  const probabilidades = [];
+  const siempre = { oportunidad: (p) => { probabilidades.push(p); return true; } };
+  let encuentros = 0;
+
+  for (let turno = 1; turno <= 30; turno += 1) {
+    estado.world.turnosDesdeEncuentro += 1;            // lo que hace alTurno
+    if (exploracion.tocaEncuentro(0.35, siempre)) {
+      encuentros += 1;
+      estado.world.turnosDesdeEncuentro = 0;           // lo que hace _presentar
+    }
+  }
+  return { encuentros, probabilidad: probabilidades[0] ?? 0 };
+}
+
+{
+  const pacifica = encuentrosEn30('relato');
+  const equilibrada = encuentrosEn30('equilibrado');
+  const brutal = encuentrosEn30('implacable');
+
+  comprobar(pacifica.encuentros <= 1, 'Pacífica: como mucho un encuentro en 30 turnos', `hubo ${pacifica.encuentros}`);
+  comprobar(equilibrada.encuentros > pacifica.encuentros && brutal.encuentros > equilibrada.encuentros,
+    'más intensidad, más encuentros posibles',
+    `pacífica ${pacifica.encuentros}, equilibrada ${equilibrada.encuentros}, brutal ${brutal.encuentros}`);
+  comprobar(pacifica.probabilidad < equilibrada.probabilidad && equilibrada.probabilidad < brutal.probabilidad,
+    'y cada tirada es más o menos probable según la intensidad',
+    `${pacifica.probabilidad.toFixed(3)} < ${equilibrada.probabilidad.toFixed(3)} < ${brutal.probabilidad.toFixed(3)}`);
+  // Gracia de 3 turnos: como mucho uno cada tres, 10 en 30. Sin gracia serían 30.
+  comprobar(equilibrada.encuentros <= 10, 'hay periodo de gracia también en Equilibrada', `hubo ${equilibrada.encuentros}`);
 }
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);

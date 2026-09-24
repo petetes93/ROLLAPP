@@ -60,6 +60,7 @@ import { CLASES } from '../src/data/classes.data.js';
 import { TRASFONDOS } from '../src/data/backgrounds.data.js';
 import { obtenerLugar } from '../src/data/locations.data.js';
 import { ESTADOS } from '../src/data/statuses.data.js';
+import { importarHistoria } from '../src/ai/Importar.js';
 import * as Comb from '../src/combat/Combatant.js';
 import { PROVEEDORES } from '../src/config/ai.config.js';
 import {
@@ -470,6 +471,18 @@ function pintarCreacion() {
 
   caja.append(el('div', { class: 'aleatoria', id: 'ficha-aleatoria' }));
   pintarFichaAleatoria();
+
+  // Traer una partida que ya existe.
+  //
+  // Va arriba del todo porque quien llega con una historia escrita no quiere
+  // empezar rellenando campos: quiere pegarla y seguir jugando.
+  caja.append(el('div', { class: 'campo' },
+    el('button', {
+      class: 'btn btn--fantasma', id: 'creacion-importar',
+      onClick: protegido('importar historia', abrirImportar),
+    }, 'Ya tengo una historia'),
+    el('p', { class: 'campo__ayuda', text: 'Pega una partida de otro sitio y el juego la lee: personajes, lugares y lo que quedó pendiente.' }),
+  ));
 
   caja.append(
     el('div', { class: 'campo' },
@@ -982,6 +995,147 @@ function escribirSiguiente() {
 }
 
 /* ── bitácora ─────────────────────────────────────────────────────────── */
+
+/* ── traer una historia de fuera ───────────────────────────────────────── */
+
+/** Lo último que se leyó, para no reanalizar al confirmar. */
+let historiaLeida = null;
+
+/** Abre el modal de importación, vacío. */
+function abrirImportar() {
+  historiaLeida = null;
+  const texto = $('#importar-texto');
+  if (texto) texto.value = '';
+  vaciar($('#importar-resultado'));
+  $('#importar-modal').hidden = false;
+}
+
+/**
+ * Lee lo pegado y enseña lo que ha entendido, sin aplicar nada todavía.
+ *
+ * La vista previa no es un adorno. El jugador acaba de pegar meses de partida
+ * y tiene que ver que el juego ha entendido a SU gente antes de dejarle tocar
+ * nada. Si se equivoca de protagonista, que lo vea aquí y no tres turnos
+ * después, con la partida ya empezada.
+ */
+function leerHistoriaPegada() {
+  const bruto = $('#importar-texto')?.value ?? '';
+  const caja = $('#importar-resultado');
+  vaciar(caja);
+
+  const r = importarHistoria(bruto);
+  historiaLeida = r;
+
+  if (r.vacio) {
+    caja.append(el('p', { class: 'modal__error', text: 'Hace falta algo más de texto: con menos de cuarenta palabras no hay historia que leer.' }));
+    return;
+  }
+
+  const personas = r.personajes.filter((p) => p.tipo === 'persona');
+
+  if (!personas.length) {
+    caja.append(el('p', { class: 'modal__error', text: 'No he encontrado personajes. Si el texto los marca con guiones de diálogo («Nombre:»), se reconocen mejor.' }));
+    return;
+  }
+
+  caja.append(el('p', { class: 'sub-eti', text: `He leído ${r.palabras} palabras. ¿Quién eres tú?` }));
+
+  // Elegir protagonista: el juego propone, decide el jugador. Acertar casi
+  // siempre significa equivocarse a veces con el personaje de alguien, y eso
+  // es lo único que no se puede fallar aquí.
+  const lista = el('div', { class: 'etiquetas', id: 'importar-quien' });
+  const pie = el('p', { class: 'campo__ayuda', id: 'importar-otros' });
+
+  // El pie se recalcula al elegir: decía «los demás» y los listaba a todos,
+  // incluido el que acabas de marcar como tú mismo.
+  const refrescarOtros = (elegido) => {
+    const otros = personas.filter((p) => p.nombre !== elegido).map((p) => p.nombre);
+    pie.textContent = otros.length
+      ? `Los demás entran como gente que ya conoces: ${otros.slice(0, 6).join(', ')}.`
+      : 'No hay nadie más en la historia.';
+  };
+
+  for (const [i, p] of personas.entries()) {
+    const marcado = p.protagonistaProbable || (i === 0 && !personas.some((x) => x.protagonistaProbable));
+
+    lista.append(el('button', {
+      class: `btn btn--pequeno${marcado ? ' es-activo' : ''}`,
+      'data-quien': p.nombre,
+      onClick: (e) => {
+        for (const b of lista.querySelectorAll('button')) b.classList.remove('es-activo');
+        e.currentTarget.classList.add('es-activo');
+        refrescarOtros(p.nombre);
+      },
+    }, p.nombre));
+  }
+
+  caja.append(lista, pie);
+  refrescarOtros(personas.find((p) => p.protagonistaProbable)?.nombre ?? personas[0].nombre);
+
+  if (r.hilos.length) {
+    caja.append(el('p', { class: 'sub-eti', text: 'Quedó pendiente' }));
+    for (const h of r.hilos) caja.append(el('p', { class: 'campo__ayuda', text: `· ${h}` }));
+  }
+
+  caja.append(el('div', { class: 'modal__acciones' },
+    el('button', { class: 'btn btn--grande', id: 'importar-aplicar', onClick: protegido('aplicar historia', aplicarHistoria) }, 'Continuar desde aquí'),
+  ));
+}
+
+/**
+ * Vuelca lo leído en la ficha y en el canon.
+ *
+ * El protagonista rellena el nombre y la historia; los demás entran al canon
+ * como gente conocida, para que el director pueda nombrarlos desde el primer
+ * turno diciendo de ellos lo que el propio jugador escribió.
+ *
+ * La descripción física NO se toca: de un texto narrativo no se saca el
+ * aspecto de forma fiable, y lo que se pinte tiene que ser lo que él quiera
+ * ver. Ese campo lo sigue escribiendo él.
+ */
+function aplicarHistoria() {
+  if (!historiaLeida) return;
+
+  const elegido = $('#importar-quien button.es-activo')?.dataset.quien;
+  if (!elegido) { avisar('Elige quién eres tú.', 'aviso'); return; }
+
+  const yo = historiaLeida.personajes.find((p) => p.nombre === elegido);
+  const otros = historiaLeida.personajes.filter((p) => p.nombre !== elegido);
+
+  // Ficha del protagonista.
+  const nombre = $('#nombre');
+  if (nombre) { nombre.value = elegido.slice(0, 28); nombre.dispatchEvent(new Event('input', { bubbles: true })); }
+
+  const lore = $('#lore-personaje');
+  if (lore) {
+    const partes = [...(yo?.notas ?? [])];
+
+    const compas = otros.filter((p) => p.tipo === 'persona').slice(0, 4).map((p) => p.nombre);
+    if (compas.length) partes.push(`Viaja con ${compas.join(', ')}.`);
+    if (historiaLeida.hilos.length) partes.push(`Quedó pendiente: ${historiaLeida.hilos[0]}.`);
+
+    lore.value = partes.join(' ').slice(0, 1200);
+    lore.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  // El resto de la gente y los sitios, al canon. Se hace por el bus para no
+  // atarse a cómo guarda la memoria por dentro.
+  for (const p of otros) {
+    bus.emit('canon:registrar', {
+      nombre: p.nombre,
+      tipo: p.tipo,
+      rasgos: [],
+      nota: p.notas[0] ?? '',
+    });
+  }
+
+  for (const h of historiaLeida.hilos) {
+    bus.emit('memory:thread', { tipo: 'misterio', texto: h, relacionadoCon: 'historia_importada' });
+  }
+
+  $('#importar-modal').hidden = true;
+  avisar(`Historia leída: ${elegido} y ${otros.length} más.`, 'exito');
+}
 
 /* ── modales: Escape, foco atrapado y foco devuelto ────────────────────── */
 
@@ -1851,6 +2005,9 @@ function conectarEventos() {
   });
 
   conectarModales();
+
+  $('#importar-cerrar')?.addEventListener('click', () => { $('#importar-modal').hidden = true; });
+  $('#importar-leer')?.addEventListener('click', protegido('leer historia', leerHistoriaPegada));
 
   $('#sugerencias-cerrar')?.addEventListener('click', () => ocultarSugerencias());
   bus.on('combat:start', () => ocultarSugerencias());

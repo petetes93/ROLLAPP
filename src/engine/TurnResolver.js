@@ -123,7 +123,15 @@ export class TurnResolver extends SystemBase {
 
     // Al empezar partida, la memoria se vacía.
     this.escuchar('player:created', () => {
+      // Lo importado sobrevive: se registra ANTES de crear el personaje —el
+      // jugador pega su historia y luego rellena la ficha— así que un
+      // `limpiar()` a secas se llevaba por delante a toda su gente justo
+      // después de habérsela leído. Lo de partidas anteriores sí se va,
+      // porque viene de turnos jugados y no lleva esta marca.
+      const importado = this.memoria.canon.filter((c) => c.origen === 'importado');
+
       this.memoria.limpiar();
+      this.memoria.canon = importado;
       // La historia libre no es decoración del prompt: nace como hilo real de
       // memoria incluso con el director procedural y sobrevive a los turnos.
       const lore = String(this.leer('player.lore', '') ?? '').trim();
@@ -150,6 +158,15 @@ export class TurnResolver extends SystemBase {
     // decían nada.
     this.escuchar('memory:context', ({ texto, temporal = true }) => {
       this.memoria.anotarContexto(texto, { temporal });
+    });
+
+    // Canon que no viene de un turno: la gente y los sitios de una historia
+    // que el jugador trae escrita de otro sitio. Entran igual que si los
+    // hubiera nombrado jugando, porque para el juego es lo mismo.
+    this.escuchar('canon:registrar', (entidad) => {
+      const { entrada } = this.memoria.registrarCanon(entidad, this.leer('meta.turno', 0));
+      if (entrada) entrada.origen = entidad.origen ?? 'importado';
+      this.store.fijar('ai.memoria', this.memoria.serializar());
     });
   }
 

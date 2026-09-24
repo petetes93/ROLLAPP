@@ -21,6 +21,7 @@
 
 import { leerTurno } from '../src/ai/Cronica.js';
 import { MemoryStore } from '../src/ai/MemoryStore.js';
+import { importarHistoria } from '../src/ai/Importar.js';
 
 let fallos = 0;
 
@@ -93,6 +94,61 @@ comprobar('la primera nota sigue siendo la primera', v.notas[0], 'quemo mi forja
 
 const restaurada = MemoryStore.restaurar(JSON.parse(JSON.stringify(mem.serializar())));
 comprobar('el canon se guarda y vuelve', restaurada.deCanon('Verros')?.notas.length, 2);
+
+/* ── 4. Importar una historia escrita fuera ─────────────────────────────── */
+
+// Un volcado como los de verdad: guiones de dialogo, personajes que solo
+// aparecen narrados y la morralla que arrastra una pagina compartida.
+const VOLCADO = [
+  'Esta es una copia de un chat compartido de ChatGPT. No se anadira a la memoria.',
+  '',
+  'Miras rapidamente hacia tus companeros.',
+  '',
+  'Lyssara esta apoyada contra una pared, respirando con dificultad.',
+  '',
+  'Caelion permanece medio tumbado en el suelo, demasiado agotado para levantarse.',
+  '',
+  'Dhorak observa la situacion desde la forja.',
+  '',
+  'Aethor:',
+  '',
+  '-Perdonadme...',
+  '',
+  'Lyssara:',
+  '',
+  '-¿Aethor...?',
+  '',
+  'Dhorak:',
+  '',
+  '-Todo poder tiene un precio.',
+  '',
+  'Caelion:',
+  '',
+  '-¿Que ocurre?',
+  '',
+  'ChatGPT es una IA y puede equivocarse.',
+].join('\n');
+
+const imp = importarHistoria(VOLCADO);
+const nombres = imp.personajes.map((p) => p.nombre);
+
+comprobar('encuentra a toda la compania',
+  ['Aethor', 'Lyssara', 'Caelion', 'Dhorak'].every((n) => nombres.includes(n)), true);
+
+// A Aethor lo LLAMAN por su nombre dentro de un dialogo. Es la unica señal que
+// distingue al protagonista del que mas habla.
+comprobar('propone al que los demas llaman',
+  imp.personajes.find((p) => p.protagonistaProbable)?.nombre, 'Aethor');
+
+comprobar('la morralla del volcado no es un personaje',
+  nombres.some((n) => /ChatGPT|Esta|Informar|Miras/i.test(n)), false);
+
+comprobar('la nota no repite el nombre',
+  imp.personajes.find((p) => p.nombre === 'Lyssara')?.notas[0],
+  'esta apoyada contra una pared, respirando con dificultad');
+
+comprobar('recoge lo que quedo pendiente', imp.hilos.length > 0, true);
+comprobar('un texto corto no es una historia', importarHistoria('Hola').vacio, true);
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);
 process.exit(fallos ? 1 : 0);

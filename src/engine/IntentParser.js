@@ -54,7 +54,18 @@ export const INTENCIONES = Object.freeze({
       atacar: 10, ataco: 10, golpear: 7, golpeo: 7, pegar: 6,
       apuñalar: 9, acuchillar: 9, disparar: 9, lanzar: 5, matar: 9,
       embestir: 8, cargar: 6, arremeter: 8, herir: 7, abatir: 8,
-      espada: 4, arma: 3, flecha: 5,
+      // Las formas en primera, que son las que se escriben de verdad: nadie
+      // teclea «disparar una flecha», teclea «disparo una flecha».
+      apuñalo: 9, acuchillo: 9, disparo: 9, mato: 9, embisto: 8,
+      arremeto: 8, hiero: 7, abato: 8, desenvaino: 6, remato: 8,
+      // Los nombres de arma acompañan a un ataque, pero no lo declaran.
+      //
+      // Con su peso anterior bastaba nombrarlas: «guardo la espada» y «me
+      // acerco con la mano lejos de la espada» se leían como atacar, y desde
+      // que atacar abre combate de verdad eso significa empezar una pelea por
+      // mencionar que llevas un arma encima. Se quedan con peso residual, para
+      // desempatar cuando ya hay un verbo de ataque en la frase.
+      espada: 1, arma: 1, flecha: 1,
     },
     habilidad: null,   // El ataque usa el arma, no una competencia.
     umbral: 'moderada',

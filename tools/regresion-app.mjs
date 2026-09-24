@@ -242,6 +242,21 @@ try {
     .filter(t => /Tu pasado no te ha dejado llegar|Hay una razón personal detrás|Lo que dejaste atrás sigue viajando/.test(t))
     .length`);
   if (aperturas !== 1) throw new Error(`la apertura desde el lore salió ${aperturas} veces`);
+
+  // Guardar un arma no se tira ni suena, y se narra con lo que se lleva.
+  const gesto = await evaluate(`(async () => {
+    const antes = ARCANVEIL.ver('narrative.entradas', []).length;
+    await ARCANVEIL.jugar('guardo la espada');
+    const nuevas = ARCANVEIL.ver('narrative.entradas', []).slice(antes);
+    return {
+      tiradas: nuevas.filter(e => e.voz === 'roll').length,
+      texto: nuevas.map(e => e.texto ?? '').join(' '),
+      voces: nuevas.map(e => e.voz),
+    };
+  })()`);
+  if (gesto.tiradas) throw new Error('guardar la espada tiró dados');
+  if (!/guardas|No llevas/.test(gesto.texto)) throw new Error(`guardar la espada narró otra cosa: «${gesto.texto}»`);
+  if (/[A-Z]{4,}\.?$/.test(gesto.texto.trim())) throw new Error(`guardar la espada acabó en sonido: «${gesto.texto}»`);
   if (turns.at(-1).lines < 20) throw new Error(`la bitácora no avanzó: ${turns.at(-1).lines}`);
   await shot(`03-partida-20-turnos-${viewport.label}.png`);
 

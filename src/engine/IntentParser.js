@@ -333,6 +333,58 @@ export const COMANDOS = Object.freeze({
 });
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   GESTOS CON EL EQUIPO
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Cosas que se hacen con un arma sin que sean pelear.
+ *
+ * «Guardo la espada» se leía como ataque —«espada» puntúa para atacar— y
+ * aunque desde hace poco ya no abre combate, seguía tirando dados: salía
+ * «Todo encaja a la primera. Ni tú te esperabas que saliera así. SHHHNG.»
+ * por guardar un arma. Guardar, colgar, limpiar o afilar no se pueden fallar,
+ * así que no se tira. Desenvainar no está: sacar el arma sí es una amenaza.
+ */
+const VERBOS_GESTO = Object.freeze({
+  guardo: 'guardas', envaino: 'envainas', enfundo: 'enfundas', cuelgo: 'cuelgas',
+  ajusto: 'ajustas', limpio: 'limpias', afilo: 'afilas', reviso: 'revisas',
+  compruebo: 'compruebas', engraso: 'engrasas', pulo: 'pules', coloco: 'colocas',
+});
+
+/** Armas que el jugador puede nombrar, con su género para concordar. */
+export const ARMAS = Object.freeze({
+  espada: 'f', hacha: 'f', daga: 'f', lanza: 'f', maza: 'f', ballesta: 'f',
+  arco: 'm', cuchillo: 'm', martillo: 'm', escudo: 'm', baston: 'm', punal: 'm',
+  mandoble: 'm', sable: 'm', estoque: 'm', garrote: 'm',
+});
+
+/** Verbos que declaran un ataque; los nombres de arma no cuentan. */
+const DECLARA_ATAQUE = () => Object.entries(INTENCIONES.attack.verbos)
+  .filter(([, peso]) => peso >= 5)
+  .map(([v]) => sinAcentos(v));
+
+/**
+ * ¿Es un gesto con un arma? Solo si hay un verbo de gesto y un arma, y ningún
+ * verbo de ataque: «guardo la espada y ataco» es un ataque.
+ *
+ * @param {string} texto
+ * @returns {{verbo: string, segunda: string, arma: string}|null}
+ */
+export function leerGesto(texto) {
+  const normal = sinAcentos(String(texto ?? '').toLowerCase());
+  const palabras = normal.split(/[^a-zñ]+/u).filter(Boolean);
+
+  const verbo = palabras.find((p) => VERBOS_GESTO[p]);
+  const arma = palabras.find((p) => ARMAS[p]);
+  if (!verbo || !arma) return null;
+
+  const ataque = DECLARA_ATAQUE();
+  if (palabras.some((p) => ataque.includes(p))) return null;
+
+  return { verbo, segunda: VERBOS_GESTO[verbo], arma };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    ANÁLISIS
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -396,6 +448,14 @@ export function interpretar(texto, contexto = {}) {
       objetivo: extraerObjetivo(original),
       confianza: 0.95,
     };
+  }
+
+  // ─── 2b. Gestos con el equipo ───────────────────────────────────────────
+  // Van antes del análisis léxico porque ahí el nombre del arma puntúa para
+  // atacar. Sin tirada: guardar un arma no se falla.
+  const gesto = leerGesto(original);
+  if (gesto) {
+    return { ...base, tipo: 'custom', gesto, requiereTirada: false, objetivo: gesto.arma, confianza: 0.9 };
   }
 
   // ─── 3. Análisis léxico ─────────────────────────────────────────────────

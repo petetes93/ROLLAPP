@@ -316,7 +316,8 @@ export class TurnResolver extends SystemBase {
       }
 
       if (ruta?.ruta === 'local') {
-        if (ruta.narracion) this._anadirEntrada(VOCES.SISTEMA, ruta.narracion, { turno: numeroTurno });
+        // La ruta puede pedir voz: un gesto se narra, no es un aviso del sistema.
+        if (ruta.narracion) this._anadirEntrada(ruta.voz ?? VOCES.SISTEMA, ruta.narracion, { turno: numeroTurno });
         await this.sistema('clock').turno({ tipo: 'exploracion' });
         this.store.descartarInstantanea('turno');
         return { turno: numeroTurno, local: true };

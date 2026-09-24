@@ -17,6 +17,8 @@
  */
 
 import { TimeSystem } from '../src/world/TimeSystem.js';
+import { ActionRouter } from '../src/engine/ActionRouter.js';
+import { interpretar } from '../src/engine/IntentParser.js';
 
 let fallos = 0;
 
@@ -84,6 +86,47 @@ function relojDePrueba(estado) {
 
   comprobar(!reloj.narrado.some((t) => /^Cierra/.test(t)),
     'llegar a un pueblo de noche no anuncia cierres');
+}
+
+/* ── Guardar un arma no se tira, y se hace con la que llevas ────────────── */
+
+/** Un router sin motor, con un inventario de mentira. */
+function routerCon(objetos, armaPrincipal = null) {
+  const estado = { inventory: { objetos: { porId: objetos }, equipado: { armaPrincipal } } };
+  const router = Object.create(ActionRouter.prototype);
+  router.leer = (ruta, porDefecto) => ruta.split('.').reduce((o, k) => o?.[k], estado) ?? porDefecto;
+  router.sistema = () => null;
+  return router;
+}
+
+const HACHA = { id: 'o1', refId: 'hacha_mano', nombre: 'Hacha de mano', categoria: 'arma' };
+
+{
+  const intencion = interpretar('guardo la espada');
+  comprobar(intencion.requiereTirada === false && intencion.tipo !== 'attack',
+    '«guardo la espada» no tira dados ni cuenta como ataque',
+    `tipo=${intencion.tipo} tirada=${intencion.requiereTirada}`);
+
+  const r = routerCon({ o1: HACHA }, 'o1').enrutar(intencion);
+  comprobar(r.ruta === 'local' && r.narracion === 'No llevas espada; guardas el hacha de mano.',
+    'sin espada, se guarda el hacha que sí lleva', `salió: ${r.narracion}`);
+}
+
+{
+  const r = routerCon({ o1: HACHA }, 'o1').enrutar(interpretar('limpio mi hacha junto al fuego'));
+  comprobar(r.narracion === 'Limpias tu hacha junto al fuego.',
+    'con el arma nombrada, se narra lo que escribió en segunda persona', `salió: ${r.narracion}`);
+}
+
+{
+  const r = routerCon({}).enrutar(interpretar('guardo la espada'));
+  comprobar(/^No llevas espada encima/.test(r.narracion ?? ''),
+    'sin ningún arma, lo dice y no inventa una', `salió: ${r.narracion}`);
+}
+
+{
+  const i = interpretar('guardo la espada y ataco al bandido');
+  comprobar(i.tipo === 'attack', 'guardar y atacar en la misma frase sigue siendo un ataque', `tipo=${i.tipo}`);
 }
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);

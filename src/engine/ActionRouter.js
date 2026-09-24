@@ -31,6 +31,11 @@ import * as Tablas from '../world/EncounterTables.js';
 import { obtenerEnemigo } from '../data/enemies.data.js';
 import { DIRECCION } from '../config/balance.config.js';
 import { DOMINIO as DOMINIO_RNG } from '../core/RNG.js';
+import { obtenerPlantilla } from '../data/items.data.js';
+import { ARMAS } from './IntentParser.js';
+import { aSegundaPersona } from '../ai/Persona.js';
+import { articulo, capitalizar, sinAcentos } from '../utils/text.js';
+import { VOCES } from '../config/ui.config.js';
 
 /**
  * Cómo llama la gente a los enemigos cuando escribe libremente.
@@ -98,6 +103,11 @@ export class ActionRouter extends SystemBase {
     // ─── Comprobaciones que rechazan ────────────────────────────────────
     const rechazo = this._comprobarRechazos(intencion, contexto);
     if (rechazo) return rechazo;
+
+    // ─── Gestos con el equipo ───────────────────────────────────────────
+    // Guardar, colgar o limpiar un arma: sin dados, sin director y contra lo
+    // que el personaje lleva de verdad.
+    if (intencion.gesto) return this._gesto(intencion);
 
     // ─── Acciones que resuelve el motor ─────────────────────────────────
     switch (intencion.tipo) {
@@ -281,6 +291,51 @@ export class ActionRouter extends SystemBase {
     if (encuentro.nombre) terminos.add(limpiar(encuentro.nombre));
 
     return [...terminos].filter((t) => t.length >= 4);
+  }
+
+  /**
+   * Un gesto con un arma, narrado contra lo que el personaje lleva.
+   *
+   * Una enana con un hacha escribió «guardo la espada» y el juego le contestó
+   * como si tuviera una. El motor sabe qué lleva: si el arma nombrada no está,
+   * lo dice y hace el gesto con la que sí está. «No llevas espada; guardas el
+   * hacha de mano.»
+   *
+   * @param {Object} intencion Con `gesto` de `IntentParser.leerGesto`.
+   * @returns {Object}
+   * @private
+   */
+  _gesto(intencion) {
+    const { segunda, arma } = intencion.gesto;
+    const objetos = this.leer('inventory.objetos.porId', {}) ?? {};
+    const llano = (t) => sinAcentos(String(t ?? '').toLowerCase());
+
+    const armas = Object.values(objetos).filter((o) => o?.categoria === 'arma');
+    const nombrada = armas.find((o) => llano(o.nombre).split(/\s+/).includes(arma));
+
+    const local = (texto) => ({
+      ruta: RUTA.LOCAL, motivo: null, narracion: texto, voz: VOCES.DM,
+      pistaDirector: null, resultado: { tipo: 'gesto', arma },
+    });
+
+    // La lleva: se narra lo que escribió, en segunda persona.
+    if (nombrada) {
+      return local(`${capitalizar(aSegundaPersona(intencion.texto)).replace(/[.!?…]*$/u, '')}.`);
+    }
+
+    // Nombres de arma con tilde, tal y como se escriben.
+    const CON_TILDE = { punal: 'puñal', baston: 'bastón' };
+    const dicha = CON_TILDE[arma] ?? arma;
+
+    // No la lleva. Se hace el gesto con la que sí lleva, si hay alguna.
+    const equipada = objetos[this.leer('inventory.equipado.armaPrincipal')] ?? armas[0];
+    if (!equipada) return local(`No llevas ${dicha} encima. Ni ninguna otra arma.`);
+
+    const nombre = equipada.nombre.charAt(0).toLowerCase() + equipada.nombre.slice(1);
+    const genero = obtenerPlantilla(equipada.refId)?.genero
+      ?? ARMAS[llano(equipada.nombre).split(/\s+/)[0]] ?? 'm';
+
+    return local(`No llevas ${dicha}; ${segunda} ${articulo(nombre, genero)} ${nombre}.`);
   }
 
   /**

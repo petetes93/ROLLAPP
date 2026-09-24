@@ -335,7 +335,14 @@ export class ProceduralProvider extends IDMProvider {
     // ─── 0. Canon personal ─────────────────────────────────────────────
     // La apertura procedural debe demostrar que leyó la historia escrita por
     // el jugador. No espera a un modelo remoto ni a que pasen veinte turnos.
-    if ((peticion.turno ?? ctx.turno) <= 1 && ctx.jugador?.lore) {
+    //
+    // Pero se cuenta UNA vez. La apertura se registra como turno 1 y la
+    // primera acción del jugador también es el turno 1, así que con solo
+    // mirar el número salía dos veces: «Tu pasado no te ha dejado llegar aquí
+    // por azar. Perdiste la forja…» y, al «miro alrededor», «Hay una razón
+    // personal detrás… perdiste la forja…». La memoria ya sabe si hubo turno
+    // antes: si lo hubo, la apertura está contada, la narrara quien la narrase.
+    if ((peticion.turno ?? ctx.turno) <= 1 && ctx.jugador?.lore && !ctx.ultimoTurno) {
       parrafos.push(this._abrirDesdeLore(ctx.jugador.lore));
     }
 

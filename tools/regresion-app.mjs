@@ -234,6 +234,14 @@ try {
     turns.push(result);
     if (result.disabled || result.failures) throw new Error(`turno fallido: ${a}`);
   }
+
+  // La apertura desde el lore se cuenta una vez. Salía otra vez en el primer
+  // «miro alrededor» con otra de sus tres variantes.
+  const aperturas = await evaluate(`ARCANVEIL.ver('narrative.entradas', [])
+    .map(e => e.texto ?? '')
+    .filter(t => /Tu pasado no te ha dejado llegar|Hay una razón personal detrás|Lo que dejaste atrás sigue viajando/.test(t))
+    .length`);
+  if (aperturas !== 1) throw new Error(`la apertura desde el lore salió ${aperturas} veces`);
   if (turns.at(-1).lines < 20) throw new Error(`la bitácora no avanzó: ${turns.at(-1).lines}`);
   await shot(`03-partida-20-turnos-${viewport.label}.png`);
 

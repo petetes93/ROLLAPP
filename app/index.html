@@ -858,6 +858,75 @@ textarea.entrada{resize:none;overflow-y:auto;line-height:1.45;max-height:180px;d
   .momento{opacity:1}
 }
 
+/* ═══ combate: el parte y la puntería ═════════════════════════════════════
+   El motor resolvía bien y el jugador solo veía barras moviéndose. En un
+   juego de dados, saber POR QUÉ has perdido no es un lujo.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* El panel tiene que caber en la pantalla.
+   Con retratos, parte de combate y cuatro luchadores, la ficha creció hasta
+   salirse por arriba: la cabecera con el rival quedaba fuera del viewport y
+   no había forma de llegar a ella. Se le pone techo y scroll propio, y los
+   botones se quedan pegados abajo, que es donde la mano los busca. */
+.combate{max-height:calc(100vh - 9rem);display:flex;flex-direction:column;overflow:hidden}
+/* Quien cede espacio es la lista de luchadores: sus barras se pueden recorrer
+   sin perder nada. El parte y los botones no ceden, porque un parte de dos
+   líneas no cuenta nada y un botón que no se ve no se pulsa. */
+.combate__lista{overflow-y:auto;overscroll-behavior:contain;min-height:4.5rem;flex:1 1 auto}
+.combate__parte{flex:0 0 auto;height:6rem}
+.combate__rival,.combate__acciones,.combate__libre,.combate__eti{flex:0 0 auto}
+
+/* Cada luchador con su cara al lado de la barra. Se reconoce de un vistazo,
+   que es lo que hace falta cuando decides a cuál rematas. */
+.luchador{display:grid;grid-template-columns:38px minmax(0,1fr);gap:.5rem;align-items:center}
+.luchador__cara{
+  position:relative;width:38px;height:44px;overflow:hidden;
+  border:1px solid #6B352C;border-radius:2px 8px 2px 8px;background:#0C0808;
+  isolation:isolate;contain:paint;
+}
+.luchador__cara>.arte{position:absolute;inset:0;width:100%;height:100%}
+.luchador__cara>.arte--imagen{object-fit:cover;object-position:50% 18%}
+.luchador.es-caido .luchador__cara{filter:grayscale(1) brightness(.5)}
+
+/* Un enemigo elegible es un botón, así que hay que devolverle la pinta de
+   fila: el navegador le pone su fondo, su borde y su centrado. */
+.luchador--elegible{
+  width:100%;text-align:left;
+  padding:.4rem .5rem;margin-bottom:.5rem;
+  background:rgba(0,0,0,.22);border:1px solid transparent;border-radius:3px 10px 3px 10px;
+  color:inherit;font:inherit;cursor:pointer;
+}
+.luchador--elegible:hover{border-color:#8C4438;background:rgba(146,62,53,.14)}
+.luchador--elegible:focus-visible{outline:2px solid var(--bronce);outline-offset:2px}
+
+/* El que está en el punto de mira. Borde, fondo y una cuña a la izquierda:
+   solo con color no se vería en una pantalla mala, ni lo vería quien no
+   distingue el rojo. */
+.luchador.es-objetivo{border-color:#C9604C;background:rgba(201,96,76,.16);box-shadow:inset 3px 0 0 #E08065}
+.luchador.es-objetivo .luchador__fila>span:first-child::before{content:'▸ ';color:#E08065}
+
+/* Los estados alterados, debajo de su barra. */
+.luchador__estados{font-family:var(--mono);font-size:.58rem;letter-spacing:.06em;color:#C9A98A;margin-top:.22rem}
+
+/* El parte: una línea por golpe y lo último abajo. Monoespaciado porque son
+   cifras y conviene que las columnas canten. */
+.combate__parte{
+  max-height:7.5rem;overflow-y:auto;overscroll-behavior:contain;
+  margin:.7rem 0;padding:.5rem .6rem;
+  background:rgba(6,4,4,.55);border:1px solid #5C2E26;border-radius:2px 10px 2px 10px;
+}
+.combate__linea{
+  margin:0 0 .3rem;font-family:var(--mono);font-size:.68rem;line-height:1.5;
+  color:#D6C3AC;text-shadow:0 1px #000;
+}
+/* El último golpe, más claro: es el que acaba de pasar. */
+.combate__linea:last-child{margin-bottom:0;color:#F0D8B8}
+
+@media(max-width:560px){
+  .combate__parte{max-height:5.5rem}
+  .combate__linea{font-size:.62rem}
+}
+
 /* ═══ cadencia: la narración va por golpes ════════════════════════════════
    Una frase por línea y el silencio entre ellas haciendo de puntuación. Antes
    era un párrafo denso donde una pifia y el viento en el trigo pesaban igual.

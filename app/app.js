@@ -1805,6 +1805,23 @@ function ajustarAltoEntrada() {
 
 /* ── combate ──────────────────────────────────────────────────────────── */
 
+/**
+ * A quién apunta el jugador. Se queda entre repintados.
+ *
+ * Vive fuera de `pintarCombate` porque la función reconstruye el panel entero
+ * en cada golpe: guardarlo dentro significaría perder la puntería cada vez que
+ * alguien pega.
+ */
+let objetivoCombate = null;
+
+/**
+ * El parte del combate: una línea por golpe.
+ *
+ * El motor las emite por `combat:log` desde el principio. Lo que faltaba era
+ * alguien que las guardara.
+ */
+const registroCombate = [];
+
 function pintarCombate() {
   const capa = $('#combate');
   if (!capa) return;
@@ -1856,21 +1873,62 @@ function pintarCombate() {
     }
   }
 
+  // El objetivo deja de valer cuando cae: se pasa al siguiente en pie en vez
+  // de dejar al jugador apuntando a un cadáver.
+  const enemigosVivos = datos.combatientes.filter((c) => !c.esJugador && c.vivo);
+  if (!enemigosVivos.some((c) => c.id === objetivoCombate)) {
+    objetivoCombate = enemigosVivos[0]?.id ?? null;
+  }
+
   const lista = el('div', { class: 'combate__lista' });
 
   for (const c of datos.combatientes) {
     const frac = Math.round(c.fraccionVida * 100);
+    const esObjetivo = c.id === objetivoCombate;
+    const elegible = !c.esJugador && c.vivo;
 
-    // El id permite que un golpe encuentre a SU objetivo en pantalla y le
-    // lance el número encima. Sin esto, el daño saldría en un sitio genérico
-    // y el jugador no vería a quién le pasó, que es media información.
-    lista.append(el('div', {
-      class: 'luchador' + (c.vivo ? '' : ' es-caido'),
+    // Se puede elegir a quién pegar.
+    //
+    // El motor siempre aceptó un objetivo —`accionJugador({tipo, objetivo})`—
+    // pero la interfaz no lo ofrecía, así que el golpe iba siempre al primero
+    // de la lista. Con tres saqueadores delante, rematar al que está tocado es
+    // una decisión de combate, y tomarla es media gracia del asunto.
+    const atributos = {
+      class: 'luchador'
+        + (c.vivo ? '' : ' es-caido')
+        + (esObjetivo ? ' es-objetivo' : '')
+        + (elegible ? ' luchador--elegible' : ''),
+      // El id permite que un golpe encuentre a SU objetivo en pantalla y le
+      // lance el número encima. Sin esto, el daño saldría en un sitio genérico
+      // y el jugador no vería a quién le pasó, que es media información.
       dataset: { luchador: c.id },
-    },
+    };
+
+    if (elegible) {
+      atributos['aria-pressed'] = String(esObjetivo);
+      atributos.onClick = () => { objetivoCombate = c.id; pintarCombate(); };
+    }
+
+    // Cada luchador con su cara.
+    //
+    // Estaba solo el retrato del rival principal, arriba y en grande. Con tres
+    // saqueadores y un jugador, la lista era cuatro barras con nombre: hay que
+    // leer para saber a quién estás apuntando. Una miniatura se reconoce de un
+    // vistazo, que es lo que se necesita cuando lo que decides es a cuál
+    // rematas.
+    const cara = el('div', { class: 'luchador__cara' });
+
+    lista.append(el(elegible ? 'button' : 'div', atributos,
+      cara,
       el('div', { class: 'luchador__fila' },
         el('span', { text: c.nombre }),
-        el('span', { class: 'luchador__cond', text: c.condicion }),
+        // La vida en números, no solo en palabras. «Tocado» no dice si aguanta
+        // otro golpe; «7/22» sí, y esa es la cuenta que se hace en una mesa
+        // antes de decidir si rematas o te cubres.
+        el('span', {
+          class: 'luchador__cond',
+          text: c.vivo ? `${c.vida?.actual ?? '?'}/${c.vida?.max ?? '?'} · ${c.condicion}` : c.condicion,
+        }),
       ),
       el('div', { class: 'barra' },
         el('div', {
@@ -1878,25 +1936,69 @@ function pintarCombate() {
           style: `width:${frac}%`,
         }),
       ),
+      c.estados?.length
+        ? el('div', { class: 'luchador__estados', text: c.estados.map((s) => s.nombre).join(' · ') })
+        : null,
     ));
+
+    // El retrato se pinta después de montar la fila: `pintarCriatura` compara
+    // una firma contra el nodo y necesita que ya esté en su sitio.
+    if (c.esJugador) pintarRetrato(cara, ver('player', {}));
+    else {
+      const plantilla = obtenerEnemigo(c.refId);
+      if (plantilla) pintarCriatura(cara, plantilla);
+    }
   }
 
   capa.append(lista);
 
+  // El parte del combate, golpe a golpe.
+  //
+  // El motor lleva desde siempre emitiendo `combat:log` con la línea de cada
+  // ataque —quién pega a quién, cuánto saca, cuánto quita— y no lo recogía
+  // nadie. El combate resolvía bien y el jugador solo veía barras moviéndose:
+  // ganaba o perdía sin saber por qué, que en un juego de dados es lo único
+  // que no puede pasar.
+  if (registroCombate.length) {
+    const parte = el('div', { class: 'combate__parte', id: 'combate-parte' });
+    for (const linea of registroCombate.slice(-10)) {
+      parte.append(el('p', { class: 'combate__linea', text: linea }));
+    }
+    capa.append(parte);
+  }
+
   if (manager.esperandoJugador) {
-    capa.append(el('div', { class: 'combate__libre' },
-      el('input', { id: 'combate-entrada', class: 'entrada', type: 'text', placeholder: 'Describe cómo actúas…', maxlength: '180', onKeydown: (e) => { if (e.key === 'Enter') accionCombateLibre(); } }),
-      el('button', { class: 'btn', onClick: protegido('acción libre de combate', accionCombateLibre) }, 'Hacerlo'),
-    ));
-    capa.append(el('p', { class: 'combate__ayuda', text: 'También puedes escribir tu movimiento con tus propias palabras.' }));
+    const objetivo = datos.combatientes.find((c) => c.id === objetivoCombate);
+
     capa.append(el('div', { class: 'combate__acciones' },
-      el('button', { class: 'btn btn--peligro', onClick: protegido('atacar', () => accionCombate('atacar')) }, 'Atacar'),
+      el('button', {
+        class: 'btn btn--peligro',
+        // El nombre solo cabe si es corto. «Atacar a Lobo ceniciento C» parte
+        // el botón en tres líneas y lo deja más alto que los otros dos; quién
+        // es el objetivo ya lo dice la cuña de la lista.
+        title: objetivo ? `Atacar a ${objetivo.nombre}` : 'Atacar',
+        onClick: protegido('atacar', () => accionCombate('atacar', objetivoCombate)),
+      }, objetivo && objetivo.nombre.length <= 12 ? `Atacar a ${objetivo.nombre}` : 'Atacar'),
       el('button', { class: 'btn', onClick: protegido('defender', () => accionCombate('defender')) }, 'Defender'),
       el('button', { class: 'btn btn--fantasma', onClick: protegido('huir', () => accionCombate('huir')) }, 'Huir'),
+    ));
+
+    capa.append(el('div', { class: 'combate__libre' },
+      el('input', {
+        id: 'combate-entrada', class: 'entrada', type: 'text',
+        placeholder: 'O describe tu jugada con tus palabras…', maxlength: '180',
+        onKeydown: (e) => { if (e.key === 'Enter') accionCombateLibre(); },
+      }),
+      el('button', { class: 'btn', onClick: protegido('acción libre de combate', accionCombateLibre) }, 'Hacerlo'),
     ));
   } else {
     capa.append(el('p', { class: 'combate__espera', text: 'El enemigo actúa…' }));
   }
+
+  // El parte se lee como cualquier registro: lo último es lo que acaba de
+  // pasar, así que la vista se queda abajo.
+  const parte = $('#combate-parte');
+  if (parte) parte.scrollTop = parte.scrollHeight;
 }
 
 async function accionCombateLibre() {
@@ -1906,15 +2008,23 @@ async function accionCombateLibre() {
   const tipo = /huir|escap|retir|correr/.test(normal) ? 'huir'
     : /defiend|bloque|cubrir|esquiv|proteg/.test(normal) ? 'defender' : 'atacar';
   bus.emit('narrative:direct', { texto: `Intentas: ${texto}`, voz: 'player' });
-  await accionCombate(tipo);
+
+  // La jugada escrita respeta el objetivo elegido: quien ha marcado al
+  // saqueador tocado y escribe «le doy en la pierna» quiere decir a ÉSE.
+  await accionCombate(tipo, tipo === 'atacar' ? objetivoCombate : null);
+
+  const campo = $('#combate-entrada');
+  if (campo) campo.value = '';
 }
 
-async function accionCombate(tipo) {
+async function accionCombate(tipo, objetivo = null) {
   const manager = sistema('combat');
   if (!manager?.esperandoJugador) return;
 
   bloquear(true);
-  await manager.accionJugador({ tipo });
+  // El objetivo viaja al motor. Sin él, `accionJugador` cae en su objetivo por
+  // defecto y la elección del jugador no servía de nada.
+  await manager.accionJugador(objetivo ? { tipo, objetivo } : { tipo });
   bloquear(false);
 
   refrescarTodo();
@@ -2068,6 +2178,20 @@ function conectarEventos() {
     rotuloMomento(`NIVEL ${nivel}`, 'oro');
     avisar(`Has subido a nivel ${nivel}`, 'exito');
   });
+
+  // El parte de cada golpe, recogido.
+  //
+  // `combat:log` se emitía y se escuchaba solo para repintar; su texto —que es
+  // justo lo que cuenta lo ocurrido— se tiraba. Aquí se guarda.
+  bus.on('combat:log', ({ texto }) => {
+    if (texto) registroCombate.push(texto);
+    // Techo generoso: el panel enseña las diez últimas, pero el combate entero
+    // cabe sin problema y un día puede querer leerse completo.
+    if (registroCombate.length > 200) registroCombate.splice(0, registroCombate.length - 200);
+  });
+
+  // Cada combate empieza con el parte en blanco y sin puntería heredada.
+  bus.on('combat:start', () => { registroCombate.length = 0; objetivoCombate = null; });
 
   // Cualquier cambio del mundo redibuja lo que corresponda.
   for (const evento of ['combat:start', 'combat:end', 'combat:turn', 'combat:awaiting', 'combat:log']) {

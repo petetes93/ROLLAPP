@@ -452,6 +452,11 @@ export class ContextComposer {
       // curso, lo que cambió desde la última visita, la promesa que caduca. Es
       // lo primero que debe mirar el director, por delante de la atmósfera.
       contextoEscena: this.memoria.contextoDeEscena(),
+
+      // El canon del jugador: quién y qué ha traído él al mundo. El director
+      // solo puede repetir lo que hay aquí, nunca añadir: de esa limitación
+      // sale la concordancia.
+      canon: this.memoria.canonDestacado(null, 6),
     };
   }
 }

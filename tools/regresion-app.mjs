@@ -109,6 +109,8 @@ let ws;
 let seq = 0;
 const pending = new Map();
 const exceptions = [];
+/** Cuántas veces se pide cada retrato al servicio de imágenes. */
+const pedidosRetrato = new Map();
 function cdp(method, params = {}) {
   const id = ++seq;
   ws.send(JSON.stringify({ id, method, params }));
@@ -146,6 +148,9 @@ try {
       if (m.error) p.reject(new Error(m.error.message)); else p.resolve(m.result);
     } else if (m.method === 'Runtime.exceptionThrown') {
       exceptions.push(m.params.exceptionDetails?.text ?? 'excepción');
+    } else if (m.method === 'Network.requestWillBeSent' && /pollinations\.ai\/prompt\/.*portrait/.test(m.params.request.url)) {
+      const url = m.params.request.url;
+      pedidosRetrato.set(url, (pedidosRetrato.get(url) ?? 0) + 1);
     }
   };
   await cdp('Runtime.enable'); await cdp('Page.enable'); await cdp('Network.enable');
@@ -580,6 +585,15 @@ try {
   const offline = await evaluate(`({screen:document.body.dataset.activeScreen, title:document.title, failures:document.querySelectorAll('#fallos .fallos__linea').length})`);
   await shot(`04-offline-${viewport.label}.png`);
   if (offline.title !== 'ARCANVEIL' || offline.failures) throw new Error(`offline inválido ${JSON.stringify(offline)}`);
+
+  // Un retrato que falla no se vuelve a pedir en cada repintado. Sin red los
+  // pide todos y fallan todos: es donde se veía. Con el servicio saturado
+  // (429), pedir nueve veces el mismo retrato era lo que lo mantenía así.
+  const masPedido = Math.max(0, ...pedidosRetrato.values());
+  if (sinIA && masPedido > 2) {
+    const [url] = [...pedidosRetrato].find(([, n]) => n === masPedido);
+    throw new Error(`un retrato que falla se pidió ${masPedido} veces: ${decodeURIComponent(url).slice(0, 140)}`);
+  }
 
   const report = {
     viewport: viewport.label, systems: boot.systems, turns: turns.length,

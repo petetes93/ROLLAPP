@@ -664,6 +664,17 @@ const enCurso = new WeakMap();
 const listos = new Set();
 
 /**
+ * Retratos que acaban de fallar, con la hora hasta la que no se reintentan.
+ *
+ * Cada repintado del panel volvía a pedir el que había fallado. Con el
+ * servicio devolviendo 429 por exceso de peticiones, eso era justo lo que lo
+ * mantenía saturado: nueve peticiones del mismo retrato en una partida corta.
+ * Tras un fallo se espera un minuto; mientras, sigue el vectorial.
+ */
+const fallidos = new Map();
+const ESPERA_TRAS_FALLO = 60 * 1000;
+
+/**
  * Recuerda un retrato que ya sabemos que carga.
  *
  * Lo usa la partida al cargarse desde `player.retratoIA`, para que el retrato
@@ -723,6 +734,12 @@ export function mejorarRetratoIA(nodo, personaje = {}, alCambiarEstado) {
 
   // Ya se está pidiendo exactamente esto: no duplicar.
   if (enCurso.get(nodo) === url) return;
+
+  // Acaba de fallar: se deja respirar al servicio y se queda el vectorial.
+  if ((fallidos.get(url) ?? 0) > Date.now()) {
+    avisar(nodo, 'sin-red', alCambiarEstado);
+    return;
+  }
   enCurso.set(nodo, url);
 
   const img = new Image();
@@ -743,6 +760,7 @@ export function mejorarRetratoIA(nodo, personaje = {}, alCambiarEstado) {
     img.addEventListener('error', () => {
       if (enCurso.get(nodo) !== url) return;
       listos.delete(url);
+      fallidos.set(url, Date.now() + ESPERA_TRAS_FALLO);
       enCurso.delete(nodo);
       nodo.replaceChildren(...previo);
       avisar(nodo, 'sin-red', alCambiarEstado);
@@ -776,6 +794,7 @@ export function mejorarRetratoIA(nodo, personaje = {}, alCambiarEstado) {
 
     // Sin red o servicio caído. El vectorial sigue puesto, que es justo el
     // comportamiento previsto: el juego no depende de esto.
+    fallidos.set(url, Date.now() + ESPERA_TRAS_FALLO);
     avisar(nodo, 'sin-red', alCambiarEstado);
     enCurso.delete(nodo);
   });

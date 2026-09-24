@@ -131,6 +131,9 @@ comprobar(urlRetrato({ raza: 'albar', descripcion: sinEsp }) !== urlRetrato({ ra
   const camino = encargoEscena({ terreno: 'camino', franja: 'ocaso', clima: 'niebla', motivo: 'combate' });
   comprobar(camino.includes('at sunset') && camino.includes('in thick fog') && camino.includes('weapons drawn'),
     'las franjas del reloj («ocaso») y el motivo llegan al encargo', camino);
+  // Un camino salió asfaltado y con las líneas del carril.
+  comprobar(/medieval/.test(camino) && /no asphalt/.test(camino) && !/\broad\b/.test(camino),
+    'el camino es de tierra y de un mundo medieval, no una carretera', camino);
 
   const escena = { lugar: 'vado_yunque', sublugar: null, terreno: 'ciudad', franja: 'alba', clima: 'despejado', motivo: 'llegada' };
   comprobar(urlEscena(escena) === urlEscena({ ...escena, npcs: [] }),

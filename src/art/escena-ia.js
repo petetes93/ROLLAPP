@@ -28,11 +28,17 @@ const MODELO = 'sana';
 const ANCHO = 1024;
 const ALTO = 640;
 
-const CABEZA = 'Anime cel shaded landscape illustration, wide establishing shot of';
+// «Medieval» va en la cabeza y no solo en los sitios que lo piden: con «a
+// lonely dirt road» a secas el modelo pintó una carretera asfaltada con las
+// líneas del carril.
+const CABEZA = 'Anime cel shaded landscape illustration of a medieval fantasy world, wide establishing shot of';
+
+/** Lo que el modelo tiende a colar y aquí no existe. */
+const SIN_MODERNIDAD = 'No text, no letters, no asphalt, no cars, no power lines, no modern buildings.';
 
 /** El sitio, por su terreno o su tipo. */
 const TERRENO = Object.freeze({
-  camino: 'a lonely dirt road through open country',
+  camino: 'a rutted dirt cart track through open country',
   bosque: 'a dense old forest',
   montana: 'a rocky mountain pass',
   pantano: 'a misty swamp with dead trees',
@@ -111,7 +117,7 @@ export function encargoEscena(escena = {}) {
     MOTIVO[escena.motivo] ?? null,
   ].filter(Boolean);
 
-  return `${CABEZA} ${partes.join(', ')}. No text, no letters. ${PALETA}`;
+  return `${CABEZA} ${partes.join(', ')}. ${SIN_MODERNIDAD} ${PALETA}`;
 }
 
 /** Semilla estable: la misma escena en el mismo momento da la misma imagen. */

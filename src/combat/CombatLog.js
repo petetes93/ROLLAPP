@@ -159,20 +159,34 @@ export function paraJugador(entrada) {
  * @private
  */
 function _lineaAtaque(e) {
-  const quien = e.atacante.esJugador ? 'Atacas' : `${e.atacante.nombre} ataca`;
-  const aQuien = e.objetivo.esJugador ? 'te' : `a ${e.objetivo.nombre}`;
+  const atacaJugador = Boolean(e.atacante.esJugador);
+  const recibeJugador = Boolean(e.objetivo.esJugador);
+
+  // El pronombre átono va DELANTE del verbo, no detrás.
+  //
+  // Se montaba como «sujeto + verbo + complemento» y salía «Saqueador B ataca
+  // te y acierta». En castellano es «te ataca», y la única forma de que salga
+  // bien es armar el sintagma entero en vez de pegar tres trozos.
+  const ataque = atacaJugador
+    ? `Atacas a ${e.objetivo.nombre}`
+    : (recibeJugador ? `${e.atacante.nombre} te ataca` : `${e.atacante.nombre} ataca a ${e.objetivo.nombre}`);
+
+  // Y el segundo verbo concuerda con quien ataca. Iba fijo en tercera persona,
+  // así que salía «Atacas a Saqueador C y acierta»: empiezas hablando de tú y
+  // terminas hablando de él.
+  const conjugar = (tu, el) => (atacaJugador ? tu : el);
 
   switch (e.resultado) {
     case RESULTADO.ESQUIVADO:
-      return e.objetivo.esJugador
+      return recibeJugador
         ? `Esquivas el ataque de ${e.atacante.nombre}.`
         : `${e.objetivo.nombre} esquiva tu ataque.`;
 
     case RESULTADO.FALLO:
-      return `${quien} y falla. (${e.tirada?.total} contra ${e.tirada?.umbral})`;
+      return `${ataque} y ${conjugar('fallas', 'falla')}. (${e.tirada?.total} contra ${e.tirada?.umbral})`;
 
     case RESULTADO.PIFIA:
-      return `${quien} y falla estrepitosamente. (1 natural)`;
+      return `${ataque} y ${conjugar('fallas', 'falla')} estrepitosamente. (1 natural)`;
 
     case RESULTADO.IMPOSIBLE:
       return `${e.atacante.nombre} no puede atacar.`;
@@ -181,8 +195,11 @@ function _lineaAtaque(e) {
     case RESULTADO.IMPACTO: {
       const partes = [];
 
-      const verbo = e.resultado === RESULTADO.CRITICO ? 'golpea de lleno' : 'acierta';
-      partes.push(`${quien} ${aQuien} y ${verbo}: ${e.dano.total} de daño`);
+      const verbo = e.resultado === RESULTADO.CRITICO
+        ? conjugar('golpeas de lleno', 'golpea de lleno')
+        : conjugar('aciertas', 'acierta');
+
+      partes.push(`${ataque} y ${verbo}: ${e.dano.total} de daño`);
 
       if (e.dano.tipo) partes.push(TIPOS_DANO[e.dano.tipo]?.nombre ?? e.dano.tipo);
 

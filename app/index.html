@@ -770,7 +770,9 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
 .revelacion__eco{color:#D8AD50 !important;font-style:italic}
 .revelacion__pregunta{font-weight:600}
 .revelacion__cambio{margin:0 0 .5rem}
-.revelacion__cambio .campo__entrada{width:100%}
+/* Es una frase, no un nombre: la letra del texto y sin versalitas. Con el
+   estilo del campo de nombre, en móvil el ejemplo salía cortado. */
+.revelacion__cambio .campo__entrada{width:100%;font:1rem/1.45 var(--sans);text-transform:none;letter-spacing:normal}
 @media(max-width:700px){.revelacion{grid-template-columns:1fr}.revelacion__marco{max-width:16rem;margin:0 auto;width:100%}.creacion{padding-bottom:10rem}}
 /* ── ajustes ────────────────────────────────────────────────────────── */
 .ajuste{margin-bottom:1rem}

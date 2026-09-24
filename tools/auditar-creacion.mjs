@@ -68,6 +68,9 @@ const CASOS = [
   ['que sea de linaje albar', (p) => p.raza === 'albar'],
   ['mejor glifista', (p) => p.clase === 'glifista'],
   ['que sea hombre y que se llame Brun', (p) => p.genero === 'm' && p.nombre === 'Brun'],
+  // Lo que lleva encima: salió en la prueba de entrega y no se entendía.
+  ['que lleve una capa roja', (p) => /con una capa roja$/.test(p.retrato) && p.genero === 'f'],
+  ['que se llame Brun y lleva un escudo de roble', (p) => p.nombre === 'Brun' && /con un escudo de roble$/.test(p.retrato)],
 ];
 
 for (const [texto, bien] of CASOS) {

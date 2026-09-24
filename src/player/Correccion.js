@@ -166,7 +166,7 @@ export function aplicarCorreccion(personaje, texto) {
   // Varias órdenes en una frase: se parten por «y», comas y puntos cuando lo
   // que sigue abre otra orden.
   const ordenes = original
-    .split(/\s*(?:[.;]|,|\by\b)\s*(?=(?:que|ponle|pon|quitale|quítale|quita|añade|añádele|anade|mejor|llamal|llámal|hazl|dale|sin|mas|más|su nombre|se llama|de oficio|linaje)\b)/iu)
+    .split(/\s*(?:[.;]|,|\by\b)\s*(?=(?:que|ponle|pon|quitale|quítale|quita|añade|añádele|anade|mejor|llamal|llámal|hazl|dale|lleva|sin|mas|más|su nombre|se llama|de oficio|linaje)\b)/iu)
     .filter(Boolean);
 
   for (const orden of ordenes) {
@@ -253,7 +253,9 @@ function aplicarUna(p, orden) {
   }
 
   // ─── Añadir un rasgo ────────────────────────────────────────────────────
-  const pone = orden.match(/\b(?:p[oó]nle|pon|a[ñn][aá]dele|a[ñn]ade|dale|que tenga|con)\s+(.{3,80})$/iu)?.[1];
+  // Lo que lleva encima también es un rasgo: «que lleve una capa roja» no se
+  // entendía y es de lo primero que se pide.
+  const pone = orden.match(/\b(?:p[oó]nle|pon|a[ñn][aá]dele|a[ñn]ade|dale|que tenga|que lleve|lleva|que vista|vestid[oa] con|con)\s+(.{3,80})$/iu)?.[1];
   if (pone) {
     const rasgo = pone.replace(/[.!]+$/u, '').trim();
     const retrato = `${String(p.retrato ?? '').replace(/[.\s]+$/u, '')}, con ${rasgo}`.replace(/^,\s*/u, '');

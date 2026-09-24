@@ -172,6 +172,29 @@ try {
     };
   })()`);
   if (!retrato.cicatriz && !retrato.imagenIA) throw new Error('la descripción libre no llegó al retrato');
+
+  // «Elfa» en la descripción y un linaje cualquiera en la ficha: la revelación
+  // tiene que decirlo, y volver a la ficha no puede crear un gemelo.
+  const aviso = await evaluate(`document.querySelector('#revelacion-especie')?.textContent ?? ''`);
+  if (!/«elfa»/.test(aviso)) throw new Error(`la revelación no avisa de la especie escrita: «${aviso}»`);
+
+  const contarPjs = `JSON.parse(localStorage.getItem('arcanveil:personajes') ?? '[]').length`;
+  const pjsAntes = await evaluate(contarPjs);
+
+  await evaluate(`document.querySelector('#revelacion-cambiar-linaje').click()`);
+  await until('document.querySelector("#creacion-crear") && document.querySelector("#retrato-descripcion")');
+  const conservado = await evaluate(`document.querySelector('#retrato-descripcion').value`);
+  if (!conservado.startsWith('elfa exploradora')) throw new Error(`volver a la ficha perdió la descripción: «${conservado}»`);
+
+  await evaluate(`document.querySelector('#creacion-aleatorio').click()`);
+  const nombreTrasTirar = await evaluate(`document.querySelector('#nombre').value`);
+  if (nombreTrasTirar !== 'Lyra') throw new Error(`volver a tirar borró el nombre escrito: «${nombreTrasTirar}»`);
+
+  await evaluate(`document.querySelector('#creacion-crear').click()`);
+  await until('document.querySelector("#creacion-empezar") && document.querySelector("#creacion-cara .arte")');
+
+  const pjsDespues = await evaluate(contarPjs);
+  if (pjsDespues !== pjsAntes) throw new Error(`cambiar de linaje creó un personaje gemelo: ${pjsAntes} → ${pjsDespues}`);
   // La forja visual dura 720 ms; la captura valida el estado final nítido.
   await new Promise(resolve => setTimeout(resolve, 850));
   await shot(`02-creacion-${viewport.label}.png`);
@@ -227,8 +250,18 @@ try {
   // El fallo que esto sujeta: la caída pintaba «la crónica termina aquí» y la
   // crónica seguía. La fase volvía a `exploracion`, la caja quedaba activa y
   // cada «ataco» abría un combate nuevo con el personaje a cero de vida.
-  await evaluate(`ARCANVEIL.store.dispatch('player/danar', { cantidad: 999, origen: 'regresion' })`);
-  await wait(900);
+  //
+  // Se golpea hasta tres veces: algunos linajes y oficios tienen un rasgo que
+  // salva de la primera caída y deja al personaje a 1 de vida. Es un rasgo de
+  // juego, no un fallo; lo que se comprueba es que, gastado el salvavidas,
+  // caer sí termina la partida. Con un solo golpe la prueba dependía de lo
+  // que hubiera salido en el dado de la ficha.
+  for (let golpe = 0; golpe < 3; golpe += 1) {
+    await evaluate(`ARCANVEIL.store.dispatch('player/danar', { cantidad: 999, origen: 'regresion' })`);
+    await wait(300);
+    if (await evaluate(`ARCANVEIL.store.select('meta.fase')`) === 'fin') break;
+  }
+  await wait(600);
 
   const caida = await evaluate(`({
     fase: ARCANVEIL.store.select('meta.fase'),

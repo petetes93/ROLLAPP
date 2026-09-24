@@ -25,9 +25,10 @@ import { paisaje, atmosfera } from './paisaje.js';
 import { retrato } from './retrato.js';
 import { criatura } from './criatura.js';
 import { mejorarRetratoLocal } from './retrato-local.js';
-import { mejorarRetratoIA } from './retrato-ia.js';
+import { mejorarRetratoIA, urlRetrato, recordarRetrato, especieNombrada } from './retrato-ia.js';
 
 export { paisaje, atmosfera, retrato, criatura };
+export { urlRetrato, recordarRetrato, especieNombrada };
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MANIFIESTO

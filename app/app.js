@@ -48,6 +48,7 @@ import { TurnResolver } from '../src/engine/TurnResolver.js';
 
 import {
   pintarLugar, pintarRetrato, pintarCriatura, cargarManifiesto,
+  urlRetrato, recordarRetrato, especieNombrada,
 } from '../src/art/index.js';
 import { obtenerEnemigo } from '../src/data/enemies.data.js';
 
@@ -468,6 +469,10 @@ function abrirCreacion() {
   tirarFicha();
   borrador.retrato = '';
   borrador.lore = '';
+  // Sin esto, volver desde la revelación y luego pulsar «Crear otro»
+  // sobrescribía al personaje anterior en vez de crear uno.
+  delete borrador.id;
+  delete borrador.creado;
   nombreEscrito = false;
   mostrar('creacion');
   pintarCreacion();
@@ -613,11 +618,40 @@ function pintarRevelacion(p) {
   const cara = el('div', { class: 'eleccion__cara revelacion__cara', id: 'creacion-cara' });
   const estado = el('p', { class: 'revelacion__estado', id: 'retrato-estado', text: 'La IA está pintando tu retrato…' });
 
+  // Si la descripción nombra una especie, se dice en voz alta qué pasa con ella.
+  //
+  // «Enana guerrera» con una ficha de Griscúerno pintaba una enana con piel
+  // gris azulada y cuernos, y el jugador no tenía forma de saber de dónde
+  // salían. Ahora el retrato obedece a la descripción, pero el linaje sigue
+  // decidiendo las reglas, y eso tiene que verse. No se cambia el linaje solo:
+  // «enana» no es ningún linaje de este mundo por decreto, y el linaje
+  // cambia rasgos de juego. Se le enseña y decide él.
+  const especie = especieNombrada(p.retrato);
+  const linaje = RAZAS[p.raza]?.nombre ?? '';
+
+  const aviso = especie && linaje
+    ? el('div', { class: 'revelacion__aviso', id: 'revelacion-especie' },
+      el('p', { text: `Tu descripción dice «${especie}»; tu linaje en la ficha es ${linaje}. El retrato sigue tu descripción; las reglas, tu linaje.` }),
+      el('button', {
+        class: 'btn btn--fantasma', id: 'revelacion-cambiar-linaje',
+        onClick: protegido('cambiar linaje', () => {
+          // Se vuelve a la ficha con todo lo escrito y con el MISMO id, para
+          // que al enviarla se corrija este personaje y no nazca un gemelo.
+          Object.assign(borrador, { id: p.id, creado: p.creado });
+          personajeCreado = null;
+          mostrar('creacion');
+          pintarCreacion();
+        }),
+      }, 'Cambiar linaje'),
+    )
+    : null;
+
   caja.append(el('div', { class: 'revelacion' },
     el('div', { class: 'revelacion__marco' }, cara, estado),
     el('div', { class: 'revelacion__texto' },
       el('p', { class: 'revelacion__eti', text: 'Descripción' }),
       el('p', { class: 'revelacion__cita', text: p.retrato }),
+      aviso,
       el('p', { class: 'revelacion__eti', text: 'Historia' }),
       el('p', { class: 'revelacion__cita', text: p.lore }),
     ),
@@ -640,8 +674,20 @@ function pintarRevelacion(p) {
   const contar = (e) => {
     const es = e.detail?.estado ?? '';
 
-    if (es === 'listo') logrado = true;
-    else if (logrado) return;          // ya hay retrato: nada lo desmiente
+    if (es === 'listo') {
+      logrado = true;
+
+      // Se anota con el personaje que este retrato carga. A partir de aquí el
+      // panel lateral y las miniaturas de combate lo pintan directamente, en
+      // esta sesión y en las siguientes.
+      const url = urlRetrato({ raza: p.raza, descripcion: p.retrato });
+      if (url && p.retratoIA !== url) {
+        p.retratoIA = url;
+        guardarPersonaje(p);
+      }
+    } else if (logrado) {
+      return;                          // ya hay retrato: nada lo desmiente
+    }
 
     if (ROTULOS[es]) estado.textContent = ROTULOS[es];
     estado.dataset.estado = es;
@@ -2439,6 +2485,11 @@ async function arrancar() {
 
     if (pantalla === 'juego') refrescarTodo();
   });
+
+  // Los retratos que ya cargaron en otra sesión se pintan desde el primer
+  // momento. Solo es una URL anotada: si sin red la imagen falla,
+  // `mejorarRetratoIA` devuelve el vectorial y la olvida.
+  for (const pj of listarPersonajes()) recordarRetrato(pj.retratoIA);
 
   try {
     recuperarPersistencia();

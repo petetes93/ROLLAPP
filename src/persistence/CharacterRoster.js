@@ -18,7 +18,11 @@ const CLAVE = 'arcanveil:personajes';
 const MAXIMO = 24;
 
 /** Campos que definen al personaje. Nada de progreso ni de estado de partida. */
-const CAMPOS = ['id', 'nombre', 'raza', 'clase', 'trasfondo', 'genero', 'retrato', 'lore', 'creado'];
+// `retratoIA` es la URL del retrato que ya se sabe que carga. No es progreso
+// de partida: es parte de quién es el personaje, igual que su descripción.
+// Guardarla evita que al volver a abrir el juego el panel lateral enseñe el
+// retrato vectorial mientras la imagen buena da otra vuelta por la red.
+const CAMPOS = ['id', 'nombre', 'raza', 'clase', 'trasfondo', 'genero', 'retrato', 'lore', 'creado', 'retratoIA'];
 
 function leerCrudo() {
   try {

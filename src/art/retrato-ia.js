@@ -393,6 +393,29 @@ function podarLinaje(linaje, grupos) {
     .join(', ');
 }
 
+/**
+ * La especie que nombra la descripción, tal y como la escribió el jugador.
+ *
+ * Sirve para avisarle en la revelación de que su texto y su ficha no dicen lo
+ * mismo. No se traduce a un linaje del juego a propósito: «enana» no es
+ * Ferrana ni ninguna otra cosa por decreto, y el linaje cambia las reglas. Eso
+ * lo decide él.
+ *
+ * @param {string} texto
+ * @returns {string|null} Por ejemplo «enana», o null si no nombra ninguna.
+ */
+export function especieNombrada(texto) {
+  const d = String(texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+  for (const [grupo, patron] of GLOSARIO) {
+    if (grupo !== 'especie') continue;
+    const m = d.match(patron);
+    if (m) return m[0];
+  }
+
+  return null;
+}
+
 export function traducirRasgos(texto, yaDicho = '') {
   return analizar(texto, yaDicho).frases.join(', ');
 }
@@ -477,7 +500,15 @@ export function encargoRetrato(personaje = {}) {
   const linaje = LINAJE[personaje.raza] ?? '';
   const { frases, grupos, porGrupo } = analizar(descripcion, linaje);
 
-  const rasgo = podarLinaje(linaje, grupos);
+  // Si el jugador nombra su especie, el linaje de la ficha NO pinta nada.
+  //
+  // Se podó durante un tiempo dejando piel y cuernos, con el argumento de que
+  // un enano griscórneo de piel grisazulada es posible. Lo es, pero no es lo
+  // que nadie escribió: «enana guerrera de barba trenzada pelirroja» salía con
+  // piel gris azulada y cuernos en las sienes porque el dado había elegido
+  // Griscórneo. El jugador no puede adivinar que su ficha trae cuernos, así
+  // que no puede quitarlos escribiendo. Nombra especie: manda su especie.
+  const rasgo = grupos.has('especie') ? '' : podarLinaje(linaje, grupos);
 
   // Quién es va delante de todo: primero el sexo, luego la especie, y después
   // ya los rasgos. Antes el encargo empezaba por «one person» y el modelo
@@ -487,14 +518,26 @@ export function encargoRetrato(personaje = {}) {
   // Se sacan de la lista de rasgos y se ponen al frente; el resto conserva su
   // orden original.
   const quienEs = ['sexo', 'especie'].map((g) => porGrupo.get(g)).filter(Boolean);
-  const resto = frases.filter((f) => !quienEs.includes(f));
 
-  if (!quienEs.length) quienEs.push(SUJETO_NEUTRO);
+  // Detrás de quién es, lo que hace a este personaje reconocible.
+  //
+  // Son los rasgos por los que el jugador lo describió y por los que va a
+  // juzgar si el retrato es el suyo: la barba, el hacha, la cicatriz. Al final
+  // del encargo se diluyen —salía una pelirroja joven sin barba ni hacha de
+  // «enana guerrera de barba trenzada pelirroja, hacha a la espalda»— y en
+  // cabeza el modelo los pinta. El resto conserva su orden original.
+  const DISTINTIVOS = ['barba', 'objeto', 'cicatriz', 'parche', 'tatuaje'];
+  const marca = DISTINTIVOS.map((g) => porGrupo.get(g)).filter(Boolean);
+
+  // Sin sexo ni especie reconocidos hace falta un sujeto: sin él el encargo
+  // empieza por un rasgo suelto y el modelo decide quién es por su cuenta.
+  const delante = [...(quienEs.length ? quienEs : [SUJETO_NEUTRO]), ...marca];
+  const resto = frases.filter((f) => !delante.includes(f));
 
   // El linaje y los rasgos se unen con coma porque son la misma lista de
   // atributos: pegados con espacio salía «dark hair a scar across the face» y
   // el modelo leía un rasgo inventado en vez de dos.
-  const sujeto = [...quienEs, rasgo, ...resto].filter(Boolean).join(', ');
+  const sujeto = [...delante, rasgo, ...resto].filter(Boolean).join(', ');
 
   // Orden: encuadre → sujeto → remate de estilo. El sujeto en el centro y
   // pronto; ver CABEZA para por qué esto importa tanto.
@@ -525,7 +568,16 @@ export function urlRetrato(personaje = {}) {
   const prompt = encargoRetrato(personaje);
   if (!prompt) return null;
 
-  const texto = `${personaje.raza ?? ''}:${personaje.descripcion ?? personaje.retrato ?? ''}`;
+  // La semilla sale de lo mismo que da forma a la imagen.
+  //
+  // Si el jugador nombra su especie, el linaje de la ficha ya no entra en el
+  // encargo (ver `encargoRetrato`), así que tampoco puede entrar en la semilla:
+  // volver a tirar el dado cambiaba la cara con el mismo encargo, y además
+  // lanzaba otra generación de ~20 s mientras la primera seguía en curso, que
+  // el servicio rechaza. Sin especie escrita el linaje sí pinta, y sigue
+  // contando.
+  const descripcion = personaje.descripcion ?? personaje.retrato ?? '';
+  const texto = especieNombrada(descripcion) ? `:${descripcion}` : `${personaje.raza ?? ''}:${descripcion}`;
   const semilla = (hashSemilla(texto) >>> 0) % 2_000_000;
 
   const parametros = new URLSearchParams({
@@ -545,6 +597,43 @@ export function urlRetrato(personaje = {}) {
 
 /** Peticiones en curso, para no pisar una con otra. */
 const enCurso = new WeakMap();
+
+/**
+ * Retratos que ya cargaron bien alguna vez en esta sesión.
+ *
+ * El panel lateral y las miniaturas de combate piden el retrato cada vez que
+ * se repintan. Como cada repintado empezaba de cero, en la ronda 1 del combate
+ * volvía a verse el retrato vectorial mientras la imagen buena se recargaba,
+ * aunque estuviera ya en la caché del navegador. Sabiendo qué URL funcionó se
+ * pinta directamente y no hay parpadeo.
+ *
+ * Es un `Set` de URL, no de imágenes: una `Image` no se puede meter en dos
+ * sitios del documento a la vez, así que cada nodo necesita la suya.
+ */
+const listos = new Set();
+
+/**
+ * Recuerda un retrato que ya sabemos que carga.
+ *
+ * Lo usa la partida al cargarse desde `player.retratoIA`, para que el retrato
+ * bueno esté desde el primer pintado y no después de una vuelta por la red.
+ *
+ * @param {string} url
+ */
+export function recordarRetrato(url) {
+  if (url) listos.add(String(url));
+}
+
+/**
+ * La URL del retrato de este personaje si ya sabemos que carga.
+ *
+ * @param {Object} personaje
+ * @returns {string|null}
+ */
+export function retratoYaListo(personaje = {}) {
+  const url = urlRetrato(personaje);
+  return url && listos.has(url) ? url : null;
+}
 
 /**
  * Avisa a la interfaz de en qué punto va el retrato.
@@ -585,9 +674,36 @@ export function mejorarRetratoIA(nodo, personaje = {}, alCambiarEstado) {
   if (enCurso.get(nodo) === url) return;
   enCurso.set(nodo, url);
 
-  avisar(nodo, 'generando', alCambiarEstado);
-
   const img = new Image();
+
+  // Este retrato ya cargó antes: se pinta sin anunciar que se está generando,
+  // porque no se está generando nada.
+  //
+  // Se pone ya, sin esperar al `load`, porque esperar es justo el parpadeo que
+  // se quiere quitar. Pero el juego funciona sin conexión: si la imagen falla,
+  // se devuelve el vectorial que había. Un hueco con el icono de imagen rota
+  // sería peor que el parpadeo.
+  if (listos.has(url)) {
+    const previo = [...nodo.childNodes];
+
+    img.className = 'arte arte--imagen arte--ia';
+    img.alt = personaje.nombre ? `Retrato de ${personaje.nombre}` : 'Retrato';
+
+    img.addEventListener('error', () => {
+      if (enCurso.get(nodo) !== url) return;
+      listos.delete(url);
+      enCurso.delete(nodo);
+      nodo.replaceChildren(...previo);
+      avisar(nodo, 'sin-red', alCambiarEstado);
+    });
+
+    img.src = url;
+    nodo.replaceChildren(img);
+    avisar(nodo, 'listo', alCambiarEstado);
+    return;
+  }
+
+  avisar(nodo, 'generando', alCambiarEstado);
 
   img.addEventListener('load', () => {
     // Puede haber cambiado de personaje mientras cargaba; si es así, no se
@@ -599,6 +715,7 @@ export function mejorarRetratoIA(nodo, personaje = {}, alCambiarEstado) {
     img.className = 'arte arte--imagen arte--ia';
     img.alt = personaje.nombre ? `Retrato de ${personaje.nombre}` : 'Retrato';
 
+    listos.add(url);
     nodo.replaceChildren(img);
     avisar(nodo, 'listo', alCambiarEstado);
   });

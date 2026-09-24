@@ -7,6 +7,14 @@ const ORIGEN = 'http://127.0.0.1:11436';
 const ESPERA_ESCRITURA = 850;
 const pendientes = new WeakMap();
 
+// Casi nadie tiene el puente levantado. Cada intento contra un puerto cerrado
+// deja un error rojo en la consola del navegador (no se puede silenciar), y
+// se intentaba en cada retrato pintado: decenas por partida. Si no contesta,
+// se da por apagado un rato; si el jugador lo arranca después, se nota al
+// volver a mirar.
+const REINTENTO_AUSENTE = 5 * 60 * 1000;
+let ausenteHasta = 0;
+
 /** Avisa a la interfaz del estado del retrato: generando, listo o ausente. */
 function avisar(nodo, estado) {
   nodo.dataset.retratoLocal = estado;
@@ -28,12 +36,14 @@ export function mejorarRetratoLocal(nodo, personaje = {}) {
   const anterior = pendientes.get(nodo);
   if (anterior) clearTimeout(anterior);
   if (descripcion.length < 8) return;
+  if (Date.now() < ausenteHasta) return;
 
   const actual = firma(personaje);
   nodo.dataset.firmaRetratoLocal = actual;
   // Tras pulsar «Crear personaje» no hay nada más que esperar: se pide ya.
   const espera = personaje.inmediato ? 0 : ESPERA_ESCRITURA;
   const temporizador = setTimeout(async () => {
+    if (Date.now() < ausenteHasta) return;
     avisar(nodo, 'generando');
     try {
       const respuesta = await fetch(`${ORIGEN}/v1/portrait`, {
@@ -68,6 +78,7 @@ export function mejorarRetratoLocal(nodo, personaje = {}) {
       img.src = url;
     } catch {
       // El generador es una mejora local opcional. Nunca rompe el juego.
+      ausenteHasta = Date.now() + REINTENTO_AUSENTE;
       if (nodo.dataset.firmaRetratoLocal === actual) avisar(nodo, 'ausente');
     }
   }, espera);

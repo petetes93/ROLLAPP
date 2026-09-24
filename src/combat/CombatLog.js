@@ -480,10 +480,13 @@ export function narrarBotin(botin = {}, caidos = 1) {
  * @returns {string}
  */
 export function cierre(flujo, resultado) {
+  // Las plantillas van sin punto porque otras piezas las encadenan; como
+  // línea suelta de la bitácora lo necesitan («La oscuridad te alcanza»).
+  const conPunto = (t) => (/[.!?…»]$/u.test(t) ? t : `${t}.`);
   switch (resultado) {
-    case 'victoria': return flujo.elegir(PLANTILLAS.victoria);
-    case 'derrota': return flujo.elegir(PLANTILLAS.derrota);
-    case 'huida': return flujo.elegir(PLANTILLAS.huida);
+    case 'victoria': return conPunto(flujo.elegir(PLANTILLAS.victoria));
+    case 'derrota': return conPunto(flujo.elegir(PLANTILLAS.derrota));
+    case 'huida': return conPunto(flujo.elegir(PLANTILLAS.huida));
     default: return 'El combate se detiene sin un vencedor claro.';
   }
 }

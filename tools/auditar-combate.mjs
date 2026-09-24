@@ -30,6 +30,8 @@ import { ActionRouter } from '../src/engine/ActionRouter.js';
 import { obtenerEnemigo } from '../src/data/enemies.data.js';
 import { DIRECCION } from '../src/config/balance.config.js';
 import { leerJugada } from '../src/combat/Jugada.js';
+import { cierre } from '../src/combat/CombatLog.js';
+import { COMBATE as PLANTILLAS_COMBATE } from '../src/data/narrative.templates.js';
 
 const VER = process.argv.includes('--ver');
 
@@ -301,6 +303,26 @@ for (const [frase, ctx, tipo, bono, objetivo, extra] of JUGADAS) {
   const todo = leerJugada('desde la mesa, con la antorcha, aprovecho que el guardia está cegado y le golpeo', TRAS_CEGAR);
   if (todo.creatividad.valor !== 3) { fallos += 1; console.log(`MAL  el bono no se queda en +3: ${todo.creatividad.valor}`); }
   else console.log('OK   el bono tiene techo en +3 aunque se sumen cuatro motivos');
+}
+
+/* ── La línea de cierre es una frase entera ─────────────────────────────── */
+
+// Salió en el playtest: «La oscuridad te alcanza», sin punto, sola en la
+// bitácora. Se prueban todas las variantes, no una al azar.
+{
+  const sinPunto = [];
+  for (const resultado of ['victoria', 'derrota', 'huida']) {
+    for (const frase of PLANTILLAS_COMBATE[resultado]) {
+      const linea = cierre({ elegir: () => frase }, resultado);
+      if (!/[.!?…»]$/u.test(linea)) sinPunto.push(linea);
+    }
+  }
+  if (sinPunto.length) {
+    fallos += 1;
+    console.log(`MAL  líneas de cierre sin punto: ${sinPunto.join(' | ')}`);
+  } else {
+    console.log('OK   toda línea de cierre del combate acaba en punto');
+  }
 }
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);

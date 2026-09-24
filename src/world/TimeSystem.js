@@ -345,10 +345,17 @@ export class TimeSystem extends SystemBase {
     // Solo se narra el cierre: es lo que impide hacer algo.
     if (cerrados.length) {
       const nombres = { posada: 'la posada', herrero: 'la fragua', mercado: 'el mercado', templo: 'el templo' };
-      const lista = cerrados.map((s) => nombres[s] ?? s).join(' y ');
+      const partes = cerrados.map((s) => nombres[s] ?? s);
+
+      // Comas entre todos menos el último, que lleva «y». Se unían todos con
+      // «y» y salía «Cierra la fragua y el mercado y el templo». Y el verbo
+      // concuerda: uno cierra, varios cierran.
+      const lista = partes.length > 1
+        ? `${partes.slice(0, -1).join(', ')} y ${partes.at(-1)}`
+        : partes[0];
 
       this.emitir('narrative:direct', {
-        texto: `Cierra ${lista}.`,
+        texto: `${partes.length > 1 ? 'Cierran' : 'Cierra'} ${lista}.`,
         voz: 'system',
       });
     }

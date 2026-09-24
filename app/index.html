@@ -858,6 +858,27 @@ textarea.entrada{resize:none;overflow-y:auto;line-height:1.45;max-height:180px;d
   .momento{opacity:1}
 }
 
+/* ═══ cadencia: la narración va por golpes ════════════════════════════════
+   Una frase por línea y el silencio entre ellas haciendo de puntuación. Antes
+   era un párrafo denso donde una pifia y el viento en el trigo pesaban igual.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Las líneas que siguen a la primera no llevan capitular: la capital dice
+   dónde empieza a hablar el máster, y eso pasa una vez por turno. Diez
+   capitulares seguidas no son una página iluminada, son un sarpullido. */
+.linea--seguida::first-letter{font-family:inherit!important;font-size:inherit!important;color:inherit!important;line-height:inherit!important;text-shadow:0 1px #000!important}
+.linea--seguida{margin-bottom:.5rem}
+
+/* El golpe: la línea que el ojo tiene que ver sola. «CLANG.», «Y entonces...».
+   Centrada, con aire alrededor y en el bronce de la casa. Funciona porque se
+   usa poco; cuántas veces sale lo decide el director, no el CSS. */
+.linea--golpe{
+  margin:1.15rem 0;text-align:center;
+  font-family:var(--mono);font-size:.92rem;font-weight:600;letter-spacing:.24em;
+  color:#D8AD50;text-shadow:0 1px #000,0 0 12px rgba(216,173,80,.28);
+}
+.linea--golpe::first-letter{font-family:inherit!important;font-size:inherit!important;color:inherit!important;line-height:inherit!important}
+
 /* ═══ que se pueda usar ═══════════════════════════════════════════════════
    Va al final a propósito: son correcciones transversales que tienen que
    ganar a las reglas de arriba, y juntas se leen como lo que son.

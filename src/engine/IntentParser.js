@@ -233,6 +233,14 @@ export const INTENCIONES = Object.freeze({
       viajar: 10, viajo: 10, ir: 6, voy: 6, dirigirme: 8,
       partir: 8, parto: 8, marchar: 8, caminar: 7, volver: 7, regresar: 8,
       encaminarme: 8,
+      // Como se dice de verdad al irse de un sitio. «Salgo del pueblo por el
+      // camino del norte» se quedaba en `custom` y el personaje no se movía:
+      // la narración decía que salías y el rótulo seguía en el mismo pueblo.
+      salir: 8, salgo: 8, abandonar: 7, abandono: 7, largarme: 7, largo: 5,
+      // Ambiguos: «tomo» y «sigo» solo cuentan como viaje cuando lo que se
+      // toma o se sigue es un camino. «Tomo la espada» y «sigo al ladrón» no
+      // son viajes, y por eso llevan freno en AMBIGUOS.
+      tomar: 7, tomo: 7, sigo: 6,
     },
     habilidad: null,
     umbral: 'facil',
@@ -285,9 +293,17 @@ export const INTENCIONES = Object.freeze({
  *
  * @type {Record<string, {tipo: string, confirma: RegExp}>}
  */
+/** Lo que convierte «tomo» o «sigo» en un viaje: que haya un camino de por medio. */
+const RUMBO = /\b(camino|senda|sendero|ruta|calzada|vereda|carretera|rumbo)\b|\bhacia\s+(el|la|los|las)?\s*(norte|sur|este|oeste|salida)/;
+
 const AMBIGUOS = Object.freeze({
   partir: { tipo: 'travel', confirma: /\bpartir\s+(hacia|para|rumbo|de vuelta|al\b|a\s+\w)|\bpartir\s*$/ },
   parto: { tipo: 'travel', confirma: /\bparto\s+(hacia|para|rumbo|de vuelta|al\b|a\s+\w|ya\b)|\bparto\s*$/ },
+
+  // Se toma y se sigue un camino, pero también una espada o un ladrón.
+  tomar: { tipo: 'travel', confirma: RUMBO },
+  tomo: { tipo: 'travel', confirma: RUMBO },
+  sigo: { tipo: 'travel', confirma: RUMBO },
 });
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -437,7 +453,10 @@ export function interpretar(texto, contexto = {}) {
     habilidad: def.habilidad,
     umbral: def.umbral,
     requiereTirada: def.requiereTirada,
-    objetivo: extraerObjetivo(original),
+    // En un viaje manda el extractor de destinos: el general se quedaba con el
+    // primer sintagma tras una preposición, y en «salgo del pueblo por el
+    // camino del norte con la mano en la empuñadura» eso era «mano».
+    objetivo: (def.tipo === 'travel' ? extraerDestino(original) : null) ?? extraerObjetivo(original),
     confianza,
   };
 
@@ -493,6 +512,35 @@ export function ajustarPorContexto(intencion, contexto) {
  * @param {string} texto
  * @returns {string|null}
  */
+/**
+ * Saca el destino de una frase de viaje.
+ *
+ * Hace falta aparte porque el extractor general busca el primer sintagma tras
+ * una preposición y en «salgo del pueblo por el camino del norte con la mano
+ * en la empuñadura» se quedaba con «mano»: el destino iba en medio, entre dos
+ * complementos que no pintaban nada.
+ *
+ * Aquí se busca lo contrario: el camino o el punto cardinal, que es lo único
+ * que puede ser un destino. Si no hay ninguno, se devuelve null y decide el
+ * extractor general.
+ *
+ * @param {string} texto
+ * @returns {string|null}
+ */
+function extraerDestino(texto) {
+  const t = texto.toLowerCase();
+
+  // «el camino del norte», «la senda de los pinos».
+  const camino = t.match(/\b(?:el|la)\s+(camino|senda|sendero|ruta|calzada|vereda)\s+(?:del?|de la|de los|de las)\s+([a-záéíóúñü]+)/);
+  if (camino) return `${camino[1]} del ${camino[2]}`;
+
+  // «hacia el norte», «por el sur», «rumbo al oeste».
+  const cardinal = t.match(/\b(?:hacia|rumbo a|rumbo al|por|al|hasta)\s+(?:el\s+|la\s+)?(norte|sur|este|oeste)\b/);
+  if (cardinal) return cardinal[1];
+
+  return null;
+}
+
 export function extraerObjetivo(texto) {
   const patrones = [
     /\b(?:a|al|a la|a los|a las)\s+([a-záéíóúñü]+(?:\s+[a-záéíóúñü]+)?)/i,

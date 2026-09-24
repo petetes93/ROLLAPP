@@ -134,6 +134,7 @@ comprobar(urlRetrato({ raza: 'albar', descripcion: sinEsp }) !== urlRetrato({ ra
   // Un camino salió asfaltado y con las líneas del carril.
   comprobar(/medieval/.test(camino) && /no asphalt/.test(camino) && !/\broad\b/.test(camino),
     'el camino es de tierra y de un mundo medieval, no una carretera', camino);
+  comprobar(/no frame/.test(camino), 'la escena se pide a sangre, sin marco de papel', camino);
 
   const escena = { lugar: 'vado_yunque', sublugar: null, terreno: 'ciudad', franja: 'alba', clima: 'despejado', motivo: 'llegada' };
   comprobar(urlEscena(escena) === urlEscena({ ...escena, npcs: [] }),

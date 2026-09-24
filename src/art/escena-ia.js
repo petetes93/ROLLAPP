@@ -33,8 +33,12 @@ const ALTO = 640;
 // líneas del carril.
 const CABEZA = 'Anime cel shaded landscape illustration of a medieval fantasy world, wide establishing shot of';
 
-/** Lo que el modelo tiende a colar y aquí no existe. */
-const SIN_MODERNIDAD = 'No text, no letters, no asphalt, no cars, no power lines, no modern buildings.';
+/**
+ * Lo que el modelo tiende a colar y aquí no existe. El marco también: pinta
+ * la escena como un cuadro con borde de papel, y en la cabecera salían dos
+ * franjas claras a los lados.
+ */
+const SIN_MODERNIDAD = 'Full bleed, no border, no frame. No text, no letters, no asphalt, no cars, no power lines, no modern buildings.';
 
 /** El sitio, por su terreno o su tipo. */
 const TERRENO = Object.freeze({

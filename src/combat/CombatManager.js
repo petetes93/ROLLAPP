@@ -144,6 +144,8 @@ export class CombatManager extends SystemBase {
     });
 
     this._combatientes = Object.fromEntries(tirada.combatientes.map((c) => [c.id, c]));
+    // Cada combate empieza sin caídos apuntados.
+    this._caidos = new Set();
     this._registro = [];
     this._rondaActual = [];
 
@@ -884,6 +886,16 @@ export class CombatManager extends SystemBase {
    * @private
    */
   async _registrarCaida(combatiente) {
+    // Una caída se anota UNA vez.
+    //
+    // Hay tres caminos que pueden traer aquí al mismo combatiente —el daño
+    // periódico de un estado, el golpe que lo remata y el ataque en área— y en
+    // el parte salía «Brunhilda cae.» dos veces seguidas. Se cae una sola vez,
+    // y leerlo dos veces resta en lugar de sumar.
+    this._caidos ??= new Set();
+    if (this._caidos.has(combatiente.id)) return;
+    this._caidos.add(combatiente.id);
+
     this._anotar(Registro.entradaSuceso('caida', {
       nombre: combatiente.nombre,
       esJugador: combatiente.esJugador,

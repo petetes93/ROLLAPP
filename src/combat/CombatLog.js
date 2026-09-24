@@ -220,7 +220,12 @@ function _lineaAtaque(e) {
         if (estado) linea += ` ${e.objetivo.nombre} queda ${estado.nombre.toLowerCase()}.`;
       }
 
-      if (e.cayo) linea += ` ${e.objetivo.nombre} cae.`;
+      // La caída NO se cuenta aquí.
+      //
+      // El parte sacó «Brunhilda cae.» dos veces: una pegada al golpe y otra
+      // como entrada propia desde `_registrarCaida`. La entrada propia es la
+      // buena —también la usa el daño por veneno o sangrado, que no viene de
+      // ningún golpe—, así que el golpe se limita a narrar el golpe.
 
       return linea;
     }

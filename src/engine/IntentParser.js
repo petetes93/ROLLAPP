@@ -231,8 +231,16 @@ export const INTENCIONES = Object.freeze({
     tipo: 'travel',
     verbos: {
       viajar: 10, viajo: 10, ir: 6, voy: 6, dirigirme: 8,
-      partir: 8, marchar: 8, caminar: 7, volver: 7, regresar: 8,
+      partir: 8, parto: 8, marchar: 8, caminar: 7, volver: 7, regresar: 8,
       encaminarme: 8,
+      // Como se dice de verdad al irse de un sitio. «Salgo del pueblo por el
+      // camino del norte» se quedaba en `custom` y el personaje no se movía:
+      // la narración decía que salías y el rótulo seguía en el mismo pueblo.
+      salir: 8, salgo: 8, abandonar: 7, abandono: 7, largarme: 7, largo: 5,
+      // Ambiguos: «tomo» y «sigo» solo cuentan como viaje cuando lo que se
+      // toma o se sigue es un camino. «Tomo la espada» y «sigo al ladrón» no
+      // son viajes, y por eso llevan freno en AMBIGUOS.
+      tomar: 7, tomo: 7, sigo: 6,
     },
     habilidad: null,
     umbral: 'facil',
@@ -260,6 +268,42 @@ export const INTENCIONES = Object.freeze({
     umbral: 'facil',
     requiereTirada: false,
   },
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VERBOS DE DOS CARAS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Verbos que significan dos cosas, con la prueba que decide cuál.
+ *
+ * «Partir» es irse y también romper. Vivía solo en `travel`, así que «intento
+ * partir la montaña en dos de un tajo» —una hazaña desmedida, de las que el
+ * juego sabe narrar— acababa en el enrutador de viajes y devolvía la línea de
+ * sistema «No sabes cómo llegar a Los Pozos Hondos». Ni narración ni tirada:
+ * el jugador escribe algo épico y el juego le contesta con un error de mapa.
+ *
+ * La prueba es la preposición. Uno parte HACIA un sitio, o parte y ya está; lo
+ * que se parte sin preposición es una cosa. `\s*$` cubre «parto ya».
+ *
+ * Si no se confirma, el verbo simplemente no puntúa para ese tipo y la frase
+ * se resuelve por lo demás que lleve: «partir la montaña» se queda sin verbo
+ * reconocido y cae en el análisis por habilidad, que es donde la evalúa
+ * `Ambicion`.
+ *
+ * @type {Record<string, {tipo: string, confirma: RegExp}>}
+ */
+/** Lo que convierte «tomo» o «sigo» en un viaje: que haya un camino de por medio. */
+const RUMBO = /\b(camino|senda|sendero|ruta|calzada|vereda|carretera|rumbo)\b|\bhacia\s+(el|la|los|las)?\s*(norte|sur|este|oeste|salida)/;
+
+const AMBIGUOS = Object.freeze({
+  partir: { tipo: 'travel', confirma: /\bpartir\s+(hacia|para|rumbo|de vuelta|al\b|a\s+\w)|\bpartir\s*$/ },
+  parto: { tipo: 'travel', confirma: /\bparto\s+(hacia|para|rumbo|de vuelta|al\b|a\s+\w|ya\b)|\bparto\s*$/ },
+
+  // Se toma y se sigue un camino, pero también una espada o un ladrón.
+  tomar: { tipo: 'travel', confirma: RUMBO },
+  tomo: { tipo: 'travel', confirma: RUMBO },
+  sigo: { tipo: 'travel', confirma: RUMBO },
 });
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -355,11 +399,20 @@ export function interpretar(texto, contexto = {}) {
     for (const [verbo, peso] of Object.entries(def.verbos)) {
       const verboNormal = sinAcentos(verbo);
 
+      // Un verbo ambiguo solo puntúa para su tipo si el contexto lo confirma.
+      const amb = AMBIGUOS[verboNormal];
+      if (amb && amb.tipo === tipo && !amb.confirma.test(normal)) continue;
+
       // El verbo al principio de la frase pesa el doble: «ataco al goblin» es
       // más claro que «al goblin, si me deja, quizá ataque».
       if (palabras[0] === verboNormal) puntos += peso * 2;
       else if (palabras.includes(verboNormal)) puntos += peso;
-      else if (normal.includes(verboNormal)) puntos += peso * 0.6;
+      // El respaldo existe para los verbos pegados a un signo («voy, y luego»),
+      // que `palabras` deja como «voy,». Pero buscaba la subcadena a pelo, y
+      // «ir» casa dentro de «partir»: «intento partir la montaña» puntuaba como
+      // viaje por un verbo que no está. Con el límite de palabra delante sigue
+      // cogiendo «voy,» y deja de inventarse verbos dentro de otros.
+      else if (new RegExp(`\\b${verboNormal}`).test(normal)) puntos += peso * 0.6;
     }
 
     if (puntos > 0) marcador.set(tipo, puntos);
@@ -400,7 +453,10 @@ export function interpretar(texto, contexto = {}) {
     habilidad: def.habilidad,
     umbral: def.umbral,
     requiereTirada: def.requiereTirada,
-    objetivo: extraerObjetivo(original),
+    // En un viaje manda el extractor de destinos: el general se quedaba con el
+    // primer sintagma tras una preposición, y en «salgo del pueblo por el
+    // camino del norte con la mano en la empuñadura» eso era «mano».
+    objetivo: (def.tipo === 'travel' ? extraerDestino(original) : null) ?? extraerObjetivo(original),
     confianza,
   };
 
@@ -456,6 +512,35 @@ export function ajustarPorContexto(intencion, contexto) {
  * @param {string} texto
  * @returns {string|null}
  */
+/**
+ * Saca el destino de una frase de viaje.
+ *
+ * Hace falta aparte porque el extractor general busca el primer sintagma tras
+ * una preposición y en «salgo del pueblo por el camino del norte con la mano
+ * en la empuñadura» se quedaba con «mano»: el destino iba en medio, entre dos
+ * complementos que no pintaban nada.
+ *
+ * Aquí se busca lo contrario: el camino o el punto cardinal, que es lo único
+ * que puede ser un destino. Si no hay ninguno, se devuelve null y decide el
+ * extractor general.
+ *
+ * @param {string} texto
+ * @returns {string|null}
+ */
+function extraerDestino(texto) {
+  const t = texto.toLowerCase();
+
+  // «el camino del norte», «la senda de los pinos».
+  const camino = t.match(/\b(?:el|la)\s+(camino|senda|sendero|ruta|calzada|vereda)\s+(?:del?|de la|de los|de las)\s+([a-záéíóúñü]+)/);
+  if (camino) return `${camino[1]} del ${camino[2]}`;
+
+  // «hacia el norte», «por el sur», «rumbo al oeste».
+  const cardinal = t.match(/\b(?:hacia|rumbo a|rumbo al|por|al|hasta)\s+(?:el\s+|la\s+)?(norte|sur|este|oeste)\b/);
+  if (cardinal) return cardinal[1];
+
+  return null;
+}
+
 export function extraerObjetivo(texto) {
   const patrones = [
     /\b(?:a|al|a la|a los|a las)\s+([a-záéíóúñü]+(?:\s+[a-záéíóúñü]+)?)/i,

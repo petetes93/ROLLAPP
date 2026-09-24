@@ -2,6 +2,7 @@
 /** RegresiÃ³n real de la PWA en Chrome, sin dependencias externas. */
 import { spawn } from 'node:child_process';
 import { writeFile, mkdtemp, rm } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -11,6 +12,16 @@ const DEBUG = 9228;
 const URL_APP = `http://127.0.0.1:${PORT}/app/index.html`;
 const out = process.argv.includes('--capturas') ? resolve('dist/regresion') : null;
 const desktop = process.argv.includes('--desktop');
+
+/**
+ * `--sin-ia` bloquea el servicio de imágenes para probar el respaldo.
+ *
+ * La regresión tiene que valer con red y sin ella, porque las dos son
+ * situaciones reales del jugador. Con la opción puesta, el retrato de IA no
+ * puede cargar y el vectorial es la única salida posible: si el juego sigue
+ * en pie y con cara, el respaldo funciona de verdad y no de palabra.
+ */
+const sinIA = process.argv.includes('--sin-ia');
 const viewport = desktop ? { width: 1440, height: 900, label: '1440x900' } : { width: 390, height: 844, label: '390x844' };
 const profile = await mkdtemp(join(tmpdir(), 'arcanveil-chrome-'));
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
@@ -38,7 +49,39 @@ async function json(url, init) {
 
 const server = launch(process.execPath, ['tools/servir.mjs', '--puerto', String(PORT)]);
 let serverErr = ''; server.stderr.on('data', d => { serverErr += d; });
-const chrome = launch('google-chrome', [
+/**
+ * Dónde está Chrome.
+ *
+ * Estaba escrito `google-chrome` a secas, que solo existe en Linux: en un
+ * Windows recién clonado la regresión no arrancaba y el error era un ENOENT
+ * sin pistas. Se prueban los sitios de siempre de cada sistema y se puede
+ * forzar con `CHROME_BIN` para los casos raros.
+ */
+function buscarChrome() {
+  if (process.env.CHROME_BIN) return process.env.CHROME_BIN;
+
+  const candidatos = {
+    win32: [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      `${process.env.LOCALAPPDATA ?? ''}\\Google\\Chrome\\Application\\chrome.exe`,
+    ],
+    darwin: [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    ],
+  }[process.platform] ?? ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'];
+
+  for (const c of candidatos) {
+    // En Linux los candidatos son nombres sueltos y los resuelve el PATH.
+    if (!c.includes('/') && !c.includes('\\')) return c;
+    if (existsSync(c)) return c;
+  }
+
+  throw new Error('No encuentro Chrome. Indícalo con CHROME_BIN=/ruta/a/chrome');
+}
+
+const chrome = launch(buscarChrome(), [
   '--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars',
   `--window-size=${viewport.width},${viewport.height}`, `--remote-debugging-port=${DEBUG}`,
   `--user-data-dir=${profile}`, 'about:blank',
@@ -89,6 +132,13 @@ try {
     }
   };
   await cdp('Runtime.enable'); await cdp('Page.enable'); await cdp('Network.enable');
+
+  if (sinIA) {
+    await cdp('Network.setBlockedURLs', { urls: ['*image.pollinations.ai*', '*pollinations.ai*'] });
+    await cdp('Page.reload', { ignoreCache: true });
+    await until('window.ARCANVEIL?.motor?.listo && document.body.classList.contains("esta-listo")');
+  }
+
   await until('window.ARCANVEIL?.motor?.listo && document.body.classList.contains("esta-listo")');
   const boot = await evaluate(`({screen:document.body.dataset.activeScreen, systems:ARCANVEIL.inspeccionar().total, failures:document.querySelectorAll('#fallos').length})`);
   if (boot.screen !== 'inicio' || boot.failures) throw new Error(`arranque invÃ¡lido ${JSON.stringify(boot)}`);
@@ -110,8 +160,18 @@ try {
   await shot(`02a-creacion-${viewport.label}.png`);
   await evaluate(`document.querySelector('#creacion-crear').click()`);
   await until('document.querySelector("#creacion-empezar") && document.querySelector("#creacion-cara .arte")');
-  const retrato = await evaluate(`({cicatriz:Boolean(document.querySelector('#creacion-cara .retrato-rasgo--cicatriz')), botones:[...document.querySelectorAll('#creacion-pie button')].map(b=>b.id)})`);
-  if (!retrato.cicatriz) throw new Error('la descripción libre no dibujó la cicatriz');
+  // Mismo criterio de dos vías que abajo: la cicatriz vectorial vale, y la
+  // imagen de IA cargada también. Con `--sin-ia` solo puede valer la primera,
+  // que es justo lo que esa opción sirve para comprobar.
+  const retrato = await evaluate(`(() => {
+    const img = document.querySelector('#creacion-cara img.arte--ia');
+    return {
+      cicatriz: Boolean(document.querySelector('#creacion-cara .retrato-rasgo--cicatriz')),
+      imagenIA: Boolean(img && img.complete && img.naturalWidth > 0),
+      botones: [...document.querySelectorAll('#creacion-pie button')].map(b => b.id),
+    };
+  })()`);
+  if (!retrato.cicatriz && !retrato.imagenIA) throw new Error('la descripción libre no llegó al retrato');
   // La forja visual dura 720 ms; la captura valida el estado final nítido.
   await new Promise(resolve => setTimeout(resolve, 850));
   await shot(`02-creacion-${viewport.label}.png`);
@@ -138,9 +198,29 @@ try {
   if (turns.at(-1).lines < 20) throw new Error(`la bitácora no avanzó: ${turns.at(-1).lines}`);
   await shot(`03-partida-20-turnos-${viewport.label}.png`);
 
-  const libre = await evaluate(`({texto:ARCANVEIL.ver('narrative.entradas',[]).map(e=>e.texto??'').join(' '), retrato:Boolean(document.querySelector('#retrato-pj .retrato-rasgo--cicatriz'))})`);
+  // El retrato vale por cualquiera de sus dos vías.
+  //
+  // Esto buscaba `.retrato-rasgo--cicatriz`, que solo existe en el retrato
+  // vectorial. Con el retrato de IA cargado ese nodo no está —la imagen
+  // sustituye al SVG entero— y la prueba fallaba con «el rasgo visual no llegó
+  // a la partida» teniendo el retrato delante. El juego no estaba roto: la
+  // prueba se había quedado atrás.
+  //
+  // Lo que importa es que la cara del personaje esté puesta, por la vía que
+  // sea. Se aceptan las dos y el informe dice cuál fue.
+  const libre = await evaluate(`(() => {
+    const img = document.querySelector('#retrato-pj img.arte--ia');
+    return {
+      texto: ARCANVEIL.ver('narrative.entradas', []).map(e => e.texto ?? '').join(' '),
+      retratoIA: Boolean(img && img.complete && img.naturalWidth > 0),
+      retratoVector: Boolean(document.querySelector('#retrato-pj .retrato-rasgo--cicatriz')),
+    };
+  })()`);
+
   if (/intentas\s+anoto/i.test(libre.texto)) throw new Error('acción libre mal integrada');
-  if (!libre.retrato) throw new Error('el rasgo visual no llegó a la partida');
+  if (!libre.retratoIA && !libre.retratoVector) {
+    throw new Error('el retrato no llegó a la partida (ni imagen de IA ni rasgo vectorial)');
+  }
 
   const beforeOffline = await evaluate(`navigator.serviceWorker.ready.then(()=>({controlled:Boolean(navigator.serviceWorker.controller),lines:ARCANVEIL.ver('narrative.entradas',[]).length}))`);
   await wait(700);
@@ -156,6 +236,8 @@ try {
     maxLogLines: Math.max(...turns.map(t => t.lines)),
     exceptions: exceptions.length, serviceWorkerControlled: beforeOffline.controlled,
     offlineScreen: offline.screen, failures: offline.failures,
+    retrato: libre.retratoIA ? 'ia' : 'vectorial',
+    sinIA,
   };
   console.log(JSON.stringify(report, null, 2));
 } catch (e) {

@@ -22,7 +22,7 @@
 
 import { IDMProvider } from './IDMProvider.js';
 import {
-  atmosferaDe, resultadosDe, categoriaDe,
+  atmosferaDe, atmosferaInterior, resultadosDe, categoriaDe,
   FRANJA, CLIMA, COMBATE, NPC, OPCIONES, CIERRES, AMBIENTE,
 } from '../../data/narrative.templates.js';
 import { APP } from '../../config/app.config.js';
@@ -174,16 +174,23 @@ export class ProceduralProvider extends IDMProvider {
       ]));
     }
 
-    // Nunca una sola línea: el mundo sigue vivo alrededor y el hilo personal
-    // asoma de vez en cuando. Con una escena de verdad delante, esto ya no
-    // hace falta: el relleno existe para que el turno no quede desnudo.
-    if (!escena && parrafos.length < 3) {
-      const atm = this._componerAtmosfera(ctx);
+    // El relleno existe para que un turno no quede desnudo, no para alargar
+    // uno que ya dice algo.
+    //
+    // El tope pasa de tres párrafos a dos, y la atmósfera se corta a una sola
+    // frase. Casi todas las respuestas terminaban con dos o tres frases de
+    // adorno —«Una bandada cruza el cielo en formación cerrada», «Algo cruje a
+    // tu espalda y no hay nada cuando te giras»— que el jugador aprende a
+    // saltarse en cuatro turnos. Una frase se lee; tres son ruido.
+    const conContenido = Boolean(escena) || parrafos.length >= 2;
+
+    if (!conContenido && parrafos.length < 2) {
+      const atm = this._componerAtmosfera(ctx, { frases: 1 });
       if (atm && !r.story?.includes(atm)) parrafos.push(atm);
     }
-    if (!escena && parrafos.length < 3 && ctx.hiloParaRetomar?.texto) {
+    if (!conContenido && parrafos.length < 2 && ctx.hiloParaRetomar?.texto) {
       parrafos.push(this._recordarHilo(ctx.hiloParaRetomar, ctx));
-    } else if (!escena && parrafos.length < 3) {
+    } else if (!conContenido && parrafos.length < 2) {
       const amb = this._elegirAmbiente(ctx);
       if (amb) parrafos.push(amb);
     }
@@ -284,8 +291,13 @@ export class ProceduralProvider extends IDMProvider {
     // ─── 2. Atmósfera ──────────────────────────────────────────────────
     // Solo se describe el entorno cuando cambia algo o cada cierto tiempo. Un
     // director que describe el bosque en cada turno resulta agotador.
+    //
+    // Dos frases como mucho. Antes salían cuatro y cinco de golpe —hora,
+    // clima, vista, sonido, olfato y detalle, todo seguido— y el jugador
+    // aprendía a saltarse el párrafo entero en cuatro turnos. Lo que se lee
+    // siempre no es lo que más dice, es lo que cabe.
     if (this._tocaDescribirEntorno(ctx)) {
-      parrafos.push(this._componerAtmosfera(ctx));
+      parrafos.push(this._componerAtmosfera(ctx, { frases: 2 }));
     }
 
     // ─── 3. Hilo abierto ───────────────────────────────────────────────
@@ -535,21 +547,30 @@ export class ProceduralProvider extends IDMProvider {
    * @returns {string}
    * @private
    */
-  _componerAtmosfera(ctx) {
-    const terreno = ctx.mundo?.terreno ?? 'camino';
-    const atmosfera = atmosferaDe(terreno);
+  _componerAtmosfera(ctx, { frases = 0 } = {}) {
+    // Dentro de un sitio se describe el sitio, no la comarca.
+    //
+    // Esto miraba solo el terreno, así que desde la mesa de una taberna
+    // contaba los surcos de carro y el viento en el trigo. El jugador tiene
+    // cuatro paredes delante y le describían los campos de fuera.
+    const dentro = this._sublugarActual(ctx);
+    const atmosfera = dentro ? atmosferaInterior(dentro.tipo) : atmosferaDe(ctx.mundo?.terreno ?? 'camino');
     const partes = [];
 
-    // Momento del día, solo a veces: no hace falta recordar la hora siempre.
-    if (this._flujo().oportunidad(0.4)) {
-      const franja = FRANJA[ctx.mundo?.franja] ?? FRANJA.mediodia;
-      partes.push(this._unico(franja));
-    }
+    // La hora y el clima son cosa de fuera. Bajo techo no se ve el cielo, y
+    // recordar que llueve mientras estás a cubierto rompe la escena.
+    if (!dentro) {
+      // Momento del día, solo a veces: no hace falta recordar la hora siempre.
+      if (this._flujo().oportunidad(0.4)) {
+        const franja = FRANJA[ctx.mundo?.franja] ?? FRANJA.mediodia;
+        partes.push(this._unico(franja));
+      }
 
-    // Clima, si es algo más que un cielo despejado.
-    const clima = ctx.mundo?.clima;
-    if (clima && clima !== 'despejado' && this._flujo().oportunidad(0.6)) {
-      partes.push(this._unico(CLIMA[clima] ?? CLIMA.despejado));
+      // Clima, si es algo más que un cielo despejado.
+      const clima = ctx.mundo?.clima;
+      if (clima && clima !== 'despejado' && this._flujo().oportunidad(0.6)) {
+        partes.push(this._unico(CLIMA[clima] ?? CLIMA.despejado));
+      }
     }
 
     // Vista casi siempre; oído y olfato de forma alterna.
@@ -562,7 +583,56 @@ export class ProceduralProvider extends IDMProvider {
     // un decorado genérico.
     if (this._flujo().oportunidad(0.5)) partes.push(this._unico(atmosfera.detalle));
 
-    return partes.map((p) => (p.endsWith('.') ? p : `${p}.`)).join(' ');
+    // `frases` recorta el bloque cuando se usa como relleno. Se queda con las
+    // primeras, que son las que sitúan: la hora, el clima y lo que se ve. El
+    // olfato y el detalle son la guinda, y una guinda sobre un turno que ya
+    // dice algo es justo el ruido que sobra.
+    const elegidas = frases > 0 ? partes.slice(0, frases) : partes;
+
+    return elegidas.map((p) => (p.endsWith('.') ? p : `${p}.`)).join(' ');
+  }
+
+  /**
+   * ¿Está el personaje dentro de algún sitio?
+   *
+   * Vale tanto el sublugar donde ya está como el que acaba de nombrar en su
+   * acción: quien escribe «entro en la taberna y me siento» está dentro a
+   * efectos de lo que ve, aunque el estado aún no se haya actualizado.
+   *
+   * @param {Object} ctx
+   * @returns {{refId: string, nombre: string, tipo: string}|null}
+   * @private
+   */
+  _sublugarActual(ctx) {
+    const lugar = obtenerLugar(ctx.mundo?.ubicacion);
+    const sublugares = lugar?.sublugares ?? [];
+    if (!sublugares.length) return null;
+
+    const actual = ctx.mundo?.sublugar;
+    if (actual) {
+      const hallado = sublugares.find((s) => s.refId === actual);
+      if (hallado) return hallado;
+    }
+
+    // Lo que nombra la acción, pero solo si dice que ENTRA o que ESTÁ ahí.
+    //
+    // Mencionar un sitio no es estar en él: «pregunto al herrero si ha oído
+    // hablar del incendio» describía la fragua estando el personaje sentado en
+    // la taberna. Hace falta un verbo de entrar o de estar, no una mención.
+    const accion = String(ctx.accion ?? '')
+      .normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    if (!accion) return null;
+
+    const entra = /\b(entro|entrar|entramos|paso a|me meto|voy a la|voy al|subo a|bajo a|estoy en|me siento en|dentro de|cruzo la puerta)\b/.test(accion);
+    if (!entra) return null;
+
+    const ALIAS = { posada: ['posada', 'taberna', 'meson'], herrero: ['fragua', 'herreria', 'herrero'], mercado: ['mercado', 'plaza', 'puesto'], templo: ['templo', 'santuario', 'capilla'] };
+
+    return sublugares.find((s) => {
+      const nombre = String(s.nombre ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+      if (nombre && accion.includes(nombre)) return true;
+      return (ALIAS[s.tipo] ?? [s.tipo]).some((a) => new RegExp(`\\b${a}`).test(accion));
+    }) ?? null;
   }
 
   /**
@@ -722,11 +792,23 @@ export class ProceduralProvider extends IDMProvider {
 
     // Diálogo con alguien ya presente.
     const actitud = npc.actitud ?? 'cordial';
-    const saludos = NPC.saludos[actitud] ?? NPC.saludos.cordial;
 
-    partes.push(this._unico(saludos));
+    // Si le has PREGUNTADO algo, no te saluda.
+    //
+    // Antes salía siempre el saludo del catálogo, así que preguntar al herrero
+    // por el incendio de Forja Alta devolvía «Buenas. ¿Qué necesitas?»: el PNJ
+    // contestaba como si acabaras de entrar por la puerta. Es el fallo que más
+    // rompe la ilusión de estar hablando con alguien.
+    const respuesta = this._responderPregunta(peticion, ctx, npc);
 
-    if (peticion.tirada) {
+    if (respuesta) {
+      partes.push(respuesta);
+    } else {
+      const saludos = NPC.saludos[actitud] ?? NPC.saludos.cordial;
+      partes.push(this._unico(saludos));
+    }
+
+    if (peticion.tirada && !respuesta) {
       partes.push(this._narrarResultado(peticion.tirada, peticion.intencion));
     }
 
@@ -742,6 +824,85 @@ export class ProceduralProvider extends IDMProvider {
       memory: [],
       mood: 'neutro',
     };
+  }
+
+  /**
+   * Contesta a una pregunta concreta, recogiendo el tema.
+   *
+   * Devuelve `null` si la acción no era una pregunta, y entonces el saludo del
+   * catálogo sigue valiendo.
+   *
+   * Lo que hace que esto funcione no es la plantilla: es el TEMA. «¿Forja
+   * Alta? Eso queda lejos» convence porque repite lo que preguntaste; «Buenas,
+   * ¿qué necesitas?» no convence de nada porque vale para cualquier cosa. Se
+   * saca el sustantivo clave de la pregunta y se mete en la respuesta.
+   *
+   * El resultado de la tirada decide qué tipo de respuesta toca: con éxito hay
+   * pista de verdad, atada a los ganchos del lugar o al hilo del jugador; con
+   * fallo hay evasiva creíble, que no es lo mismo que silencio.
+   *
+   * @param {Object} peticion
+   * @param {Object} ctx
+   * @param {Object} npc
+   * @returns {string|null}
+   * @private
+   */
+  _responderPregunta(peticion, ctx, npc) {
+    const accion = String(peticion.accion ?? '').trim();
+    if (!accion) return null;
+
+    const plano = accion.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+    const esPregunta = accion.includes('?')
+      || /\b(pregunt|le digo si|si ha visto|si sabe|sabe algo|ha oido|has oido|que sabe|quien|donde|cuando|por que|cuanto)\b/.test(plano);
+    if (!esPregunta) return null;
+
+    const tema = this._temaDePregunta(accion);
+    const nombre = npc.nombre ?? 'quien tienes delante';
+
+    // Lo que este lugar puede ofrecer de verdad como pista.
+    const lugar = obtenerLugar(ctx.mundo?.ubicacion);
+    const gancho = (lugar?.ganchos ?? [])[0] ?? null;
+
+    const exito = peticion.tirada ? peticion.tirada.exito : true;
+
+    if (exito) {
+      const pista = gancho
+        ? `Y añade algo que no esperabas: ${gancho.charAt(0).toLowerCase()}${gancho.slice(1)}`
+        : 'Y lo que cuenta encaja con lo que ya sospechabas';
+
+      return this._unico([
+        `${nombre} tarda en contestar. «${tema ? `¿${capitalizar(tema)}?` : 'Eso'}… Algo se dice.» ${pista}.`,
+        `«${tema ? `${capitalizar(tema)}` : 'Eso'}», repite ${nombre}, como si el nombre pesara. Luego habla. ${pista}.`,
+        `${nombre} mira alrededor antes de responder, y eso ya te dice algo. ${pista}.`,
+      ]);
+    }
+
+    return this._unico([
+      `«${tema ? `¿${capitalizar(tema)}?` : '¿Eso?'} Eso queda lejos de mis asuntos», dice ${nombre}. «Pregunta a los carreteros, que van y vienen.»`,
+      `${nombre} se encoge de hombros. «Ni idea. Aquí cada uno se ocupa de lo suyo.»`,
+      `«Mira», dice ${nombre}, y no termina la frase. Vuelve a lo que estaba haciendo.`,
+    ]);
+  }
+
+  /**
+   * El sustantivo clave por el que se pregunta.
+   *
+   * Primero los nombres propios, que es lo que suele importar —«Forja Alta»,
+   * «Helta»—, y si no hay, el sintagma detrás de la preposición.
+   *
+   * @param {string} accion
+   * @returns {string}
+   * @private
+   */
+  _temaDePregunta(accion) {
+    const propio = accion.match(/\b([A-ZÁÉÍÓÚÑ][a-záéíóúñü]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñü]+)*)\b/g)
+      ?.filter((p) => !/^(Pregunto|Preguntar|Le|Si|El|La|Los|Las|Un|Una|Y|Que|Por|Del?)$/i.test(p));
+
+    if (propio?.length) return propio[propio.length - 1];
+
+    const sintagma = accion.match(/\b(?:por|sobre|acerca de|del|de la|de)\s+(?:el |la |los |las |un |una )?([a-záéíóúñü]+(?:\s+[a-záéíóúñü]+)?)/i);
+    return sintagma?.[1]?.trim() ?? '';
   }
 
   /**

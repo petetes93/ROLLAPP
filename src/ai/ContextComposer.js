@@ -422,6 +422,9 @@ export class ContextComposer {
       mundo: {
         terreno: mundo.terreno,
         ubicacion: mundo.ubicacion,
+        // Sin esto, el director no sabía si el personaje estaba dentro o fuera
+        // y describía el terreno de la comarca desde la mesa de una taberna.
+        sublugar: mundo.sublugar ?? null,
         franja: mundo.tiempo.franja,
         hora: mundo.tiempo.hora,
         dia: mundo.tiempo.dia,

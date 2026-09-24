@@ -172,10 +172,41 @@ function infinitivoInicial(texto) {
   return esp + conMayus + texto.slice(todo.length);
 }
 
+/**
+ * Subjuntivos de primera persona, con su forma en segunda.
+ *
+ * Son los que aparecen tras «que» en una acción de rol: «ataco al primer
+ * enemigo que vea», «espero hasta que pueda pasar». El bucle de abajo solo
+ * mira verbos acabados en -o, -é o -í, así que estos no los tocaba nunca y la
+ * frase salía a medio convertir: «Atacas al primer enemigo que vea».
+ *
+ * Es una lista y no una regla porque en castellano la terminación -a o -e tras
+ * «que» la comparten el subjuntivo («que vea») y el indicativo de tercera
+ * persona («que llega»): sin saber el verbo no se distinguen, y convertir «que
+ * llega» en «que llegas» cambiaría de quién habla la frase.
+ */
+const SUBJUNTIVOS = Object.freeze({
+  vea: 'veas', pueda: 'puedas', encuentre: 'encuentres', sepa: 'sepas',
+  tenga: 'tengas', haga: 'hagas', diga: 'digas', vaya: 'vayas', sea: 'seas',
+  este: 'estes', esté: 'estés', quiera: 'quieras', deba: 'debas', logre: 'logres',
+  consiga: 'consigas', salga: 'salgas', venga: 'vengas', ponga: 'pongas',
+  vuelva: 'vuelvas', oiga: 'oigas', vea_: 'veas', llegue: 'llegues',
+  necesite: 'necesites', decida: 'decidas', note: 'notes', vean: 'veas',
+  coja: 'cojas', abra: 'abras', cierre: 'cierres', mire: 'mires', busque: 'busques',
+});
+
 export function aSegundaPersona(texto) {
-  const inf = infinitivoInicial(String(texto ?? ''));
+  // «Me siento en la taberna» es sentarse, no sentir, y salía «Te sientes en
+  // la taberna». El verbo es el mismo en primera persona y solo el contexto lo
+  // desambigua: con «me» delante y un sitio detrás, uno se sienta. Sin «me»
+  // («siento que algo va mal») es sentir, y eso se deja al bucle de abajo.
+  let t = String(texto ?? '')
+    .replace(/\bme\s+siento\b(?=\s+(en|sobre|junto|frente|cerca|a\b|al\b))/giu,
+      (m) => (m[0] === m[0].toUpperCase() ? 'Te sientas' : 'te sientas'));
+
+  const inf = infinitivoInicial(t);
   if (inf !== null) return inf;
-  const partes = String(texto ?? '').split(/(\s+|[,.;:!?¡¿«»"()]+)/u);
+  const partes = t.split(/(\s+|[,.;:!?¡¿«»"()]+)/u);
   let anterior = null;       // última palabra vista
   let inicioClausula = true;
 
@@ -189,6 +220,10 @@ export function aSegundaPersona(texto) {
     // "me" delante de verbo es reflexivo; "yo" también cambia.
     if (PRONOMBRES[bajo]) {
       salida = conMayuscula(p, PRONOMBRES[bajo]);
+    } else if (anterior === 'que' && SUBJUNTIVOS[bajo]) {
+      // Subjuntivo tras «que»: solo aquí, porque fuera de esa posición estas
+      // formas son casi siempre tercera persona («la puerta que cierra mal»).
+      salida = conMayuscula(p, SUBJUNTIVOS[bajo]);
     } else if ((inicioClausula || TRAS_VERBO.has(anterior)) && !NO_VERBOS.has(bajo)
       && !(['lo', 'la', 'los', 'las'].includes(anterior) && /(ado|ido|ierto|uesto|echo|icho|oto)$/.test(bajo))
       && (/o$/.test(bajo) || /[éí]$/.test(bajo) || PRETERITOS[bajo]) && bajo.length > 1) {

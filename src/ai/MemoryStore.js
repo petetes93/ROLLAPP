@@ -107,6 +107,112 @@ export class MemoryStore {
      * @type {Array<{texto: string, temporal: boolean}>}
      */
     this.contextoEscena = [];
+
+    /**
+     * El canon: lo que el jugador ha afirmado que existe.
+     *
+     * Personas, lugares y cosas que él ha nombrado al escribir sus turnos, con
+     * lo que dijo de cada uno. Es la parte del mundo que no venía de fábrica.
+     *
+     * Esto es lo que da concordancia. El director procedural no inventa sobre
+     * el canon: solo repite lo que hay aquí. Si Verros es «capitán» y «quemó
+     * la forja», lo seguirá siendo en el turno cuarenta, porque el narrador no
+     * tiene otro sitio de donde sacarlo.
+     *
+     * Sí se guarda en la partida: sin esto, la historia que el jugador ha ido
+     * construyendo se perdería al recargar, que es exactamente el problema que
+     * viene a resolver.
+     *
+     * @type {Array<{nombre: string, tipo: string, rasgos: string[],
+     *   notas: string[], turno: number, menciones: number}>}
+     */
+    this.canon = inicial.canon ?? [];
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     CANON
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /**
+   * Registra algo que el jugador ha nombrado, o lo enriquece si ya existía.
+   *
+   * **Nunca sustituye, siempre suma.** Un rasgo registrado no se borra ni se
+   * cambia: si el jugador llamó capitán a Verros, capitán se queda. Lo nuevo
+   * se añade al lado. Esa es toda la regla de concordancia, y es deliberado
+   * que sea tan simple: un sistema que decide cuándo contradecir lo anterior
+   * es un sistema que acabará contradiciendo al jugador.
+   *
+   * @param {Object} entidad Lo que devuelve `Cronica.leerTurno`.
+   * @param {number} turno
+   * @returns {{nuevo: boolean, entrada: Object}}
+   */
+  registrarCanon(entidad, turno = 0) {
+    const nombre = String(entidad?.nombre ?? '').trim();
+    if (!nombre) return { nuevo: false, entrada: null };
+
+    const clave = nombre.toLowerCase();
+    const existente = this.canon.find((c) => c.nombre.toLowerCase() === clave);
+
+    if (existente) {
+      existente.menciones += 1;
+
+      for (const r of entidad.rasgos ?? []) {
+        if (!existente.rasgos.includes(r)) existente.rasgos.push(r);
+      }
+      if (entidad.nota && !existente.notas.includes(entidad.nota)) {
+        existente.notas.push(entidad.nota);
+      }
+
+      return { nuevo: false, entrada: existente };
+    }
+
+    const entrada = {
+      nombre,
+      tipo: entidad.tipo ?? 'persona',
+      rasgos: [...(entidad.rasgos ?? [])],
+      notas: entidad.nota ? [entidad.nota] : [],
+      turno,
+      menciones: 1,
+    };
+
+    this.canon.push(entrada);
+
+    // Techo alto: es la historia del jugador y borrarla sería el mismo fallo
+    // que no guardarla. Si alguna vez desborda, cae lo menos mencionado.
+    if (this.canon.length > 80) {
+      this.canon.sort((a, b) => b.menciones - a.menciones || b.turno - a.turno);
+      this.canon.length = 80;
+    }
+
+    return { nuevo: true, entrada };
+  }
+
+  /**
+   * Lo que el juego sabe de un nombre, o null.
+   *
+   * @param {string} nombre
+   * @returns {Object|null}
+   */
+  deCanon(nombre) {
+    const clave = String(nombre ?? '').toLowerCase();
+    return this.canon.find((c) => c.nombre.toLowerCase() === clave) ?? null;
+  }
+
+  /**
+   * Lo más presente del canon, para que el director pueda traerlo de vuelta.
+   *
+   * Se ordena por menciones y no por recencia: lo que el jugador repite es lo
+   * que le importa, y eso es lo que merece volver a la escena.
+   *
+   * @param {string} [tipo] Filtra por persona, lugar o cosa.
+   * @param {number} [limite]
+   * @returns {Array<Object>}
+   */
+  canonDestacado(tipo = null, limite = 4) {
+    return this.canon
+      .filter((c) => !tipo || c.tipo === tipo)
+      .sort((a, b) => b.menciones - a.menciones || b.turno - a.turno)
+      .slice(0, limite);
   }
 
   /* ═══════════════════════════════════════════════════════════════════════
@@ -577,6 +683,7 @@ export class MemoryStore {
       hechos: this.hechos,
       hilos: this.hilos,
       ultimoResumen: this.ultimoResumen,
+      canon: this.canon,
     };
   }
 
@@ -596,6 +703,7 @@ export class MemoryStore {
     this.hechos = [];
     this.hilos = [];
     this.ultimoResumen = 0;
+    this.canon = [];
   }
 
   /** Radiografía, para depuración. */

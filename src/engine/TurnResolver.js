@@ -32,6 +32,7 @@ import { SystemBase } from '../core/SystemBase.js';
 import { interpretar, tipoDeTurno, COMANDOS } from './IntentParser.js';
 import { validarRespuesta } from '../ai/ResponseSchema.js';
 import { MemoryStore } from '../ai/MemoryStore.js';
+import { leerTurno } from '../ai/Cronica.js';
 import { ContextComposer } from '../ai/ContextComposer.js';
 import { ProceduralProvider } from '../ai/providers/ProceduralProvider.js';
 import { PROVEEDORES } from '../config/ai.config.js';
@@ -150,6 +151,48 @@ export class TurnResolver extends SystemBase {
     this.escuchar('memory:context', ({ texto, temporal = true }) => {
       this.memoria.anotarContexto(texto, { temporal });
     });
+  }
+
+  /**
+   * Pasa al canon lo que el jugador ha afirmado en su turno.
+   *
+   * Un nombre nuevo se anuncia como hecho para que el director lo tenga
+   * delante ya en el turno siguiente, y una promesa abre hilo, que es el
+   * mecanismo por el que el pasado vuelve solo.
+   *
+   * @param {string} texto Lo que escribió el jugador.
+   * @param {number} turno
+   * @private
+   */
+  _anotarCanon(texto, turno) {
+    const { entidades, promesas } = leerTurno(texto);
+
+    for (const e of entidades) {
+      const { nuevo, entrada } = this.memoria.registrarCanon(e, turno);
+      if (!nuevo || !entrada) continue;
+
+      // Solo lo nuevo se recuerda como hecho: repetir un nombre conocido en
+      // cada mención llenaría la memoria de lo mismo.
+      const partes = [entrada.nombre];
+      if (entrada.rasgos.length) partes.push(`(${entrada.rasgos.join(', ')})`);
+      if (entrada.notas.length) partes.push(`— ${entrada.notas[0]}`);
+
+      this.memoria.recordar(`El personaje ha nombrado a ${partes.join(' ')}.`, {
+        turno, peso: 2, categoria: 'canon',
+      });
+    }
+
+    for (const p of promesas) {
+      // Se cita lo que dijo, entre comillas, en vez de coserlo a «se
+      // comprometió a». Coserlo producía «Se comprometió a no descansaré
+      // hasta…», porque lo que él escribió ya venía conjugado.
+      this.memoria.abrirHilo({
+        tipo: 'promesa',
+        texto: `Dio su palabra: «${p}»`,
+        turno,
+        relacionadoCon: 'promesa_jugador',
+      });
+    }
   }
 
   async alArrancar() {
@@ -365,6 +408,14 @@ export class TurnResolver extends SystemBase {
 
       // Los eventos no silenciosos se narran aparte.
       for (const evento of saneada.events ?? []) {
+        // Quien ya ha aparecido en escena deja de estar pendiente. Sin esta
+        // marca, el capitán al que el jugador lleva turnos buscando se
+        // «encontraría» una y otra vez, que es peor que no encontrarlo.
+        if (evento.type === 'npc_meet' && evento.payload?.nombre) {
+          const ficha = this.memoria.deCanon(evento.payload.nombre);
+          if (ficha) ficha.presentado = true;
+        }
+
         if (evento.silent) continue;
         const texto = this._describirEvento(evento);
         if (texto) this._anadirEntrada(VOCES.SISTEMA, texto, { turno: numeroTurno });
@@ -388,6 +439,14 @@ export class TurnResolver extends SystemBase {
       });
 
       this.memoria.recordarVarios(saneada.memory ?? [], { turno: numeroTurno });
+
+      // Lo que el jugador ha nombrado pasa a existir.
+      //
+      // Es lo que hace que la historia se construya en vez de olvidarse. Antes
+      // solo se minaba el trasfondo al crear el personaje: si tres turnos
+      // después escribía «busco al capitán Verros, el que quemó mi forja», el
+      // nombre moría en el texto de ese turno y el mundo no se enteraba.
+      this._anotarCanon(limpio, numeroTurno);
 
       // ─── 12. El mundo avanza ──────────────────────────────────────────
       const clock = this.sistema('clock');

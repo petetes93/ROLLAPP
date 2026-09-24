@@ -188,11 +188,26 @@ export class ProceduralProvider extends IDMProvider {
       const atm = this._componerAtmosfera(ctx, { frases: 1 });
       if (atm && !r.story?.includes(atm)) parrafos.push(atm);
     }
-    if (!conContenido && parrafos.length < 2 && ctx.hiloParaRetomar?.texto) {
-      parrafos.push(this._recordarHilo(ctx.hiloParaRetomar, ctx));
-    } else if (!conContenido && parrafos.length < 2) {
-      const amb = this._elegirAmbiente(ctx);
-      if (amb) parrafos.push(amb);
+    // Orden de preferencia para cerrar un turno flojo: primero lo que el
+    // jugador ha construido, luego sus hilos abiertos, y solo al final el
+    // ambiente de fábrica.
+    //
+    // Es el orden que convierte el relleno en historia. Una bandada cruzando
+    // el cielo vale para cualquier partida; el nombre que él trajo hace diez
+    // turnos vale solo para la suya.
+    if (!conContenido && parrafos.length < 2) {
+      // Se comprueba que el canon no haya salido ya arriba, en `_turnoNarrativo`:
+      // sin esto podía aparecer dos veces en el mismo turno, y un recuerdo
+      // repetido dos párrafos más abajo deja de ser un recuerdo.
+      const yaSalio = (ctx.canon ?? []).some((c) => parrafos.some((p) => p.includes(c.nombre)));
+      const suyo = !yaSalio && this._flujo().oportunidad(0.3) ? this._traerDelCanon(ctx) : '';
+
+      if (suyo) parrafos.push(suyo);
+      else if (ctx.hiloParaRetomar?.texto) parrafos.push(this._recordarHilo(ctx.hiloParaRetomar, ctx));
+      else {
+        const amb = this._elegirAmbiente(ctx);
+        if (amb) parrafos.push(amb);
+      }
     }
 
     return {
@@ -215,6 +230,18 @@ export class ProceduralProvider extends IDMProvider {
     const objeto = lore.match(/\b(medallón|colgante|anillo|espada|carta|mapa|libro|amuleto|diario|llave)\b/)?.[1];
 
     const candidatas = [];
+
+    // Lo que el jugador ha traído al mundo va PRIMERO, porque es lo que él ya
+    // ha dicho que le importa. Una sugerencia que nombra al capitán Verros
+    // vale más que tres genéricas: la escribió él.
+    const suyo = (ctx.canon ?? []).filter((c) => c.menciones >= 2 || c.notas.length);
+
+    for (const c of suyo.slice(0, 2)) {
+      if (c.tipo === 'lugar') candidatas.push({ label: `Buscar el camino a ${c.nombre}`, intent: 'travel', risk: 'medium' });
+      else if (c.tipo === 'persona' && npc?.nombre) candidatas.push({ label: `Preguntar a ${npc.nombre} por ${c.nombre}`, intent: 'talk', risk: 'low' });
+      else if (c.tipo === 'persona') candidatas.push({ label: `Buscar rastro de ${c.nombre}`, intent: 'search', risk: 'low' });
+    }
+
     if (npc?.nombre) {
       if (vinculo) candidatas.push({ label: `Preguntar a ${npc.nombre} por tu ${vinculo}`, intent: 'talk', risk: 'low' });
       candidatas.push({ label: `Ganarte la confianza de ${npc.nombre}`, intent: 'persuade', risk: 'low' });
@@ -300,10 +327,18 @@ export class ProceduralProvider extends IDMProvider {
       parrafos.push(this._componerAtmosfera(ctx, { frases: 2 }));
     }
 
-    // ─── 3. Hilo abierto ───────────────────────────────────────────────
-    // Si hay algo pendiente que lleva mucho sin tocarse, aquí vuelve.
+    // ─── 3. Lo suyo vuelve ─────────────────────────────────────────────
+    //
+    // Primero el canon —lo que él ha nombrado— y luego los hilos abiertos. Es
+    // el mismo criterio de siempre: entre repetir una plantilla del juego y
+    // repetir algo que escribió el jugador, gana lo segundo. Su historia no la
+    // construye el catálogo, la construye él.
     const hilo = ctx.hiloParaRetomar;
-    if (hilo && this._flujo().oportunidad(0.4)) {
+    const suyo = this._flujo().oportunidad(0.22) ? this._traerDelCanon(ctx) : '';
+
+    if (suyo) {
+      parrafos.push(suyo);
+    } else if (hilo && this._flujo().oportunidad(0.4)) {
       parrafos.push(this._recordarHilo(hilo, ctx));
       eventos.push({ type: 'ambient', payload: { hilo: hilo.id }, silent: true });
     }
@@ -593,6 +628,89 @@ export class ProceduralProvider extends IDMProvider {
   }
 
   /**
+   * Trae de vuelta algo que el jugador nombró.
+   *
+   * Es la pieza que convierte una sucesión de turnos en una historia: el
+   * nombre que soltó hace diez turnos reaparece, y reaparece DICIENDO LO
+   * MISMO. Si escribió «el capitán Verros, el que quemó mi forja», el juego
+   * podrá hablar de Verros como capitán y como el que quemó la forja, y de
+   * nada más, porque no tiene nada más.
+   *
+   * Esa pobreza es a propósito. Un narrador que solo repite lo que le dijeron
+   * nunca se contradice, y la contradicción es lo que rompe una partida larga.
+   * Lo que no sabe, no lo dice.
+   *
+   * @param {Object} ctx
+   * @returns {string}
+   * @private
+   */
+  _traerDelCanon(ctx) {
+    const canon = ctx.canon ?? [];
+    if (!canon.length) return '';
+
+    // Solo lo que el jugador ha repetido: una mención suelta puede ser de
+    // pasada, y traer de vuelta algo que dijo una vez sin darle importancia
+    // hace ruido en lugar de continuidad.
+    const candidatos = canon.filter((c) => c.menciones >= 2 || c.notas.length);
+    if (!candidatos.length) return '';
+
+    const e = this._flujo().elegir(candidatos);
+    const rasgo = e.rasgos[0] ?? '';
+
+    // La nota se guarda tal y como la escribió el jugador —«quemó mi forja»—
+    // porque el canon debe conservar sus palabras. Pero quien lo cuenta es el
+    // narrador, y el narrador te habla de tú: sin esto salía «el que quemó mi
+    // forja» en boca de alguien que no tiene forja.
+    //
+    // Solo los posesivos. El verbo no se toca: lo hizo Verros, no tú, y esa es
+    // justo la confusión de persona que se arregló en `Persona.js`.
+    const nota = (e.notas[0] ?? '')
+      .replace(/\bmis\b/gi, 'tus').replace(/\bmi\b/gi, 'tu')
+      .replace(/\bmías\b/gi, 'tuyas').replace(/\bmíos\b/gi, 'tuyos')
+      .replace(/\bmía\b/gi, 'tuya').replace(/\bmío\b/gi, 'tuyo');
+
+    if (e.tipo === 'lugar') {
+      return this._unico([
+        `${e.nombre} sigue ahí, en el mapa que llevas en la cabeza.`,
+        `Piensas en ${e.nombre} sin querer, como se piensa en lo que queda pendiente.`,
+        `Hay un camino que lleva a ${e.nombre}. No hoy, pero lo hay.`,
+      ]);
+    }
+
+    if (e.tipo === 'cosa') {
+      return this._unico([
+        `Compruebas que ${e.nombre} sigue donde debe estar.`,
+        `${e.nombre} pesa más de lo que debería, y no es por el metal.`,
+      ]);
+    }
+
+    // Personas: el cargo y lo que el jugador contó, cosidos como oración de
+    // relativo. Pegados con comas —«Verros, capitán, quemó mi forja»— sonaba a
+    // ficha de archivo; con el «que» delante es una frase.
+    //
+    // Las palabras son las suyas, sin retocar: si escribió «capitan» sin
+    // tilde, así se queda. Corregirle la ortografía sería meterse donde no nos
+    // llaman, y peor, haría que su texto y el del juego dejaran de parecer lo
+    // mismo.
+    const quien = rasgo ? `${e.nombre}, el ${rasgo}` : e.nombre;
+
+    if (nota) {
+      return this._unico([
+        `Vuelve el mismo pensamiento: ${quien} que ${nota}.`,
+        `${e.nombre}. El ${rasgo || 'hombre'} que ${nota}. Eso no se va a ninguna parte.`,
+        `No se te quita de la cabeza: ${quien} que ${nota}.`,
+        `Piensas otra vez en ${quien}, el que ${nota}, y aprietas el paso.`,
+      ]);
+    }
+
+    return this._unico([
+      `El nombre de ${e.nombre} te ronda otra vez.`,
+      `Piensas en ${quien} y en lo que falta por saber.`,
+      `${e.nombre} sigue siendo un nombre y poco más. De momento.`,
+    ]);
+  }
+
+  /**
    * ¿Está el personaje dentro de algún sitio?
    *
    * Vale tanto el sublugar donde ya está como el que acaba de nombrar en su
@@ -853,8 +971,12 @@ export class ProceduralProvider extends IDMProvider {
 
     const plano = accion.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
+    // Sin `\b` de cierre: lo llevaba y por eso no casaba nunca con la forma
+    // que de verdad escribe la gente. «pregunto» sigue a «pregunt» con una
+    // letra, así que el límite de palabra fallaba justo ahí y el PNJ volvía a
+    // saludar en vez de contestar.
     const esPregunta = accion.includes('?')
-      || /\b(pregunt|le digo si|si ha visto|si sabe|sabe algo|ha oido|has oido|que sabe|quien|donde|cuando|por que|cuanto)\b/.test(plano);
+      || /\b(pregunt|le digo si|si ha visto|si sabe|sabe algo|ha oido|has oido|que sabe|quien|donde|cuando|por que|cuanto)/.test(plano);
     if (!esPregunta) return null;
 
     const tema = this._temaDePregunta(accion);
@@ -915,6 +1037,34 @@ export class ProceduralProvider extends IDMProvider {
    */
   _generarNPC(ctx) {
     const flujo = this._flujo();
+
+    // Antes de inventar a nadie, se mira si el jugador ya nombró a alguien que
+    // aún no ha aparecido.
+    //
+    // Es la diferencia entre un mundo que responde y uno que solo produce.
+    // Quien lleva tres turnos preguntando por el capitán Verros no necesita
+    // conocer a un tal Korsel: necesita que Verros aparezca. Y cuando aparece,
+    // aparece con lo que el jugador dijo de él, no con un oficio del dado.
+    const pendiente = (ctx.canon ?? [])
+      .find((c) => c.tipo === 'persona' && c.rasgos.length && !c.presentado);
+
+    if (pendiente && flujo.oportunidad(0.45)) {
+      const rol = pendiente.rasgos[0];
+      const nota = pendiente.notas[0] ?? '';
+
+      return {
+        datos: {
+          refId: `npc_${pendiente.nombre.toLowerCase().replace(/\s+/g, '_')}`,
+          nombre: pendiente.nombre,
+          rol,
+          rasgo: nota || rol,
+          actitud: 'cauto',
+        },
+        presentacion: nota
+          ? `Y entonces lo ves: ${pendiente.nombre}. El mismo ${rol} del que no has dejado de hablar, el que ${nota}.`
+          : `Y entonces lo ves: ${pendiente.nombre}, el ${rol}. En carne y hueso, por fin.`,
+      };
+    }
 
     const nombre = capitalizar(
       flujo.elegir(NPC.nombres.pilaA) + flujo.elegir(NPC.nombres.pilaB),

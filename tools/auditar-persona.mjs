@@ -38,6 +38,16 @@ const CASOS = [
   ['Ataco al primer enemigo que vea', 'Atacas al primer enemigo que veas'],
   ['espero hasta que pueda pasar', 'esperas hasta que puedas pasar'],
 
+  // ── Relativo que habla de OTRO ────────────────────────────────────────
+  // El verbo se queda como está —lo hizo él, no tú— pero el posesivo sí
+  // cambia, porque la forja sigue siendo del jugador.
+  ['Busco al capitan Verros, el que quemo mi forja', 'Buscas al capitan Verros, el que quemo tu forja'],
+  ['Hablo con quien vendio mi espada', 'Hablas con quien vendio tu espada'],
+
+  // ── Futuro de primera ─────────────────────────────────────────────────
+  ['Juro que no descansaré hasta encontrar a Verros', 'Juras que no descansarás hasta encontrar a Verros'],
+  ['Volveré mañana', 'Volverás mañana'],
+
   // ── Lo que NO se toca ─────────────────────────────────────────────────
   ['la puerta que cierra mal', 'la puerta que cierra mal'],
   ['me acerco con la mano lejos del arco', 'te acercas con la mano lejos del arco'],

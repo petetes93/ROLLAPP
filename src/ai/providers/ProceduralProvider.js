@@ -232,7 +232,14 @@ export class ProceduralProvider extends IDMProvider {
     // El sonido es para el golpe físico: un crítico, una pifia. Una escena que
     // se abre no suena, se anuncia, y para eso está la antesala. «BUM» delante
     // de un carro volcado es ruido en el sentido literal.
-    const golpe = t?.critico ? 'critico' : t?.pifia ? 'pifia' : '';
+    //
+    // Y nunca detrás de palabras. Preguntar al tabernero por el incendio acabó
+    // en «CRACK.» porque la tirada social salió crítica, y un sonido de golpe
+    // detrás de un diálogo no significa nada. Hablar, recordar y mirar no
+    // suenan, salgan como salgan.
+    const sinSonido = peticion.tipo === 'dialogo'
+      || ['social', 'saber', 'mirada'].includes(categoriaDe(t?.habilidad));
+    const golpe = sinSonido ? '' : t?.critico ? 'critico' : t?.pifia ? 'pifia' : '';
 
     return {
       ...r,
@@ -933,13 +940,23 @@ export class ProceduralProvider extends IDMProvider {
    * @private
    */
   _turnoDialogo(peticion, ctx) {
-    const npc = ctx.npcsPresentes?.[0];
     const partes = [];
+
+    // Contesta a quien se ha hablado, no al primero de la lista.
+    //
+    // «pregunto al tabernero por el incendio» en un vado, sin taberna,
+    // contestaba Corlin sin más: el jugador no sabía si Corlin era el
+    // tabernero, si había taberna o si el juego no le había escuchado. Si el
+    // nombrado no está, se dice, y contesta quien sí está.
+    const { npc, ausente } = this._aQuienSeHabla(peticion, ctx);
+    if (ausente && npc) partes.push(`No hay ${ausente} por aquí. Quien te oye es ${npc.nombre}.`);
 
     if (!npc) {
       // Nadie con quien hablar: se genera alguien, que es más interesante que
-      // decir «no hay nadie».
+      // decir «no hay nadie». Pero si preguntó por un oficio que aquí no hay,
+      // se le dice antes de presentarle a otra persona.
       const generado = this._generarNPC(ctx);
+      if (ausente) partes.push(`No hay ${ausente} por aquí.`);
       partes.push(generado.presentacion);
 
       return {
@@ -993,6 +1010,57 @@ export class ProceduralProvider extends IDMProvider {
   }
 
   /**
+   * A quién se dirige el jugador, y si ese alguien está en escena.
+   *
+   * Se busca el destinatario en la frase («pregunto AL tabernero», «hablo CON
+   * la herrera») y se compara con el nombre y el oficio de quien está
+   * presente. Los oficios tienen sinónimos porque la gente no escribe el
+   * nombre de catálogo: dice «tabernero» y el catálogo dice «posadero».
+   *
+   * @returns {{npc: Object|null, ausente: string|null}} `ausente` ya lleva su
+   *   determinante concordado: «ningún tabernero», «ninguna herrera».
+   * @private
+   */
+  _aQuienSeHabla(peticion, ctx) {
+    const presentes = ctx.npcsPresentes ?? [];
+    const llano = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const frase = llano(peticion.accion);
+
+    const m = frase.match(/\b(?:pregunto|preguntar|hablo|hablar|digo|decir|le pregunto|le digo)\s+(?:a la|al|a|con la|con el|con)\s+([a-zñ]+)/u);
+    const destinatario = m?.[1] ?? null;
+    if (!destinatario) return { npc: presentes[0] ?? null, ausente: null };
+
+    const SINONIMOS = {
+      tabernero: ['tabernero', 'tabernera', 'posadero', 'posadera', 'mesonero', 'mesonera'],
+      tabernera: ['tabernero', 'tabernera', 'posadero', 'posadera', 'mesonero', 'mesonera'],
+      posadero: ['posadero', 'posadera', 'tabernero', 'tabernera'],
+      posadera: ['posadero', 'posadera', 'tabernero', 'tabernera'],
+      herrero: ['herrero', 'herrera', 'aprendiz de forja'],
+      herrera: ['herrero', 'herrera', 'aprendiz de forja'],
+      guardia: ['guardia', 'soldado', 'centinela'],
+      soldado: ['guardia', 'soldado', 'centinela'],
+    };
+    const buscados = SINONIMOS[destinatario] ?? [destinatario];
+
+    const npc = presentes.find((n) => {
+      const nombre = llano(n.nombre);
+      const rol = llano(n.rol);
+      return nombre.split(/\s+/).includes(destinatario) || buscados.some((b) => rol.includes(b));
+    });
+
+    if (npc) return { npc, ausente: null };
+
+    // Solo se dice «no hay» de un oficio, no de un nombre propio: si pregunta
+    // por «Helta» y no está, eso es asunto de la pregunta, no del destinatario.
+    const esOficio = Boolean(SINONIMOS[destinatario]) || /(ero|era|ista|ante|dor|dora)$/.test(destinatario);
+    if (!esOficio) return { npc: presentes[0] ?? null, ausente: null };
+
+    const EPICENOS = new Set(['guardia', 'centinela', 'guia']);
+    const femenino = /a$/.test(destinatario) && !EPICENOS.has(destinatario);
+    return { npc: presentes[0] ?? null, ausente: `${femenino ? 'ninguna' : 'ningún'} ${destinatario}` };
+  }
+
+  /**
    * Contesta a una pregunta concreta, recogiendo el tema.
    *
    * Devuelve `null` si la acción no era una pregunta, y entonces el saludo del
@@ -1036,23 +1104,54 @@ export class ProceduralProvider extends IDMProvider {
 
     const exito = peticion.tirada ? peticion.tirada.exito : true;
 
+    // Toda respuesta nombra lo que se preguntó.
+    //
+    // Dos de las tres variantes de éxito y dos de fallo no lo hacían: «Mira»,
+    // dice Corlin, y no termina la frase. Suena a respuesta y no responde a
+    // nada. Si el jugador preguntó por el incendio, la respuesta habla del
+    // incendio, aunque sea para no decir nada de él.
+    const Tema = tema ? capitalizar(tema) : 'Eso';
+
+    // ¿Pregunta por su propia historia? Entonces quien contesta reacciona a
+    // eso, sin inventar hechos: el pasado del personaje lo escribe el jugador.
+    const suyo = this._tocaSuPasado(tema, ctx.jugador?.lore);
+
     if (exito) {
+      const reaccion = suyo ? 'Sabe de qué le hablas, y se le nota. ' : '';
       const pista = gancho
         ? `Y añade algo que no esperabas: ${gancho.charAt(0).toLowerCase()}${gancho.slice(1)}`
         : 'Y lo que cuenta encaja con lo que ya sospechabas';
 
-      return this._unico([
-        `${nombre} tarda en contestar. «${tema ? `¿${capitalizar(tema)}?` : 'Eso'}… Algo se dice.» ${pista}.`,
-        `«${tema ? `${capitalizar(tema)}` : 'Eso'}», repite ${nombre}, como si el nombre pesara. Luego habla. ${pista}.`,
-        `${nombre} mira alrededor antes de responder, y eso ya te dice algo. ${pista}.`,
+      return reaccion + this._unico([
+        `${nombre} tarda en contestar. «¿${Tema}?… Algo se dice.» ${pista}.`,
+        `«${Tema}», repite ${nombre}, como si la palabra pesara. Luego habla. ${pista}.`,
+        `Cuando nombras ${tema || 'eso'}, ${nombre} mira alrededor antes de responder, y eso ya te dice algo. ${pista}.`,
       ]);
     }
 
     return this._unico([
-      `«${tema ? `¿${capitalizar(tema)}?` : '¿Eso?'} Eso queda lejos de mis asuntos», dice ${nombre}. «Pregunta a los carreteros, que van y vienen.»`,
-      `${nombre} se encoge de hombros. «Ni idea. Aquí cada uno se ocupa de lo suyo.»`,
-      `«Mira», dice ${nombre}, y no termina la frase. Vuelve a lo que estaba haciendo.`,
+      `«¿${Tema}? Eso queda lejos de mis asuntos», dice ${nombre}. «Pregunta a los carreteros, que van y vienen.»`,
+      `${nombre} se encoge de hombros. «¿${Tema}? Ni idea. Aquí cada uno se ocupa de lo suyo.»`,
+      `«${Tema}… mira», dice ${nombre}, y no termina la frase. Vuelve a lo que estaba haciendo.`,
     ]);
+  }
+
+  /**
+   * ¿El tema de la pregunta sale de la historia que escribió el jugador?
+   *
+   * Basta una palabra con peso en común: «el incendio de la forja» y «Perdí la
+   * forja de mi padre en un incendio» comparten «incendio» y «forja».
+   *
+   * @param {string} tema
+   * @param {string} lore
+   * @returns {boolean}
+   * @private
+   */
+  _tocaSuPasado(tema, lore) {
+    if (!tema || !lore) return false;
+    const llano = (t) => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const del = new Set(llano(lore).split(/[^a-zñ]+/u).filter((p) => p.length >= 5));
+    return llano(tema).split(/[^a-zñ]+/u).some((p) => p.length >= 5 && del.has(p));
   }
 
   /**
@@ -1071,7 +1170,18 @@ export class ProceduralProvider extends IDMProvider {
 
     if (propio?.length) return propio[propio.length - 1];
 
-    const sintagma = accion.match(/\b(?:por|sobre|acerca de|del|de la|de)\s+(?:el |la |los |las |un |una )?([a-záéíóúñü]+(?:\s+[a-záéíóúñü]+)?)/i);
+    // Lo que va detrás de «por», «sobre» o «acerca de», entero y con su
+    // artículo: «el incendio de la forja». Antes se cortaba en dos palabras y
+    // salía «¿Incendio de?», que no es una pregunta que nadie repita.
+    const tras = accion.match(/\b(?:por|sobre|acerca de)\s+([^,.;:!?¿¡«»"]+)/i)?.[1];
+    if (tras) {
+      const palabras = tras.trim().split(/\s+/).slice(0, 6);
+      // Sin preposiciones ni artículos colgando al final.
+      while (palabras.length && /^(de|del|la|el|los|las|a|al|en|con|y|que|un|una)$/i.test(palabras.at(-1))) palabras.pop();
+      if (palabras.length) return palabras.join(' ');
+    }
+
+    const sintagma = accion.match(/\b(?:del|de la|de)\s+(?:el |la |los |las |un |una )?([a-záéíóúñü]+(?:\s+[a-záéíóúñü]+)?)/i);
     return sintagma?.[1]?.trim() ?? '';
   }
 

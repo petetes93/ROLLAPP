@@ -45,6 +45,11 @@ comprobar('el dialogo no se parte',
   enFrases('—Ni idea. Aqui cada uno se ocupa de lo suyo.'),
   ['—Ni idea. Aqui cada uno se ocupa de lo suyo.']);
 
+// La replica a media prosa tampoco: se partia por la interrogacion de dentro.
+comprobar('una replica entre comillas a mitad de bloque no se parte',
+  enFrases('Quien te oye es Corlin. «¿El incendio de la forja? Eso queda lejos de mis asuntos», dice Corlin.'),
+  ['Quien te oye es Corlin.', '«¿El incendio de la forja? Eso queda lejos de mis asuntos», dice Corlin.']);
+
 comprobar('un texto vacio no da lineas', enFrases('   '), []);
 
 /* ── Montar ─────────────────────────────────────────────────────────────── */

@@ -68,6 +68,34 @@ export const GOLPES = Object.freeze({
 const INDIVISIBLE = /^[«"—–]/u;
 
 /**
+ * Corta por final de frase, salvo dentro de «…».
+ *
+ * @param {string} texto
+ * @returns {string[]}
+ */
+function cortarFueraDeComillas(texto) {
+  // Profundidad de comillas antes de cada carácter.
+  const profundidad = [];
+  let d = 0;
+  for (const c of texto) {
+    profundidad.push(d);
+    if (c === '«') d += 1;
+    else if (c === '»') d = Math.max(0, d - 1);
+  }
+
+  const trozos = [];
+  let inicio = 0;
+  for (const m of texto.matchAll(/(?<=[.!?…])\s+(?=[A-ZÁÉÍÓÚÑ¿¡«"—])/gu)) {
+    if (profundidad[m.index] > 0) continue;
+    trozos.push(texto.slice(inicio, m.index));
+    inicio = m.index + m[0].length;
+  }
+  trozos.push(texto.slice(inicio));
+
+  return trozos.filter(Boolean);
+}
+
+/**
  * Parte un bloque de prosa en frases, una por línea.
  *
  * Se respeta el punto como límite, pero no se parte por partir: una frase de
@@ -86,8 +114,10 @@ export function enFrases(texto, { minimo = 28 } = {}) {
   if (INDIVISIBLE.test(limpio)) return [limpio];
 
   // El corte mira el punto seguido de mayúscula: así «d20 14. Éxito» se parte
-  // y «Sr. Verros» no.
-  const crudas = limpio.split(/(?<=[.!?…])\s+(?=[A-ZÁÉÍÓÚÑ¿¡«"—])/u).filter(Boolean);
+  // y «Sr. Verros» no. Y nunca dentro de unas comillas: «¿El incendio de la
+  // forja? Eso queda lejos de mis asuntos», dice Corlin, se partía por la
+  // interrogación y la réplica quedaba repartida en dos líneas.
+  const crudas = cortarFueraDeComillas(limpio);
 
   const salida = [];
 

@@ -21,6 +21,8 @@ import { ActionRouter } from '../src/engine/ActionRouter.js';
 import { interpretar } from '../src/engine/IntentParser.js';
 import { resultadosDe, categoriaDe, RESULTADOS } from '../src/data/narrative.templates.js';
 import { IDMProvider } from '../src/ai/providers/IDMProvider.js';
+import { ProceduralProvider } from '../src/ai/providers/ProceduralProvider.js';
+import { esGolpe } from '../src/ai/Cadencia.js';
 
 let fallos = 0;
 
@@ -148,6 +150,55 @@ const HACHA = { id: 'o1', refId: 'hacha_mano', nombre: 'Hacha de mano', categori
   const idm = Object.create(IDMProvider.prototype);
   const minimo = idm.turnoMinimo({ tirada: { habilidad: i.habilidad, exito: false } })?.story ?? '';
   comprobar(!FALLO.test(minimo), 'tampoco en el narrador de reserva', `salió: ${minimo}`);
+}
+
+/* ── Preguntar a alguien que no está, por algo concreto ─────────────────── */
+
+{
+  const narrador = new ProceduralProvider({});
+  narrador._latencia = async () => {};
+
+  const accion = 'pregunto al tabernero por el incendio de la forja';
+  const ctx = (npcs) => ({
+    jugador: { lore: 'Perdí la forja de mi padre en un incendio.' },
+    mundo: { ubicacion: 'vado_yunque' },
+    npcsPresentes: npcs,
+    ultimoTurno: { accion: '(inicio)' },
+    canon: [],
+  });
+  const turno = (npcs, tirada) => narrador.generar({
+    accion, intencion: interpretar(accion), tirada, tipo: 'dialogo', turno: 3, contexto: ctx(npcs),
+  });
+
+  for (const tirada of [
+    { habilidad: 'trato_social', exito: true, critico: true },
+    { habilidad: 'trato_social', exito: false, pifia: true },
+  ]) {
+    const cual = tirada.critico ? 'crítico' : 'pifia';
+    const r = await turno([{ nombre: 'Corlin', rol: 'barquero' }], tirada);
+    const lineas = r.story.split('\n');
+
+    comprobar(/No hay ningún tabernero por aquí/.test(r.story),
+      `(${cual}) sin tabernero en escena, se dice`, r.story);
+    // Hay tres variantes de respuesta por grado y se reparten sin repetir:
+    // seis vueltas las recorren todas, no solo la que toque en la primera.
+    const respuestas = [r.story];
+    for (let i = 0; i < 6; i += 1) respuestas.push((await turno([{ nombre: 'Corlin', rol: 'barquero' }], tirada)).story);
+    // La primera línea repite la acción del jugador en segunda persona y ya
+    // lleva el tema: se mira solo lo que dice o hace quien contesta.
+    const respuestaDe = (s) => s.split('\n').slice(1).join(' ');
+    const sinTema = respuestas.filter((s) => !/incendio de la forja/i.test(respuestaDe(s)));
+    comprobar(!sinTema.length,
+      `(${cual}) todas las respuestas nombran lo que se preguntó`, sinTema[0] ?? '');
+    comprobar(!lineas.some(esGolpe),
+      `(${cual}) ningún sonido detrás de un diálogo`, lineas.filter(esGolpe).join(' | '));
+    comprobar(!lineas.some((l) => (l.match(/«/g)?.length ?? 0) !== (l.match(/»/g)?.length ?? 0)),
+      `(${cual}) ninguna réplica partida entre dos líneas`, r.story);
+  }
+
+  const conPosadera = await turno([{ nombre: 'Maela', rol: 'posadera' }], { habilidad: 'trato_social', exito: true });
+  comprobar(!/No hay/.test(conPosadera.story) && /Maela/.test(conPosadera.story),
+    'si hay posadera, «el tabernero» es ella', conPosadera.story);
 }
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);

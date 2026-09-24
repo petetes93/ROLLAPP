@@ -1317,7 +1317,7 @@ export class CombatManager extends SystemBase {
   }
 
   /** @private */
-  _reducirTerminar() {
+  _reducirTerminar(estado) {
     return {
       combat: {
         activo: false,
@@ -1327,7 +1327,13 @@ export class CombatManager extends SystemBase {
         combatientes: {},
         emboscada: null,
       },
-      meta: { fase: 'exploracion' },
+      // Si el jugador cayó en la pelea, la partida sigue detenida.
+      //
+      // Caer pone la fase en `fin`; acabar el combate la devolvía a
+      // `exploracion` justo después, así que la pantalla de caída se abría
+      // pero el motor volvía a aceptar turnos. Solo la saca de ahí una de las
+      // salidas de la caída.
+      meta: { fase: estado?.meta?.fase === 'fin' ? 'fin' : 'exploracion' },
     };
   }
 

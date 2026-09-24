@@ -417,10 +417,24 @@ try {
     salidas: [...document.querySelectorAll('#caida-acciones button')].length,
   })`);
 
-  if (caida.fase !== 'fin') throw new Error(`al caer, la fase quedó en ${caida.fase}`);
+  if (caida.fase !== 'fin') {
+    const diag = await evaluate(`({
+      vida: ARCANVEIL.store.select('player.vida'), estados: ARCANVEIL.store.select('player.estados'),
+      usos: ARCANVEIL.store.select('player.usosRasgos'), combate: ARCANVEIL.store.select('combat.activo'),
+      clase: ARCANVEIL.store.select('player.clase'), raza: ARCANVEIL.store.select('player.raza'),
+      ultimas: ARCANVEIL.ver('narrative.entradas', []).slice(-5).map((e) => e.voz + ': ' + e.texto),
+    })`);
+    throw new Error(`al caer, la fase quedó en ${caida.fase}: ${JSON.stringify(diag)}`);
+  }
   if (!caida.modal) throw new Error('al caer no se abrió la salida');
   if (!caida.entrada) throw new Error('al caer, la caja de texto siguió activa');
   if (caida.salidas < 2) throw new Error(`al caer solo había ${caida.salidas} salidas`);
+
+  // Escape no la cierra: sin elegir salida, el jugador se quedaba sin nada
+  // que pulsar y con la caja bloqueada.
+  await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  const trasEscape = await evaluate(`!document.getElementById('caida-modal').hidden`);
+  if (!trasEscape) throw new Error('Escape cerró la pantalla de caída');
 
   // Y el turno tiene que estar cerrado: nada de abrir combates desde el suelo.
   const desdeElSuelo = await evaluate(`ARCANVEIL.jugar('ataco al primer bandido que vea').then(() => ({
@@ -428,6 +442,11 @@ try {
     fase: ARCANVEIL.store.select('meta.fase'),
   }))`);
   if (desdeElSuelo.combate) throw new Error('caído, «ataco» abrió un combate');
+  // El turno que acaba de terminar no reabre la caja: al acabar llamaba a
+  // `bloquear(false)` y la caída quedaba con la caja activa detrás.
+  if (!await evaluate(`document.getElementById('entrada').disabled`)) {
+    throw new Error('caído, un turno terminado volvió a abrir la caja de texto');
+  }
 
   await evaluate(`[...document.querySelectorAll('#caida-acciones button')].find(b => /volver/i.test(b.textContent))?.click()`);
   await wait(1200);

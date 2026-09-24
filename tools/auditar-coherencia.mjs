@@ -25,6 +25,7 @@ import { ProceduralProvider } from '../src/ai/providers/ProceduralProvider.js';
 import { esGolpe } from '../src/ai/Cadencia.js';
 import { Exploration } from '../src/world/Exploration.js';
 import { PartySystem } from '../src/npc/PartySystem.js';
+import { CombatManager } from '../src/combat/CombatManager.js';
 import { fichaDeCompanero, comentario } from '../src/npc/Companero.js';
 import { migrar } from '../src/persistence/Migrations.js';
 
@@ -247,6 +248,16 @@ const HACHA = { id: 'o1', refId: 'hacha_mano', nombre: 'Hacha de mano', categori
   const migrado = migrar(viejo);
   comprobar(migrado.guardado?.estado?.party?.miembros?.length === 0 && migrado.guardado.version === 6,
     'una partida del formato 5 carga con el grupo vacío', JSON.stringify(migrado.guardado?.estado?.party));
+}
+
+/* ── Caer en combate detiene la partida también al acabar la pelea ────────── */
+
+{
+  const terminar = CombatManager.prototype._reducirTerminar;
+  comprobar(terminar({ meta: { fase: 'fin' } }).meta.fase === 'fin',
+    'si el jugador cayó en la pelea, acabarla no reabre la partida');
+  comprobar(terminar({ meta: { fase: 'combate' } }).meta.fase === 'exploracion',
+    'una pelea normal vuelve a exploración al acabar');
 }
 
 /* ── La intensidad manda en los encuentros ──────────────────────────────── */

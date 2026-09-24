@@ -330,6 +330,8 @@ function cargarRanura(ranura) {
   }
   store.fijar('meta.ranura', ranura);
   mostrar('juego');
+  // Si se carga desde la salida de una caída, la caja seguía cerrada.
+  bloquear(false);
   refrescarTodo();
   bitacoraSinAnimar();
   programarSugerencias();
@@ -1472,7 +1474,10 @@ function conectarModales() {
 
     if (ev.key === 'Escape') {
       ev.preventDefault();
-      m.hidden = true;
+      // Un modal fijo no se cierra con Escape: la pantalla de caída deja la
+      // partida detenida y la caja de texto bloqueada, y cerrarla sin elegir
+      // una salida dejaba al jugador sin nada que pulsar.
+      if (m.dataset.fijo === undefined) m.hidden = true;
       return;
     }
 
@@ -2106,8 +2111,13 @@ function bloquear(si) {
   const campo = $('#entrada');
   const boton = $('#enviar');
 
-  if (campo) campo.disabled = si;
-  if (boton) boton.disabled = si;
+  // Si el jugador ha caído, nada reabre la caja: la acción o el turno que
+  // estaba en marcha cuando cayó termina después y llamaba a `bloquear(false)`.
+  // Solo `volverEnTi`, que antes devuelve la fase a exploración, la reabre.
+  const cerrada = !si && ver('meta.fase') === 'fin';
+
+  if (campo) campo.disabled = si || cerrada;
+  if (boton) boton.disabled = si || cerrada;
 
   $('#pensando').hidden = !si;
 }

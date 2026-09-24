@@ -28,6 +28,27 @@ import { SystemBase } from '../core/SystemBase.js';
 import { obtenerSublugar, obtenerLugar } from '../data/locations.data.js';
 import { evaluarAmbicion } from './Ambicion.js';
 import * as Tablas from '../world/EncounterTables.js';
+import { obtenerEnemigo } from '../data/enemies.data.js';
+import { DIRECCION } from '../config/balance.config.js';
+import { DOMINIO as DOMINIO_RNG } from '../core/RNG.js';
+
+/**
+ * Cómo llama la gente a los enemigos cuando escribe libremente.
+ *
+ * Las fichas de `enemies.data.js` tienen nombres de catálogo («Saqueador»,
+ * «Guardia corrupto») y nadie los usa al jugar. Esto es el puente entre lo
+ * que se escribe y lo que hay en las tablas.
+ */
+const APODOS = Object.freeze({
+  saqueador: ['bandido', 'bandidos', 'salteador', 'salteadores', 'ladron', 'ladrones', 'asaltante', 'asaltantes'],
+  guardia_corrupto: ['guardia', 'guardias', 'soldado', 'soldados', 'patrulla'],
+  lobo_ceniciento: ['lobo', 'lobos', 'bestia', 'bestias', 'manada'],
+  espectro_menor: ['espectro', 'espectros', 'fantasma', 'fantasmas', 'aparicion'],
+  tejedora_de_umbral: ['arana', 'aranas', 'tejedora'],
+  rata_gigante: ['rata', 'ratas'],
+  carronero: ['carronero', 'carroneros', 'carrona'],
+  bruto_griscuerno: ['bruto', 'brutos', 'gigante'],
+});
 
 /** Destinos posibles. */
 export const RUTA = Object.freeze({
@@ -213,6 +234,71 @@ export class ActionRouter extends SystemBase {
   }
 
   /**
+   * Los candidatos que encajan con lo que el jugador ha nombrado.
+   *
+   * «Ataco al primer bandido que vea» devolvía una patrulla de guardias
+   * corruptos. El sorteo era correcto y el resultado, absurdo: el jugador había
+   * dicho a quién atacaba. Si nombra algo que el terreno puede ofrecer, se
+   * sortea solo entre eso; si no nombra nada reconocible, devuelve `null` y
+   * decide el sorteo normal.
+   *
+   * @param {Array<Object>} candidatos
+   * @param {string} texto
+   * @returns {Array<Object>|null}
+   * @private
+   */
+  _loQueNombro(candidatos, texto) {
+    const plano = String(texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    if (!plano) return null;
+
+    const encajan = candidatos.filter((c) => this._terminosDe(c).some((t) => plano.includes(t)));
+    return encajan.length ? encajan : null;
+  }
+
+  /**
+   * Con qué palabras se puede llamar a un encuentro.
+   *
+   * Sale del propio catálogo (nombre del encuentro y nombre y plural de sus
+   * enemigos) más los apodos que la gente usa de verdad y que no están en
+   * ninguna ficha: nadie escribe «ataco al saqueador», escribe «bandido».
+   *
+   * @param {Object} encuentro
+   * @returns {Array<string>}
+   * @private
+   */
+  _terminosDe(encuentro) {
+    const limpiar = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const terminos = new Set();
+
+    for (const e of encuentro.combate?.enemies ?? []) {
+      const ficha = obtenerEnemigo(e.refId);
+      for (const t of [ficha?.nombre, ficha?.plural]) {
+        if (t) terminos.add(limpiar(t));
+      }
+      for (const apodo of APODOS[e.refId] ?? []) terminos.add(apodo);
+    }
+
+    if (encuentro.nombre) terminos.add(limpiar(encuentro.nombre));
+
+    return [...terminos].filter((t) => t.length >= 4);
+  }
+
+  /**
+   * Cuánto aprieta el mundo, según la intensidad elegida.
+   *
+   * Los preajustes ya existían en `balance.config.js` y el motor los leía para
+   * otras cosas; aquí sirven para que «Pacífica» no signifique solo menos
+   * encuentros, sino también grupos más pequeños cuando los hay.
+   *
+   * @returns {number}
+   * @private
+   */
+  _factorIntensidad() {
+    const clave = this.leer('settings.dificultad', 'equilibrado');
+    return DIRECCION.preajustes?.[clave] ?? 1;
+  }
+
+  /**
    * Actualiza dónde está el personaje cuando dice que entra o que sale.
    *
    * Se compara con el nombre del sublugar y con alias de su tipo, porque nadie
@@ -314,7 +400,16 @@ export class ActionRouter extends SystemBase {
       .find((n) => n?.hostil);
 
     if (hostil?.refId) {
-      this.emitir('combat:request', { enemies: [{ refId: hostil.refId, count: 1 }] });
+      // Quien ataca, pega primero.
+      //
+      // El parte mostraba «Guardia corrupto B te ataca…» ANTES de «Atacas a
+      // Guardia corrupto B…» aunque el combate lo había abierto el jugador
+      // declarando el ataque. La iniciativa se sorteaba a ciegas y podía
+      // perderla quien había dado el primer paso.
+      //
+      // `playerAmbush` ya existía en el motor y da +100 de iniciativa a los
+      // aliados: es exactamente esto y no lo usaba nadie por esta vía.
+      this.emitir('combat:request', { enemies: [{ refId: hostil.refId, count: 1 }], playerAmbush: true });
 
       return {
         ruta: RUTA.LOCAL,
@@ -332,13 +427,34 @@ export class ActionRouter extends SystemBase {
       const hostiles = Tablas.candidatos({ terreno, peligro: Math.max(peligro, 1), familia: 'hostil' })
         .filter((e) => e.combate);
 
-      const flujo = this.rng?.flujo('encuentros') ?? this.rng?.flujo('mundo');
-      const encuentro = hostiles.length
-        ? (flujo?.elegirPonderado(hostiles.map((e) => ({ valor: e, peso: e.peso }))) ?? hostiles[0])
+      // El grupo se ajusta a lo que el jugador puede aguantar.
+      //
+      // «Ataco al primer bandido que vea» a nivel 1 devolvía una patrulla de
+      // dos guardias corruptos: 56 PV contra 26. Ahora se recorta al tope de
+      // `ajustarAlJugador` y, de lo que quede, se elige lo más flojo. Buscar
+      // pelea no puede ser una forma de suicidarse sin verlo venir.
+      const vidaJugador = this.leer('player.vida.max', 0);
+      const factor = this._factorIntensidad();
+      const vidaDe = (refId) => obtenerEnemigo(refId)?.vida ?? 0;
+
+      const ajustados = hostiles
+        .map((e) => Tablas.ajustarAlJugador(e, { vidaJugador, factor, vidaDe }))
+        .filter(Boolean);
+
+      // De los que caben, se sortea por el peso de la tabla. Quedarse siempre
+      // con el más flojo convertíria cada pelea buscada en el mismo saqueador
+      // solitario: deja de matar al jugador y pasa a aburrirlo. Todo lo que
+      // llega aquí ya cabe en su vida, así que sortear entre ellos es justo.
+      // Si el jugador ha dicho a QUIÉN ataca, se le hace caso.
+      const posibles = this._loQueNombro(ajustados, intencion.texto) ?? ajustados;
+
+      const encuentro = posibles.length
+        ? this.rng.flujo(DOMINIO_RNG.ENCUENTROS)
+          .elegirPonderado(posibles.map((e) => ({ valor: e, peso: e.peso ?? 1 })))
         : null;
 
       if (encuentro?.combate) {
-        this.emitir('combat:request', encuentro.combate);
+        this.emitir('combat:request', { ...encuentro.combate, playerAmbush: true });
 
         return {
           ruta: RUTA.LOCAL,

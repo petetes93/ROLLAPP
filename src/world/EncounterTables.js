@@ -274,6 +274,61 @@ export function xpPorResolucion(resolucion, peligro = 1) {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /**
+ * Cuánta vida enemiga aguanta un personaje sin que la pelea sea un muro.
+ *
+ * La cifra sale de un playtest concreto: una enana de nivel 1 con 26 PV
+ * escribió «ataco al primer bandido que vea» y le salió una patrulla de dos
+ * guardias corruptos de 28 PV cada uno. 56 contra 26. Murió en la ronda 2
+ * habiendo actuado una sola vez, y eso no es dificultad, es un muro.
+ *
+ * El tope es 1,2 veces la vida del jugador en `equilibrado`, escalado por la
+ * intensidad. No mide daño ni armadura a propósito: la vida total es lo que
+ * decide cuántas rondas dura la pelea, y una pelea que dura da tiempo a
+ * reaccionar, a huir o a probar algo. Una que no dura, no.
+ */
+export const HOLGURA_VIDA = 1.2;
+
+/**
+ * Recorta un encuentro para que quepa en lo que el jugador puede aguantar.
+ *
+ * Reduce cuántos enemigos vienen; si ni uno solo cabe, devuelve `null` y quien
+ * llama busca otro. Nunca sube el número: esto solo quita.
+ *
+ * @param {Encuentro} encuentro
+ * @param {Object} opciones
+ * @param {number} opciones.vidaJugador
+ * @param {number} [opciones.factor] Multiplicador de intensidad.
+ * @param {Function} opciones.vidaDe Vida de una plantilla, por refId.
+ * @returns {Encuentro|null}
+ */
+export function ajustarAlJugador(encuentro, { vidaJugador, factor = 1, vidaDe }) {
+  const grupo = encuentro?.combate?.enemies;
+  if (!grupo?.length || !vidaJugador || typeof vidaDe !== 'function') return encuentro;
+
+  const techo = vidaJugador * HOLGURA_VIDA * factor;
+
+  const ajustado = [];
+  let acumulada = 0;
+
+  for (const entrada of grupo) {
+    const vidaUno = vidaDe(entrada.refId) ?? 0;
+    if (!vidaUno) { ajustado.push(entrada); continue; }
+
+    // Cuántos de estos caben en lo que queda de presupuesto.
+    const caben = Math.floor((techo - acumulada) / vidaUno);
+    if (caben <= 0) continue;
+
+    const count = Math.min(entrada.count ?? 1, caben);
+    ajustado.push({ ...entrada, count });
+    acumulada += count * vidaUno;
+  }
+
+  if (!ajustado.length) return null;
+
+  return { ...encuentro, combate: { ...encuentro.combate, enemies: ajustado } };
+}
+
+/**
  * Encuentros posibles en un contexto.
  *
  * @param {Object} contexto

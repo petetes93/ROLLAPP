@@ -27,6 +27,7 @@
 import { SystemBase } from '../core/SystemBase.js';
 import * as Mapa from './MapGraph.js';
 import { obtenerLugar } from '../data/locations.data.js';
+import { capitalizar, trasPreposicion } from '../utils/text.js';
 
 /** Eventos publicados. */
 export const EVENTOS_VIAJE = Object.freeze({
@@ -231,7 +232,11 @@ export class Travel extends SystemBase {
     });
 
     this.emitir('narrative:direct', {
-      texto: `Emprendes el camino hacia ${obtenerLugar(destino)?.nombre}. ${plan.descripcion}`,
+      // «hacia El Camino del Norte. unas 3 horas de camino.»: el artículo del
+      // nombre a media frase iba en mayúscula y la descripción, que sale de
+      // `Mapa.describir` pensada para ir detrás de una coma, empezaba en
+      // minúscula tras el punto.
+      texto: `Emprendes el camino ${trasPreposicion('hacia', obtenerLugar(destino)?.nombre)}. ${capitalizar(plan.descripcion)}`,
       voz: 'system',
     });
 

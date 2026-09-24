@@ -170,6 +170,35 @@ export function articuloIndet(palabra, genero = 'm') {
 }
 
 /**
+ * Una preposición seguida de un nombre propio que empieza por artículo.
+ *
+ * Casi la mitad de los lugares se llaman «El Vado del Yunque», «La Forja
+ * Alta»… y metidos a media frase salía «Emprendes el camino hacia El Camino
+ * del Norte» o «Ir a el Mercado». El artículo baja a minúscula y se contrae
+ * cuando toca: «al Vado», «del Vado». El resto del nombre no se toca.
+ *
+ * @param {string} preposicion «hacia», «a», «de», «por»…
+ * @param {string} nombre
+ * @returns {string} «hacia el Camino del Norte», «al Vado del Yunque»
+ */
+export function trasPreposicion(preposicion, nombre) {
+  const n = String(nombre ?? '');
+  const m = n.match(/^(El|La|Los|Las)\s+(.+)$/u);
+  if (!m) return `${preposicion} ${n}`;
+
+  const art = m[1].toLowerCase();
+  const p = preposicion.toLowerCase();
+  const mayus = /^[A-ZÁÉÍÓÚ]/u.test(preposicion);
+
+  if (art === 'el' && (p === 'a' || p === 'de')) {
+    const contraida = p === 'a' ? 'al' : 'del';
+    return `${mayus ? capitalizar(contraida) : contraida} ${m[2]}`;
+  }
+
+  return `${preposicion} ${art} ${m[2]}`;
+}
+
+/**
  * Une elementos en una enumeración natural.
  * @param {string[]} lista
  * @param {string} [conjuncion='y']

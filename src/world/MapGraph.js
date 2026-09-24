@@ -23,6 +23,7 @@
  */
 
 import { LUGARES, obtenerLugar } from '../data/locations.data.js';
+import { trasPreposicion } from '../utils/text.js';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    COSTES POR TIPO DE RUTA
@@ -520,7 +521,10 @@ export function describir(r) {
       .filter(Boolean);
 
     if (intermedios.length) {
-      partes.push(`pasando por ${intermedios.join(' y ')}`);
+      // «pasando por el Vado y la Forja», no «por El Vado y La Forja».
+      const [primero, ...resto] = intermedios;
+      const siguientes = resto.map((n) => n.replace(/^(El|La|Los|Las)\s/u, (a) => a.toLowerCase()));
+      partes.push(`pasando ${[trasPreposicion('por', primero), ...siguientes].join(' y ')}`);
     }
   }
 

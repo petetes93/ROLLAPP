@@ -26,7 +26,7 @@ import {
   FRANJA, CLIMA, COMBATE, NPC, OPCIONES, CIERRES, AMBIENTE,
 } from '../../data/narrative.templates.js';
 import { APP } from '../../config/app.config.js';
-import { capitalizar } from '../../utils/text.js';
+import { capitalizar, trasPreposicion } from '../../utils/text.js';
 import { aSegundaPersona, esPrimeraPersona } from '../Persona.js';
 import { obtenerLugar } from '../../data/locations.data.js';
 import * as Cadencia from '../Cadencia.js';
@@ -268,7 +268,7 @@ export class ProceduralProvider extends IDMProvider {
     const suyo = (ctx.canon ?? []).filter((c) => c.menciones >= 2 || c.notas.length);
 
     for (const c of suyo.slice(0, 2)) {
-      if (c.tipo === 'lugar') candidatas.push({ label: `Buscar el camino a ${c.nombre}`, intent: 'travel', risk: 'medium' });
+      if (c.tipo === 'lugar') candidatas.push({ label: `Buscar el camino ${trasPreposicion('a', c.nombre)}`, intent: 'travel', risk: 'medium' });
       else if (c.tipo === 'persona' && npc?.nombre) candidatas.push({ label: `Preguntar a ${npc.nombre} por ${c.nombre}`, intent: 'talk', risk: 'low' });
       else if (c.tipo === 'persona') candidatas.push({ label: `Buscar rastro de ${c.nombre}`, intent: 'search', risk: 'low' });
     }
@@ -282,11 +282,11 @@ export class ProceduralProvider extends IDMProvider {
     else if (vinculo) candidatas.push({ label: `Buscar a alguien que conozca a tu ${vinculo}`, intent: 'talk', risk: 'low' });
 
     const sub = this._flujo().elegir(lugar?.sublugares ?? []);
-    if (sub?.nombre) candidatas.push({ label: `Ir a ${sub.nombre.replace(/^(La|El|Los|Las) /, (m) => m.toLowerCase())}`, intent: 'explore', risk: 'low' });
+    if (sub?.nombre) candidatas.push({ label: `Ir ${trasPreposicion('a', sub.nombre)}`, intent: 'explore', risk: 'low' });
 
     const conexion = this._flujo().elegir(lugar?.conexiones ?? []);
     const destino = conexion ? obtenerLugar(conexion.hasta) : null;
-    if (destino?.nombre) candidatas.push({ label: `Tomar el camino hacia ${destino.nombre}`, intent: 'travel', risk: conexion.peligro > 1 ? 'medium' : 'low' });
+    if (destino?.nombre) candidatas.push({ label: `Tomar el camino ${trasPreposicion('hacia', destino.nombre)}`, intent: 'travel', risk: conexion.peligro > 1 ? 'medium' : 'low' });
 
     candidatas.push(...base);
 

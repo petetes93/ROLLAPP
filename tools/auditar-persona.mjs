@@ -17,6 +17,9 @@
  */
 
 import { aSegundaPersona, esPrimeraPersona } from '../src/ai/Persona.js';
+import { trasPreposicion } from '../src/utils/text.js';
+import * as Mapa from '../src/world/MapGraph.js';
+import { LUGARES as CATALOGO } from '../src/data/locations.data.js';
 
 /** [entrada, salida esperada] */
 const CASOS = [
@@ -91,6 +94,46 @@ for (const [texto, esperado] of PERSONA) {
   console.log(`${bien ? 'OK  ' : 'MAL '} [${esperado ? '1ª' : '3ª'}] ${texto}`);
 }
 
-const total = CASOS.length + PERSONA.length;
+/** Nombres propios con artículo a media frase. [preposición, nombre, esperado] */
+const LUGARES = [
+  ['hacia', 'El Camino del Norte', 'hacia el Camino del Norte'],
+  ['a', 'El Vado del Yunque', 'al Vado del Yunque'],
+  ['de', 'El Vado del Yunque', 'del Vado del Yunque'],
+  ['a', 'La Forja Alta', 'a la Forja Alta'],
+  ['por', 'Los Pozos Hondos', 'por los Pozos Hondos'],
+  ['hacia', 'Saucedo', 'hacia Saucedo'],
+];
+
+for (const [prep, nombre, esperado] of LUGARES) {
+  const real = trasPreposicion(prep, nombre);
+  const bien = real === esperado;
+  if (!bien) fallos += 1;
+  console.log(`${bien ? 'OK  ' : 'MAL '} ${prep} + ${nombre}`);
+  if (!bien) console.log(`     esperado: ${esperado}\n     obtenido: ${real}`);
+}
+
+// Lo que `describir` devuelve va detrás de un punto en el parte de viaje: no
+// puede empezar en minúscula ni llevar un artículo en mayúscula a media frase.
+let descripcionesMal = 0;
+let rutasVistas = 0;
+const ids = Array.isArray(CATALOGO) ? CATALOGO.map((l) => l.id ?? l.refId) : Object.keys(CATALOGO ?? {});
+for (const origen of ids) {
+  for (const destino of ids) {
+    if (origen === destino) continue;
+    const r = Mapa.ruta(origen, destino);
+    if (!r?.encontrada) continue;
+    rutasVistas += 1;
+    const d = Mapa.describir(r);
+    if (/\s(por|hacia|a|de)\s(El|La|Los|Las)\s/u.test(d) || /\sy\s(El|La|Los|Las)\s/u.test(d)) {
+      descripcionesMal += 1;
+      if (descripcionesMal <= 3) console.log(`MAL  ${d}`);
+    }
+  }
+}
+// Sin rutas no se ha comprobado nada: eso es un fallo de la prueba, no un OK.
+if (descripcionesMal || rutasVistas < 10) fallos += 1;
+console.log(`${descripcionesMal || rutasVistas < 10 ? 'MAL ' : 'OK  '} ${rutasVistas} rutas descritas sin artículos en mayúscula a media frase`);
+
+const total = CASOS.length + PERSONA.length + LUGARES.length + 1;
 console.log(`\n${total - fallos}/${total} correctos.`);
 process.exit(fallos ? 1 : 0);

@@ -48,11 +48,12 @@ import { TurnResolver } from '../src/engine/TurnResolver.js';
 
 import {
   pintarLugar, pintarRetrato, pintarCriatura, cargarManifiesto,
-  urlRetrato, recordarRetrato, especieNombrada,
+  urlRetrato, recordarRetrato, especieNombrada, semillaDe,
 } from '../src/art/index.js';
 import { obtenerEnemigo } from '../src/data/enemies.data.js';
 
 import { fichaAleatoria } from '../src/player/CharacterRandom.js';
+import { aplicarCorreccion, resumenPersonaje, sexoDescrito, PREGUNTA_CREACION } from '../src/player/Correccion.js';
 import {
   listarPersonajes, obtenerPersonaje, guardarPersonaje,
 } from '../src/persistence/CharacterRoster.js';
@@ -376,7 +377,7 @@ function pintarCargar() {
       }, 'Borrar'),
     ));
 
-    pintarRetrato(cara, { raza: c.raza, nombre: c.nombre, descripcion: c.retrato });
+    pintarRetrato(cara, fichaRetrato(c));
   }
 }
 
@@ -419,7 +420,7 @@ function pintarPersonajes(elegidoId) {
         elegido && p.lore ? el('span', { class: 'tarjeta-pj__lore', text: p.lore.slice(0, 220) + (p.lore.length > 220 ? '…' : '') }) : null,
       ),
     ));
-    pintarRetrato(cara, { raza: p.raza, nombre: p.nombre, descripcion: p.retrato });
+    pintarRetrato(cara, fichaRetrato(p));
   }
 
   if (elegido) {
@@ -473,6 +474,7 @@ function abrirCreacion() {
   // sobrescribía al personaje anterior en vez de crear uno.
   delete borrador.id;
   delete borrador.creado;
+  delete borrador.semillaRetrato;
   nombreEscrito = false;
   mostrar('creacion');
   pintarCreacion();
@@ -605,11 +607,29 @@ function crearPersonajeNuevo() {
     return;
   }
 
-  personajeCreado = guardarPersonaje({ ...borrador, nombre, retrato: descripcion, lore });
+  // Si la descripción dice quién es, manda sobre el dado: «enana guerrera» es
+  // una mujer aunque la ficha aleatoria saliera en masculino.
+  const genero = sexoDescrito(descripcion) ?? borrador.genero;
+
+  // La semilla del retrato se fija una vez. Las correcciones de la revelación
+  // cambian lo que se pide, no la cara.
+  const semillaRetrato = Number.isFinite(borrador.semillaRetrato)
+    ? borrador.semillaRetrato
+    : semillaDe({ raza: borrador.raza, descripcion });
+
+  personajeCreado = guardarPersonaje({ ...borrador, nombre, genero, retrato: descripcion, lore, semillaRetrato });
   pintarRevelacion(personajeCreado);
 }
 
-function pintarRevelacion(p) {
+/** Lo que el retrato necesita de una ficha o del jugador en partida. */
+function fichaRetrato(x = {}) {
+  return {
+    raza: x.raza, nombre: x.nombre, descripcion: x.retrato,
+    genero: x.genero, semillaRetrato: x.semillaRetrato,
+  };
+}
+
+function pintarRevelacion(p, eco = null) {
   const caja = $('#creacion-cuerpo');
   vaciar(caja);
   $('#creacion-titulo').textContent = p.nombre;
@@ -637,7 +657,7 @@ function pintarRevelacion(p) {
         onClick: protegido('cambiar linaje', () => {
           // Se vuelve a la ficha con todo lo escrito y con el MISMO id, para
           // que al enviarla se corrija este personaje y no nazca un gemelo.
-          Object.assign(borrador, { id: p.id, creado: p.creado });
+          Object.assign(borrador, { id: p.id, creado: p.creado, semillaRetrato: p.semillaRetrato });
           personajeCreado = null;
           mostrar('creacion');
           pintarCreacion();
@@ -657,6 +677,34 @@ function pintarRevelacion(p) {
     ),
   ));
 
+  // El narrador lo resume y pregunta, y el jugador contesta con sus palabras.
+  //
+  // Antes, para cambiar una sola cosa había que rehacer el personaje entero.
+  // Ahora se escribe «mejor que sea hombre» o «ponle una cicatriz en el ojo»
+  // y se corrige esto y nada más. «Vale, empezamos» arranca la partida.
+  const entrada = el('input', {
+    id: 'revelacion-cambio', class: 'campo__entrada', type: 'text',
+    maxlength: '160', autocomplete: 'off',
+    'aria-label': 'Cambiar algo del personaje, o confirmar para empezar',
+    placeholder: 'Un cambio, o «vale» para empezar',
+  });
+
+  caja.append(
+    el('div', { class: 'revelacion__narrador', id: 'revelacion-resumen', 'aria-live': 'polite' },
+      eco ? el('p', { class: 'revelacion__eco', text: eco }) : null,
+      el('p', { text: resumenPersonaje(p) }),
+      el('p', { class: 'revelacion__pregunta', text: PREGUNTA_CREACION }),
+    ),
+    el('form', {
+      class: 'revelacion__cambio', id: 'revelacion-form',
+      onSubmit: protegido('corregir personaje', (e) => {
+        e.preventDefault();
+        corregirPersonaje(p, entrada.value);
+      }),
+    }, entrada),
+    el('p', { class: 'campo__ayuda', text: 'Por ejemplo: «que sea hombre», «ponle una cicatriz en el ojo», «que se llame Brun», «más joven». O «vale, empezamos».' }),
+  );
+
   // Dos generadores compiten por el mismo hueco: el puente local, que casi
   // nunca está encendido, y el remoto, que no necesita instalar nada. El
   // rótulo cuenta lo mejor que haya pasado, no lo último que pasó: si el
@@ -672,6 +720,11 @@ function pintarRevelacion(p) {
   let logrado = false;
 
   const contar = (e) => {
+    // Una revelación ya repintada (tras una corrección) no tiene nada que
+    // decir: su imagen puede terminar de cargar después, y guardaba el
+    // personaje de ANTES encima del corregido.
+    if (!cara.isConnected) return;
+
     const es = e.detail?.estado ?? '';
 
     if (es === 'listo') {
@@ -679,11 +732,12 @@ function pintarRevelacion(p) {
 
       // Se anota con el personaje que este retrato carga. A partir de aquí el
       // panel lateral y las miniaturas de combate lo pintan directamente, en
-      // esta sesión y en las siguientes.
-      const url = urlRetrato({ raza: p.raza, descripcion: p.retrato });
+      // esta sesión y en las siguientes. Se fusiona con lo guardado, no se
+      // pisa con la copia que tenía esta pantalla.
+      const url = urlRetrato(fichaRetrato(p));
       if (url && p.retratoIA !== url) {
         p.retratoIA = url;
-        guardarPersonaje(p);
+        guardarPersonaje({ ...(obtenerPersonaje(p.id) ?? p), retratoIA: url });
       }
     } else if (logrado) {
       return;                          // ya hay retrato: nada lo desmiente
@@ -697,7 +751,7 @@ function pintarRevelacion(p) {
   cara.addEventListener('retrato-ia', contar);
 
   animarGeneracion(cara, 'Pintando retrato');
-  pintarRetrato(cara, { raza: p.raza, nombre: p.nombre, descripcion: p.retrato, inmediato: true });
+  pintarRetrato(cara, { ...fichaRetrato(p), inmediato: true });
 
   const pie = $('#creacion-pie');
   vaciar(pie);
@@ -714,6 +768,33 @@ function pintarRevelacion(p) {
  * sistemas guardan estado propio (mundo, memoria del máster, eventos) y
  * empezar limpio es la única forma segura de no heredar nada de la anterior.
  */
+/**
+ * Aplica lo que el jugador ha escrito en la revelación.
+ *
+ * Lo que no se menciona se conserva; el retrato se vuelve a pedir con la
+ * misma semilla, así que cambia lo pedido y no la cara.
+ *
+ * @param {Object} p
+ * @param {string} texto
+ */
+function corregirPersonaje(p, texto) {
+  const r = aplicarCorreccion(p, texto);
+
+  if (r.confirmar) { comenzarPartida(p); return; }
+
+  if (!r.entendido) {
+    pintarRevelacion(p, 'No te he entendido del todo. Prueba con «que sea hombre», «que sea elfa», «ponle una cicatriz en el ojo», «que se llame Brun» o «más joven».');
+    $('#revelacion-cambio')?.focus();
+    return;
+  }
+
+  // Mismo id: se corrige este personaje, no nace otro. El retrato anterior ya
+  // no vale, y se anotará el nuevo cuando cargue.
+  personajeCreado = guardarPersonaje({ ...r.personaje, retratoIA: null });
+  pintarRevelacion(personajeCreado, r.cambios.join(' '));
+  $('#revelacion-cambio')?.focus();
+}
+
 async function comenzarPartida(p) {
   if (ver('player.raza')) {
     try { sessionStorage.setItem('arcanveil:comenzar', p.id); } catch { /* sin sesión */ }
@@ -730,6 +811,7 @@ async function comenzarPartida(p) {
     borrador: {
       nombre: p.nombre, raza: p.raza, clase: p.clase, trasfondo: p.trasfondo,
       retrato: p.retrato ?? '', lore: p.lore ?? '',
+      genero: p.genero, semillaRetrato: p.semillaRetrato,
     },
   });
 
@@ -1569,7 +1651,7 @@ function pintarPersonaje() {
 
   // El retrato depende del linaje y del nombre, así que solo se repinta al
   // crear el personaje o al cargar otra partida.
-  pintarRetrato($('#retrato-pj'), { raza: j.raza, nombre: j.nombre, descripcion: j.retrato });
+  pintarRetrato($('#retrato-pj'), fichaRetrato(j));
 
   caja.append(
     el('div', { class: 'ficha-pj' },
@@ -2106,7 +2188,7 @@ function pintarCombate() {
 
     // El retrato se pinta después de montar la fila: `pintarCriatura` compara
     // una firma contra el nodo y necesita que ya esté en su sitio.
-    if (c.esJugador) pintarRetrato(cara, ver('player', {}));
+    if (c.esJugador) pintarRetrato(cara, fichaRetrato(ver('player', {})));
     else {
       const plantilla = obtenerEnemigo(c.refId);
       if (plantilla) pintarCriatura(cara, plantilla);

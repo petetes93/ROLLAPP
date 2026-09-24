@@ -189,6 +189,8 @@ const GLOSARIO = Object.freeze([
   // «cicatriz en la ceja» es más preciso que «cicatriz en la cara», y el lado
   // se le pega después en `analizar`.
   ['cicatriz', /\bcicatriz[^,.;]{0,24}\bceja/, 'a scar through the eyebrow'],
+  ['cicatriz', /\bcicatriz[^,.;]{0,24}\bojo/, 'a scar over one eye'],
+  ['cicatriz', /\bcicatriz[^,.;]{0,24}\b(?:mejilla|pomulo)/, 'a scar on the cheek'],
   ['cicatriz', /\bcicatriz/, 'a scar across the face'],
   ['parche', /\bparche/, 'an eyepatch'],
   // Lo específico antes que lo genérico: gana la primera del grupo.
@@ -393,6 +395,28 @@ function podarLinaje(linaje, grupos) {
     .join(', ');
 }
 
+/** El sexo de la ficha, en el idioma del encargo. */
+const SEXO_DE_FICHA = Object.freeze({ f: 'a woman', m: 'a man' });
+
+/**
+ * El sexo que marca la primera palabra de la descripción que lo marca.
+ *
+ * @param {string} texto
+ * @returns {string|null} 'a woman', 'a man' o null.
+ */
+function sexoDeLaDescripcion(texto) {
+  const d = String(texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  let mejor = null;
+
+  for (const [grupo, patron, ingles] of GLOSARIO) {
+    if (grupo !== 'sexo') continue;
+    const m = d.match(patron);
+    if (m && (mejor === null || m.index < mejor.index)) mejor = { index: m.index, ingles };
+  }
+
+  return mejor?.ingles ?? null;
+}
+
 /**
  * La especie que nombra la descripción, tal y como la escribió el jugador.
  *
@@ -517,7 +541,16 @@ export function encargoRetrato(personaje = {}) {
   //
   // Se sacan de la lista de rasgos y se ponen al frente; el resto conserva su
   // orden original.
-  const quienEs = ['sexo', 'especie'].map((g) => porGrupo.get(g)).filter(Boolean);
+  //
+  // El sexo se decide por la PRIMERA palabra que lo marca, no por la primera
+  // entrada del glosario que case en cualquier sitio. En «enano guerrero de
+  // barba trenzada pelirroja», «pelirroja» concuerda con la barba, pero el
+  // glosario mira antes las formas femeninas y salía una mujer. La persona se
+  // nombra primero; lo que va detrás describe otras cosas. Si el texto no lo
+  // dice, manda la ficha.
+  const sexo = sexoDeLaDescripcion(descripcion) ?? SEXO_DE_FICHA[personaje.genero] ?? null;
+  const quienEs = [sexo, porGrupo.get('especie')].filter(Boolean);
+  const frasesSinSexo = frases.filter((f) => !Object.values(SEXO_DE_FICHA).includes(f));
 
   // Detrás de quién es, lo que hace a este personaje reconocible.
   //
@@ -532,7 +565,7 @@ export function encargoRetrato(personaje = {}) {
   // Sin sexo ni especie reconocidos hace falta un sujeto: sin él el encargo
   // empieza por un rasgo suelto y el modelo decide quién es por su cuenta.
   const delante = [...(quienEs.length ? quienEs : [SUJETO_NEUTRO]), ...marca];
-  const resto = frases.filter((f) => !delante.includes(f));
+  const resto = frasesSinSexo.filter((f) => !delante.includes(f));
 
   // El linaje y los rasgos se unen con coma porque son la misma lista de
   // atributos: pegados con espacio salía «dark hair a scar across the face» y
@@ -568,17 +601,10 @@ export function urlRetrato(personaje = {}) {
   const prompt = encargoRetrato(personaje);
   if (!prompt) return null;
 
-  // La semilla sale de lo mismo que da forma a la imagen.
-  //
-  // Si el jugador nombra su especie, el linaje de la ficha ya no entra en el
-  // encargo (ver `encargoRetrato`), así que tampoco puede entrar en la semilla:
-  // volver a tirar el dado cambiaba la cara con el mismo encargo, y además
-  // lanzaba otra generación de ~20 s mientras la primera seguía en curso, que
-  // el servicio rechaza. Sin especie escrita el linaje sí pinta, y sigue
-  // contando.
-  const descripcion = personaje.descripcion ?? personaje.retrato ?? '';
-  const texto = especieNombrada(descripcion) ? `:${descripcion}` : `${personaje.raza ?? ''}:${descripcion}`;
-  const semilla = (hashSemilla(texto) >>> 0) % 2_000_000;
+  // Una semilla guardada con el personaje manda: al corregirlo en la
+  // revelación («mejor que sea hombre») el retrato cambia lo pedido y
+  // conserva la cara, en vez de enseñar a un desconocido.
+  const semilla = Number.isFinite(personaje.semillaRetrato) ? personaje.semillaRetrato : semillaDe(personaje);
 
   const parametros = new URLSearchParams({
     width: String(ANCHO),
@@ -589,6 +615,25 @@ export function urlRetrato(personaje = {}) {
   });
 
   return `${SERVICIO}${encodeURIComponent(prompt)}?${parametros}`;
+}
+
+/**
+ * La semilla que le toca a un personaje por lo que describe.
+ *
+ * Sale de lo mismo que da forma a la imagen. Si el jugador nombra su especie,
+ * el linaje de la ficha ya no entra en el encargo (ver `encargoRetrato`), así
+ * que tampoco en la semilla: volver a tirar el dado cambiaba la cara con el
+ * mismo encargo, y además lanzaba otra generación de ~20 s mientras la primera
+ * seguía en curso, que el servicio rechaza. Sin especie escrita el linaje sí
+ * pinta, y sigue contando.
+ *
+ * @param {Object} personaje
+ * @returns {number}
+ */
+export function semillaDe(personaje = {}) {
+  const descripcion = personaje.descripcion ?? personaje.retrato ?? '';
+  const texto = especieNombrada(descripcion) ? `:${descripcion}` : `${personaje.raza ?? ''}:${descripcion}`;
+  return (hashSemilla(texto) >>> 0) % 2_000_000;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

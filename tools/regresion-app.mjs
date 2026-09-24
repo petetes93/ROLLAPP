@@ -5,6 +5,7 @@ import { writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { encargoRetrato } from '../src/art/retrato-ia.js';
 
 const ROOT = process.cwd();
 const PORT = 8765;
@@ -211,10 +212,32 @@ try {
 
   const pjsDespues = await evaluate(contarPjs);
   if (pjsDespues !== pjsAntes) throw new Error(`cambiar de linaje creó un personaje gemelo: ${pjsAntes} → ${pjsDespues}`);
+
+  // Corregir con palabras en la revelación: cambia el sexo, conserva el
+  // nombre y el retrato pide un hombre.
+  const leerPj = `JSON.parse(localStorage.getItem('arcanveil:personajes'))[0]`;
+  const pjAntes = await evaluate(leerPj);
+  const escribirCambio = (texto) => evaluate(`(() => {
+    const i = document.querySelector('#revelacion-cambio');
+    i.value = ${JSON.stringify(texto)};
+    document.querySelector('#revelacion-form').requestSubmit();
+  })()`);
+
+  await escribirCambio('mejor que sea hombre');
+  await until('document.querySelector("#revelacion-resumen")?.textContent.includes("Ahora es un hombre")');
+  const pjHombre = await evaluate(leerPj);
+  if (pjHombre.genero !== 'm') throw new Error(`«mejor que sea hombre» dejó el sexo en ${pjHombre.genero}`);
+  if (pjHombre.nombre !== pjAntes.nombre) throw new Error(`«mejor que sea hombre» cambió el nombre: ${pjAntes.nombre} → ${pjHombre.nombre}`);
+  if (pjHombre.id !== pjAntes.id) throw new Error('la corrección creó otro personaje');
+  const encargo = encargoRetrato({ raza: pjHombre.raza, descripcion: pjHombre.retrato, genero: pjHombre.genero });
+  if (!/\ba man\b/.test(encargo) || /\ba woman\b/.test(encargo)) throw new Error(`tras «mejor que sea hombre» el retrato pide: ${encargo}`);
+
   // La forja visual dura 720 ms; la captura valida el estado final nítido.
   await new Promise(resolve => setTimeout(resolve, 850));
   await shot(`02-creacion-${viewport.label}.png`);
-  await evaluate(`document.querySelector('#creacion-empezar').click()`);
+
+  // Y se empieza escribiendo, sin buscar el botón.
+  await escribirCambio('vale, empezamos');
   await until('document.body.dataset.activeScreen === "juego" && !document.querySelector("#entrada").disabled && ARCANVEIL.sistema("turns").inspeccionar().ocupado === false && ARCANVEIL.ver("narrative.entradas",[]).length > 0 && ARCANVEIL.ver("player.lore","").includes("hermana")', 15000);
   const aperturaLore = await evaluate(`({texto:ARCANVEIL.ver('narrative.entradas',[]).map(e=>e.texto??'').join(' '), memoria:ARCANVEIL.ver('ai.memoria.hilos',[])})`);
   if (!/hermana|medallón|Umbral/i.test(aperturaLore.texto)) throw new Error('la apertura procedural ignoró el lore');

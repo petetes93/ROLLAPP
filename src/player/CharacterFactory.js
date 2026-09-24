@@ -141,6 +141,12 @@ export function crearPersonaje(borrador) {
   // partida sea suya y no de una plantilla: viaja al director en cada prompt.
   jugador.retrato = borrador.retrato ?? '';
   jugador.lore = borrador.lore ?? '';
+
+  // El sexo y la semilla del retrato viajan con el personaje. Sin el sexo, el
+  // parte de combate trataba a toda jugadora en masculino; sin la semilla, el
+  // retrato de la partida no era el mismo que el de la revelación.
+  jugador.genero = borrador.genero === 'f' ? 'f' : 'm';
+  jugador.semillaRetrato = Number.isFinite(borrador.semillaRetrato) ? borrador.semillaRetrato : null;
   jugador.motivacion = borrador.motivacion ?? null;
   jugador.gancho = borrador.gancho ?? null;
   jugador.detalle = borrador.detalle ?? null;

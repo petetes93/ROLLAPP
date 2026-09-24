@@ -252,6 +252,10 @@ export const INTENCIONES = Object.freeze({
       // toma o se sigue es un camino. «Tomo la espada» y «sigo al ladrón» no
       // son viajes, y por eso llevan freno en AMBIGUOS.
       tomar: 7, tomo: 7, sigo: 6,
+      // En plural, que es como se habla yendo con compañeros: «vamos hacia
+      // Saucedo» se quedaba en `custom` y nadie se movía. Llevan freno en
+      // AMBIGUOS: «vamos a hablar con él» no es un viaje.
+      vamos: 6, vayamos: 6, partimos: 8, marchamos: 8, volvemos: 7, regresamos: 8,
     },
     habilidad: null,
     umbral: 'facil',
@@ -307,9 +311,23 @@ export const INTENCIONES = Object.freeze({
 /** Lo que convierte «tomo» o «sigo» en un viaje: que haya un camino de por medio. */
 const RUMBO = /\b(camino|senda|sendero|ruta|calzada|vereda|carretera|rumbo)\b|\bhacia\s+(el|la|los|las)?\s*(norte|sur|este|oeste|salida)/;
 
+/** Un verbo en plural seguido de un destino, no de un infinitivo. */
+function DESTINO_PLURAL(verbo) {
+  return new RegExp(`\\b${verbo}\\s+(?:hacia|para|rumbo|de vuelta|al\\b|a\\s+(?![a-zñ]+(?:ar|er|ir)\\b)[a-zñ])`);
+}
+
 const AMBIGUOS = Object.freeze({
   partir: { tipo: 'travel', confirma: /\bpartir\s+(hacia|para|rumbo|de vuelta|al\b|a\s+\w)|\bpartir\s*$/ },
   parto: { tipo: 'travel', confirma: /\bparto\s+(hacia|para|rumbo|de vuelta|al\b|a\s+\w|ya\b)|\bparto\s*$/ },
+
+  // «Vamos a Saucedo» es un viaje; «vamos a hablar con él», no: tras «a»
+  // no puede venir un infinitivo.
+  vamos: { tipo: 'travel', confirma: DESTINO_PLURAL('vamos') },
+  vayamos: { tipo: 'travel', confirma: DESTINO_PLURAL('vayamos') },
+  partimos: { tipo: 'travel', confirma: /\bpartimos\s+(hacia|para|rumbo|de vuelta|al\b|a\s+\w|ya\b)|\bpartimos\s*$/ },
+  marchamos: { tipo: 'travel', confirma: DESTINO_PLURAL('marchamos') },
+  volvemos: { tipo: 'travel', confirma: DESTINO_PLURAL('volvemos') },
+  regresamos: { tipo: 'travel', confirma: DESTINO_PLURAL('regresamos') },
 
   // Se toma y se sigue un camino, pero también una espada o un ladrón.
   tomar: { tipo: 'travel', confirma: RUMBO },

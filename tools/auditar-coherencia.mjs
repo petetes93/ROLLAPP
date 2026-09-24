@@ -218,6 +218,14 @@ const HACHA = { id: 'o1', refId: 'hacha_mano', nombre: 'Hacha de mano', categori
   }
   comprobar(interpretar('hablo con Grom del camino').tipo !== 'recruit', 'hablar con alguien no es reclutarlo');
 
+  // Con compañeros se habla en plural, y el viaje tiene que entenderse igual.
+  for (const frase of ['vamos hacia Saucedo', 'Ulmir, vamos a Saucedo', 'partimos hacia el norte', 'volvemos al vado']) {
+    comprobar(interpretar(frase).tipo === 'travel', `«${frase}» es un viaje`, interpretar(frase).tipo);
+  }
+  for (const frase of ['vamos a hablar con el posadero', 'vamos a ver qué hay']) {
+    comprobar(interpretar(frase).tipo !== 'travel', `«${frase}» no es un viaje`, interpretar(frase).tipo);
+  }
+
   const herrera = fichaDeCompanero({ refId: 'npc_maela', nombre: 'Maela', rol: 'herrera', genero: 'f', rasgo: 'brazos quemados' });
   comprobar(herrera.ataque.nombre === 'Martillo de forja' && herrera.vidaMax === 22, 'la ficha sale del oficio, en masculino y en femenino');
   comprobar(/^mujer, herrera/.test(herrera.descripcion), 'su retrato se pide con su sexo y su oficio', herrera.descripcion);

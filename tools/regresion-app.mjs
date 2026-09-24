@@ -321,22 +321,30 @@ try {
   await shot(`03-partida-20-turnos-${viewport.label}.png`);
 
   // El grupo: reclutar a alguien de la escena, viajar con él, pelear juntos
-  // y verlo en el parte. Se le deja con buena actitud y se insiste unas veces
-  // para que la prueba no dependa de un dado; la tirada misma ya la fija la
-  // auditoría.
+  // y verlo en el parte.
   await evaluate(`(() => {
     const npcs = ARCANVEIL.sistema('npcs');
     if (!ARCANVEIL.ver('npcs.presentes', []).length) npcs.introducir({ nombre: 'Grom', rol: 'herrero', actitud: 'amable' });
     const id = ARCANVEIL.ver('npcs.presentes', [])[0];
     npcs.actualizar(id, { actitud: 100 });
   })()`);
+  // La tirada de reclutar ya la fija la auditoría de coherencia; aquí se
+  // prueba el recorrido (reclutar, viajar, pelear). Con seis intentos y el
+  // dado de verdad fallaba una de cada quince veces: los personajes de
+  // partida van cargados (−3) y la suerte decidía. Se fuerza el éxito solo
+  // durante este paso y se devuelve el motor como estaba.
   const reclutado = await evaluate(`(async () => {
-    const id = ARCANVEIL.ver('npcs.presentes', [])[0];
-    const nombre = ARCANVEIL.ver('npcs.conocidos.porId.' + id + '.nombre');
-    for (let i = 0; i < 6 && !(ARCANVEIL.ver('party.miembros', []) ?? []).length; i += 1) {
+    const reglas = ARCANVEIL.sistema('rules');
+    const resolver = reglas.resolver;
+    reglas.resolver = (t) => ({ ...resolver.call(reglas, t), exito: true });
+    try {
+      const id = ARCANVEIL.ver('npcs.presentes', [])[0];
+      const nombre = ARCANVEIL.ver('npcs.conocidos.porId.' + id + '.nombre');
       await ARCANVEIL.jugar(nombre + ', ¿vienes conmigo?');
+      return { nombre, miembros: (ARCANVEIL.ver('party.miembros', []) ?? []).map((m) => m.refId), presentes: ARCANVEIL.ver('npcs.presentes', []) };
+    } finally {
+      reglas.resolver = resolver;
     }
-    return { nombre, miembros: (ARCANVEIL.ver('party.miembros', []) ?? []).map((m) => m.refId), presentes: ARCANVEIL.ver('npcs.presentes', []) };
   })()`);
   if (!reclutado.miembros.length) throw new Error(`nadie se unió al grupo: ${JSON.stringify(reclutado)}`);
   const panelGrupo = await evaluate(`document.querySelector('#grupo-pj, .grupo__miembro')?.textContent ?? ''`);

@@ -89,8 +89,14 @@ const CABEZA = 'Anime cel shaded bust portrait, head and shoulders, '
 const SUJETO_NEUTRO = 'one person';
 
 /** Remate de estilo. Al final matiza; si fuera delante, competiría. */
-const COLA = 'plain flat background, soft overcast light, limited muted '
-  + 'palette of ash grey, iron blue and oxidised bronze, dark low fantasy';
+/**
+ * La paleta del juego, compartida con las ilustraciones de escena
+ * (`escena-ia.js`): un retrato y el sitio donde está tienen que parecer del
+ * mismo libro.
+ */
+export const PALETA = 'limited muted palette of ash grey, iron blue and oxidised bronze, dark low fantasy';
+
+const COLA = `plain flat background, soft overcast light, ${PALETA}`;
 
 /**
  * Rasgo físico de cada linaje, en inglés.

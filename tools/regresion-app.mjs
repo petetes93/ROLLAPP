@@ -245,6 +245,7 @@ try {
   const intensidad = await evaluate(`ARCANVEIL.ver('settings.dificultad')`);
   if (intensidad !== 'relato') throw new Error(`la partida empezó en ${intensidad}, no en Pacífica`);
   await evaluate(`window.__encuentros = 0; ARCANVEIL.bus.on('exploration:encounter', () => { window.__encuentros += 1; })`);
+  await evaluate(`window.__escenas = []; ARCANVEIL.bus.on('scene:changed', (e) => { window.__escenas.push(e.motivo); })`);
   const aperturaLore = await evaluate(`({texto:ARCANVEIL.ver('narrative.entradas',[]).map(e=>e.texto??'').join(' '), memoria:ARCANVEIL.ver('ai.memoria.hilos',[])})`);
   if (!/hermana|medallón|Umbral/i.test(aperturaLore.texto)) throw new Error('la apertura procedural ignoró el lore');
   if (!aperturaLore.memoria.some(h => h.relacionadoCon === 'player_lore')) throw new Error('el lore no abrió un hilo persistente');
@@ -367,6 +368,36 @@ try {
   if (!peleaGrupo.lineas.length) throw new Error(`${reclutado.nombre} no actuó en el combate`);
   if (!peleaGrupo.lineas[0].startsWith(`${reclutado.nombre} ataca a`)) throw new Error(`el parte no cuenta al compañero: «${peleaGrupo.lineas[0]}»`);
   if (peleaGrupo.activo) throw new Error('el combate del grupo no terminó');
+
+  // La escena cambia al llegar y al pelear, y solo entonces se pide imagen.
+  // Los treinta turnos anteriores no la cambiaron.
+  const escenas = await evaluate('window.__escenas');
+  for (const motivo of ['llegada', 'combate', 'fin_combate']) {
+    if (!escenas.includes(motivo)) throw new Error(`no hubo cambio de escena por «${motivo}»: ${escenas.join(', ')}`);
+  }
+
+  // La cabecera se pliega a una franja, y se recuerda.
+  const pliegue = await evaluate(`(async () => {
+    const esc = document.getElementById('escena');
+    const antes = esc.classList.contains('escena--plegada');
+    document.getElementById('escena-plegar').click();
+    await new Promise((r) => setTimeout(r, 50));
+    const despues = document.getElementById('escena').classList.contains('escena--plegada');
+    const guardado = JSON.parse(localStorage.getItem('arcanveil:prefs:juego') ?? '{}').escenaPlegada;
+    document.getElementById('escena-plegar').click();
+    return { antes, despues, guardado };
+  })()`);
+  if (pliegue.antes === pliegue.despues || pliegue.guardado !== pliegue.despues) throw new Error(`plegar la escena no funciona: ${JSON.stringify(pliegue)}`);
+
+  // Sin red, ninguna ilustración: se queda el paisaje de siempre.
+  if (sinIA) {
+    const sinRed = await evaluate(`({
+      miniaturas: ARCANVEIL.ver('narrative.entradas', []).filter((e) => e.voz === 'escena').length,
+      paisaje: Boolean(document.querySelector('#escena-lienzo svg, #escena-lienzo .arte')),
+    })`);
+    if (sinRed.miniaturas) throw new Error('sin red apareció una ilustración de escena');
+    if (!sinRed.paisaje) throw new Error('sin red la cabecera se quedó sin paisaje');
+  }
 
   // El retrato vale por cualquiera de sus dos vías.
   //

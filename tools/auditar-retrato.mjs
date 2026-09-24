@@ -21,6 +21,8 @@
 
 import { encargoRetrato, urlRetrato, especieNombrada } from '../src/art/retrato-ia.js';
 import { RAZAS } from '../src/data/races.data.js';
+import { encargoEscena, urlEscena } from '../src/art/escena-ia.js';
+import { PALETA } from '../src/art/retrato-ia.js';
 
 let fallos = 0;
 
@@ -113,6 +115,29 @@ comprobar(urls.size === 1, 'con especie escrita, cambiar de linaje no cambia el 
 const sinEsp = 'guerrera de pelo rojo con cicatriz';
 comprobar(urlRetrato({ raza: 'albar', descripcion: sinEsp }) !== urlRetrato({ raza: 'griscuerno', descripcion: sinEsp }),
   'sin especie escrita, cada linaje tiene su retrato');
+
+/* ── La ilustración de escena casa con la escena ────────────────────────── */
+
+// Mismo servicio y mismo libro que los retratos: la escena lleva la paleta
+// del juego y dice dónde, cuándo y con quién.
+{
+  const taberna = encargoEscena({ terreno: 'ciudad', interior: 'taberna', franja: 'noche', clima: 'lluvia',
+    npcs: [{ rol: 'posadera' }], motivo: 'pnj' });
+  comprobar(taberna.includes('inside a crowded tavern') && taberna.includes('at night') && taberna.includes('an innkeeper'),
+    'la escena de la taberna dice dónde, cuándo y con quién', taberna);
+  comprobar(!taberna.includes('in the rain'), 'dentro de un interior no llueve', taberna);
+  comprobar(taberna.endsWith(PALETA), 'la escena lleva la paleta de los retratos', taberna);
+
+  const camino = encargoEscena({ terreno: 'camino', franja: 'ocaso', clima: 'niebla', motivo: 'combate' });
+  comprobar(camino.includes('at sunset') && camino.includes('in thick fog') && camino.includes('weapons drawn'),
+    'las franjas del reloj («ocaso») y el motivo llegan al encargo', camino);
+
+  const escena = { lugar: 'vado_yunque', sublugar: null, terreno: 'ciudad', franja: 'alba', clima: 'despejado', motivo: 'llegada' };
+  comprobar(urlEscena(escena) === urlEscena({ ...escena, npcs: [] }),
+    'la misma escena en el mismo momento da la misma imagen');
+  comprobar(urlEscena(escena) !== urlEscena({ ...escena, franja: 'noche' }),
+    'la misma escena de noche es otra imagen');
+}
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);
 process.exit(fallos ? 1 : 0);

@@ -393,6 +393,21 @@ button{font-family:inherit;cursor:pointer}
 }
 .escena__dato{font-family:var(--mono);font-size:.68rem;color:var(--texto-2)}
 .escena__sep{font-family:var(--mono);font-size:.68rem;color:var(--texto-3)}
+.escena{transition:height .25s ease}
+.escena--plegada{height:48px}
+.escena--plegada .escena__lienzo{opacity:.35}
+.escena--plegada .escena__rotulo{padding:.6rem 1rem;background:rgb(10 12 16 / .78)}
+.escena--plegada .escena__lugar{font-size:1rem}
+.escena__plegar{margin-left:auto;align-self:center;min-height:0;padding:.15rem .55rem;border:1px solid var(--linea);border-radius:var(--r);background:rgb(10 12 16 / .55);color:var(--texto-2);font-size:.8rem;cursor:pointer}
+.escena__plegar:focus-visible{outline:2px solid var(--bronce-2,#D8AD50);outline-offset:2px}
+.escena__lienzo>.arte--escena-ia{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top}
+.linea--escena{margin:.8rem 0;display:flex;flex-direction:column;align-items:flex-start;gap:.3rem}
+.escena-miniatura{padding:0;border:1px solid var(--linea);border-radius:var(--r);overflow:hidden;cursor:zoom-in;background:none;max-width:min(320px,100%)}
+.escena-miniatura img{display:block;width:100%;height:auto;aspect-ratio:1024/560;object-fit:cover;object-position:center top}
+.linea--escena figcaption{font:.7rem var(--mono);color:var(--texto-3)}
+.visor{max-width:min(92vw,1100px);padding:.75rem}
+.visor__img{display:block;width:100%;max-height:78vh;object-fit:contain;border-radius:var(--r)}
+.visor__pie{margin:.5rem 0 0;font:.75rem var(--mono);color:var(--texto-2);text-align:center}
 
 /* ── retrato en el panel de personaje ───────────────────────────────── */
 .retrato-pj{
@@ -1173,6 +1188,15 @@ textarea.entrada{resize:none;overflow-y:auto;line-height:1.45;max-height:180px;d
     </section>
   </section>
 </div>
+<!-- ═══ una ilustración en grande ════════════════════════════════════ -->
+<div class="modal modal--visor" id="visor-modal" hidden>
+  <section class="modal__panel visor" role="dialog" aria-modal="true" aria-labelledby="visor-pie">
+    <img class="visor__img" id="visor-img" alt="">
+    <p class="visor__pie" id="visor-pie"></p>
+    <div class="modal__acciones"><button class="btn" id="visor-cerrar" type="button">Cerrar</button></div>
+  </section>
+</div>
+
 <!-- ═══ has caído ═════════════════════════════════════════════════════
      Sin botón de cerrar a propósito: caer no es un aviso que se descarta,
      es una bifurcación. Se sale por una de las tres salidas. -->

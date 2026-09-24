@@ -121,8 +121,9 @@ export class TurnResolver extends SystemBase {
     });
 
     // Narración directa de otros sistemas: combate, mundo, comercio.
-    this.escuchar('narrative:direct', ({ texto, voz }) => {
-      this._anadirEntrada(voz ?? VOCES.SISTEMA, texto, {});
+    // Puede traer `meta`: una ilustración de escena lleva la imagen ahí.
+    this.escuchar('narrative:direct', ({ texto, voz, meta }) => {
+      this._anadirEntrada(voz ?? VOCES.SISTEMA, texto, meta ?? {});
     });
 
     // Al empezar partida, la memoria se vacía.

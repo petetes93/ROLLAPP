@@ -30,6 +30,7 @@ import { RelationshipSystem } from '../src/npc/RelationshipSystem.js';
 import { ReputationSystem } from '../src/npc/ReputationSystem.js';
 import { FactionSystem } from '../src/npc/FactionSystem.js';
 import { PartySystem } from '../src/npc/PartySystem.js';
+import { SceneSystem } from '../src/world/SceneSystem.js';
 import { DialogueSystem } from '../src/npc/DialogueSystem.js';
 import { MerchantSystem } from '../src/npc/MerchantSystem.js';
 import { EconomySystem } from '../src/economy/EconomySystem.js';
@@ -55,6 +56,7 @@ import { obtenerEnemigo } from '../src/data/enemies.data.js';
 
 import { fichaAleatoria } from '../src/player/CharacterRandom.js';
 import { aplicarCorreccion, resumenPersonaje, sexoDescrito, PREGUNTA_CREACION } from '../src/player/Correccion.js';
+import { urlEscena } from '../src/art/escena-ia.js';
 import {
   listarPersonajes, obtenerPersonaje, guardarPersonaje,
 } from '../src/persistence/CharacterRoster.js';
@@ -184,7 +186,7 @@ async function arrancarMotor() {
     Clock, Player, Inventory,
     TimeSystem, WeatherSystem, DynamicEvents, Travel, Exploration, World,
     RelationshipSystem, ReputationSystem, FactionSystem, DialogueSystem,
-    MerchantSystem, EconomySystem, QuestSystem, PartySystem,
+    MerchantSystem, EconomySystem, QuestSystem, PartySystem, SceneSystem,
     StatsTracker, AchievementSystem, Milestones, SaveManager,
     RulesEngine, EffectApplier, CombatManager,
     DungeonMaster, ActionRouter, ConsequenceEngine, DifficultyDirector,
@@ -1022,12 +1024,24 @@ function pintarEscena() {
   ]);
   const momentoClave = hitosRegion.has(lugar.refId);
 
-  pintarLugar($('#escena-lienzo'), lugar, { franja: t.franja, clima, momentoClave });
+  // Si ya hay ilustración de ESTA escena, se queda: no se repinta el paisaje
+  // en cada turno. Solo un cambio de escena trae imagen nueva (ver
+  // `pedirIlustracion`). Si se ha ido a otro sitio, vuelve el paisaje hasta
+  // que llegue la suya.
+  const sub = ver('world.sublugar') ?? null;
+  const conIlustracion = escenaIA && escenaIA.lugar === lugar.refId && escenaIA.sublugar === sub;
+  if (!conIlustracion) {
+    escenaIA = null;
+    pintarLugar($('#escena-lienzo'), lugar, { franja: t.franja, clima, momentoClave });
+  }
 
   const rotulo = $('#escena-rotulo');
   if (!rotulo) return;
 
   vaciar(rotulo);
+
+  const plegada = escenaPlegada();
+  $('#escena')?.classList.toggle('escena--plegada', plegada);
 
   rotulo.append(
     el('span', { class: 'escena__lugar', text: lugar.nombre }),
@@ -1036,7 +1050,95 @@ function pintarEscena() {
     el('span', { class: 'escena__dato', text: FRANJAS_TEXTO[t.franja] ?? '' }),
     el('span', { class: 'escena__sep', text: '·' }),
     el('span', { class: 'escena__dato', text: clima }),
+    el('button', {
+      class: 'escena__plegar', id: 'escena-plegar', type: 'button',
+      'aria-expanded': String(!plegada),
+      'aria-label': plegada ? 'Desplegar la ilustración' : 'Plegar la ilustración',
+      title: plegada ? 'Desplegar' : 'Plegar',
+      onClick: protegido('plegar escena', () => {
+        guardarAjustes({ escenaPlegada: !plegada });
+        pintarEscena();
+      }),
+    }, plegada ? '▾' : '▴'),
   );
+}
+
+/**
+ * ¿La cabecera de escena va plegada?
+ *
+ * Es una preferencia del jugador y se recuerda. Si nunca la ha tocado, en
+ * pantallas bajas —un móvil tumbado, uno pequeño— empieza plegada: la
+ * ilustración se comería media pantalla y no quedaría sitio para leer.
+ */
+function escenaPlegada() {
+  const guardada = leerAjustes().escenaPlegada;
+  return typeof guardada === 'boolean' ? guardada : window.innerHeight < 700;
+}
+
+/* ── ilustraciones de escena ─────────────────────────────────────────── */
+
+/** La ilustración que está puesta, si cargó. @type {{lugar: string, sublugar: string|null, url: string}|null} */
+let escenaIA = null;
+let temporizadorEscena = null;
+
+/** Cómo se titula una ilustración en la bitácora. */
+function pieDeEscena(e) {
+  return [e.nombreSublugar ?? e.nombreLugar, FRANJAS_TEXTO[e.franja]].filter(Boolean).join(', ');
+}
+
+/**
+ * Pide la ilustración de una escena nueva.
+ *
+ * Espera un momento antes de pedirla: los cambios vienen en racimo —llegar y
+ * que aparezca alguien— y el servicio rechaza peticiones en paralelo. Si
+ * mientras carga el jugador se va a otro sitio, esta ya no vale y no se pone.
+ * Sin red, no carga y se queda el paisaje de siempre: el juego no depende de
+ * esto.
+ *
+ * @param {Object} escena Lo que anuncia `scene:changed`.
+ */
+function pedirIlustracion(escena) {
+  clearTimeout(temporizadorEscena);
+  temporizadorEscena = setTimeout(() => {
+    const url = urlEscena(escena);
+    const img = new Image();
+    img.className = 'arte arte--imagen arte--escena-ia';
+    img.alt = pieDeEscena(escena);
+
+    img.addEventListener('load', () => {
+      const aqui = ver('world.ubicacion') === escena.lugar && (ver('world.sublugar') ?? null) === escena.sublugar;
+      if (!aqui) return;
+
+      escenaIA = { lugar: escena.lugar, sublugar: escena.sublugar, url };
+      const lienzo = $('#escena-lienzo');
+      if (lienzo) {
+        lienzo.replaceChildren(img);
+        // El paisaje procedural se vuelve a pintar entero si hace falta.
+        lienzo.dataset.firmaArte = '';
+      }
+
+      // Y queda en la bitácora, para hojear la partida como un libro.
+      bus.emit('narrative:direct', { texto: pieDeEscena(escena), voz: 'escena', meta: { imagen: url } });
+      refrescarTodo();
+    });
+
+    img.src = url;
+  }, 1500);
+}
+
+/**
+ * Abre una ilustración en grande.
+ * @param {string} url
+ * @param {string} pie
+ */
+function abrirVisor(url, pie) {
+  const img = $('#visor-img');
+  if (!img) return;
+  img.src = url;
+  img.alt = pie;
+  $('#visor-pie').textContent = pie;
+  $('#visor-modal').hidden = false;
+  $('#visor-cerrar')?.focus();
 }
 
 /* ── sugerencias ──────────────────────────────────────────────────────── */
@@ -1529,7 +1631,7 @@ function anunciarRelato(nuevas) {
   const region = $('#relato-vivo');
   if (!region || !nuevas?.length) return;
 
-  const VOZ = { player: 'Tú', jugador: 'Tú', dm: 'Narrador', combat: 'Combate', combate: 'Combate', system: 'Aviso', sistema: 'Aviso' };
+  const VOZ = { player: 'Tú', jugador: 'Tú', dm: 'Narrador', combat: 'Combate', combate: 'Combate', system: 'Aviso', sistema: 'Aviso', escena: 'Ilustración' };
 
   const partes = nuevas.map((e) => {
     if (e.voz === 'roll' || e.voz === 'tirada') {
@@ -1606,6 +1708,20 @@ function pintarBitacora() {
 
       if (indice >= desdeReciente) ficha.classList.add('es-reciente');
       caja.append(ficha);
+      continue;
+    }
+
+    // Una ilustración de escena: miniatura entre las líneas, y en grande al
+    // pulsarla.
+    if (e.voz === 'escena' && e.meta?.imagen) {
+      caja.append(el('figure', { class: 'linea linea--escena' },
+        el('button', {
+          class: 'escena-miniatura', type: 'button',
+          'aria-label': `Ver en grande: ${e.texto}`,
+          onClick: () => abrirVisor(e.meta.imagen, e.texto),
+        }, el('img', { src: e.meta.imagen, alt: e.texto, loading: 'lazy' })),
+        el('figcaption', { text: e.texto }),
+      ));
       continue;
     }
 
@@ -2644,7 +2760,17 @@ function conectarEventos() {
 
   // Empezar de nuevo rearma el aviso: si no, una segunda caída en la misma
   // sesión pasaría sin que nadie se enterara.
-  bus.on('player:created', () => { yaCaido = false; });
+  bus.on('player:created', () => { yaCaido = false; escenaIA = null; });
+
+  // Solo un cambio de escena trae ilustración nueva.
+  bus.on('scene:changed', (escena) => pedirIlustracion(escena));
+
+  // El visor se cierra con su botón, con Escape (como todos los modales) o
+  // pulsando fuera de la imagen.
+  $('#visor-cerrar')?.addEventListener('click', () => { $('#visor-modal').hidden = true; });
+  $('#visor-modal')?.addEventListener('click', (ev) => {
+    if (ev.target.id === 'visor-modal') ev.currentTarget.hidden = true;
+  });
 }
 
 /** Retira la pantalla de arranque y muestra el juego. */

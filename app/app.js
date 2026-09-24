@@ -997,6 +997,85 @@ function escribirSiguiente() {
 
 /* ── bitácora ─────────────────────────────────────────────────────────── */
 
+/* ── has caído ─────────────────────────────────────────────────────────── */
+
+/**
+ * Abre la bifurcación de la caída.
+ *
+ * Antes esto era un aviso flotante que decía «la crónica termina aquí» y no
+ * terminaba nada: la caja seguía activa, cada «ataco» abría un combate nuevo
+ * con el personaje a cero de vida y el juego contestaba «las piernas te
+ * fallan» sin parar. Decirle al jugador que ha muerto y dejarle seguir jugando
+ * es la peor de las dos opciones posibles.
+ *
+ * La fase la pone el motor (`Player._alCaer`), así que el turno ya está
+ * bloqueado de verdad antes de que esto se pinte. Aquí solo se ofrece la
+ * salida.
+ *
+ * @param {string} motivo Lo que le ha pasado, en una frase.
+ */
+function abrirCaida(motivo) {
+  const modal = $('#caida-modal');
+  if (!modal) return;
+
+  bloquear(true);
+
+  const dificultad = leerAjustes().dificultad ?? 'equilibrado';
+  const implacable = dificultad === 'implacable';
+
+  $('#caida-nota').textContent = implacable
+    ? `${motivo} En esta intensidad no hay vuelta atrás: la crónica de ${ver('player.nombre', 'tu personaje')} termina aquí.`
+    : `${motivo} Puedes volver en ti, pero no sales de esta de gratis.`;
+
+  const acciones = $('#caida-acciones');
+  vaciar(acciones);
+
+  if (!implacable) {
+    acciones.append(el('button', {
+      class: 'btn btn--grande', onClick: protegido('volver en ti', volverEnTi),
+    }, 'Volver en ti'));
+  }
+
+  acciones.append(
+    el('button', { class: 'btn', onClick: protegido('cargar partida', () => { modal.hidden = true; mostrar('cargar'); pintarCargar(); }) }, 'Cargar partida'),
+    el('button', { class: 'btn btn--fantasma', onClick: protegido('nueva crónica', () => { modal.hidden = true; abrirCreacion(); }) }, 'Nueva crónica'),
+  );
+
+  modal.hidden = false;
+}
+
+/**
+ * Te levantas, pero pagando.
+ *
+ * El precio no es simbólico: si no cuesta nada, caer deja de importar y el
+ * combate pierde su tensión. Se cobra en oro porque es lo que menos rompe una
+ * partida en marcha —perder el arma equipada a mitad de una misión frustra más
+ * de lo que enseña— y se van horas del reloj, que es lo que justifica que
+ * alguien te haya encontrado.
+ */
+async function volverEnTi() {
+  const oro = ver('player.oro', 0);
+  const perdido = Math.max(1, Math.round(oro * 0.4));
+
+  store.transaccion(() => {
+    store.dispatch('player/revivir', { vida: 1 });
+    if (oro > 0) store.dispatch('inventory/oro', { delta: -perdido });
+  });
+
+  sistema('clock')?.avanzarTiempo(360, 'inconsciencia');
+
+  bus.emit('narrative:direct', {
+    texto: oro > 0
+      ? `Despiertas horas después, con la boca seca y ${perdido} monedas menos. Alguien te encontró, te arrastró a cubierto y se cobró la molestia.`
+      : 'Despiertas horas después, con la boca seca. Alguien te encontró y te arrastró a cubierto. No llevabas nada que valiera la pena robar.',
+    voz: 'system',
+  });
+
+  $('#caida-modal').hidden = true;
+  bloquear(false);
+  refrescarTodo();
+}
+
 /* ── traer una historia de fuera ───────────────────────────────────────── */
 
 /** Lo último que se leyó, para no reanalizar al confirmar. */
@@ -2239,13 +2318,15 @@ function conectarEventos() {
     if (yaCaido) return;           // los dos avisos pueden llegar juntos
     yaCaido = true;
     rotuloMomento('HAS CAÍDO', 'sangre');
-    avisar(motivo, 'aviso');
+    abrirCaida(motivo);
   };
 
-  bus.on('player:defeated', () => caer('Has caído. La crónica termina aquí.'));
-  bus.on('player:down', ({ causa } = {}) => caer(
-    causa ? `Has caído: ${causa}. La crónica termina aquí.` : 'Has caído. La crónica termina aquí.',
-  ));
+  bus.on('player:defeated', () => caer('El combate te ha podido.'));
+  bus.on('player:down', ({ causa } = {}) => caer(causa ? `Te ha podido ${causa}.` : 'No has aguantado más.'));
+
+  // Empezar de nuevo rearma el aviso: si no, una segunda caída en la misma
+  // sesión pasaría sin que nadie se enterara.
+  bus.on('player:created', () => { yaCaido = false; });
 }
 
 /** Retira la pantalla de arranque y muestra el juego. */

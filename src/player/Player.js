@@ -19,6 +19,7 @@
 import { SystemBase } from '../core/SystemBase.js';
 import { obtenerClase } from '../data/classes.data.js';
 import { obtenerRaza } from '../data/races.data.js';
+import { FASE } from '../core/GameState.js';
 
 import * as Atributos from './Attributes.js';
 import * as Vitals from './Vitals.js';
@@ -65,6 +66,7 @@ export class Player extends SystemBase {
       'player/rasgo/usar': this._reducirUsarRasgo,
       'player/avanzada': this._reducirClaseAvanzada,
       'player/flag': this._reducirBandera,
+      'player/revivir': this._reducirRevivir,
     });
 
     // La caída del personaje se detecta observando la vida, no dentro de cada
@@ -379,7 +381,44 @@ export class Player extends SystemBase {
       }
     }
 
+    // La partida se detiene AQUÍ, en el motor.
+    //
+    // Antes la caída solo pintaba un rótulo en la interfaz: la fase seguía en
+    // `exploracion`, la caja de texto viva, y cada «ataco» abría un combate
+    // nuevo con el personaje a cero de vida. El rótulo decía «la crónica
+    // termina aquí» y la crónica no terminaba.
+    //
+    // `TurnResolver` ya rechazaba los turnos en fase `fin` desde siempre; lo
+    // que faltaba era que alguien pusiera esa fase. La pone quien detecta la
+    // caída, que es el único punto que la conoce sin depender de la pantalla.
+    this.store.fijar('meta.fase', FASE.FIN);
+
     this.emitir(EVENTOS_JUGADOR.CAIDO, { nombre: jugador.nombre, turno: this.leer('meta.turno') });
+  }
+
+  /**
+   * Devuelve al personaje al mundo con un hilo de vida.
+   *
+   * No es una resurrección gratis: quien lo aplica decide el precio —oro,
+   * objetos, horas perdidas— y esto solo se ocupa de la parte que toca al
+   * jugador. Existe para que la caída tenga salida sin que nadie escriba el
+   * estado a mano desde la interfaz.
+   *
+   * @private
+   */
+  _reducirRevivir(estado, accion) {
+    const { vida = 1 } = accion.payload ?? {};
+    const max = estado.player?.vida?.max ?? 1;
+
+    return {
+      meta: { fase: FASE.EXPLORACION },
+      player: {
+        vida: { actual: Math.max(1, Math.min(vida, max)) },
+        // Los estados que le tumbaron no sobreviven: volver en ti sangrando y
+        // envenenado es volver para caer otra vez en dos turnos.
+        estados: [],
+      },
+    };
   }
 
   /* ─────────────────────────────────────────────────────────────────────────

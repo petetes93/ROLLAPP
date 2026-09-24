@@ -222,6 +222,46 @@ try {
     throw new Error('el retrato no llegó a la partida (ni imagen de IA ni rasgo vectorial)');
   }
 
+  // ─── Caer detiene la partida de verdad ──────────────────────────────
+  //
+  // El fallo que esto sujeta: la caída pintaba «la crónica termina aquí» y la
+  // crónica seguía. La fase volvía a `exploracion`, la caja quedaba activa y
+  // cada «ataco» abría un combate nuevo con el personaje a cero de vida.
+  await evaluate(`ARCANVEIL.store.dispatch('player/danar', { cantidad: 999, origen: 'regresion' })`);
+  await wait(900);
+
+  const caida = await evaluate(`({
+    fase: ARCANVEIL.store.select('meta.fase'),
+    modal: !document.getElementById('caida-modal').hidden,
+    entrada: document.getElementById('entrada').disabled,
+    salidas: [...document.querySelectorAll('#caida-acciones button')].length,
+  })`);
+
+  if (caida.fase !== 'fin') throw new Error(`al caer, la fase quedó en ${caida.fase}`);
+  if (!caida.modal) throw new Error('al caer no se abrió la salida');
+  if (!caida.entrada) throw new Error('al caer, la caja de texto siguió activa');
+  if (caida.salidas < 2) throw new Error(`al caer solo había ${caida.salidas} salidas`);
+
+  // Y el turno tiene que estar cerrado: nada de abrir combates desde el suelo.
+  const desdeElSuelo = await evaluate(`ARCANVEIL.jugar('ataco al primer bandido que vea').then(() => ({
+    combate: ARCANVEIL.store.select('combat.activo'),
+    fase: ARCANVEIL.store.select('meta.fase'),
+  }))`);
+  if (desdeElSuelo.combate) throw new Error('caído, «ataco» abrió un combate');
+
+  await evaluate(`[...document.querySelectorAll('#caida-acciones button')].find(b => /volver/i.test(b.textContent))?.click()`);
+  await wait(1200);
+
+  const revivido = await evaluate(`({
+    fase: ARCANVEIL.store.select('meta.fase'),
+    vida: ARCANVEIL.store.select('player.vida.actual'),
+    entrada: document.getElementById('entrada').disabled,
+  })`);
+
+  if (revivido.fase !== 'exploracion' || revivido.vida !== 1 || revivido.entrada) {
+    throw new Error(`«Volver en ti» dejó ${JSON.stringify(revivido)}`);
+  }
+
   const beforeOffline = await evaluate(`navigator.serviceWorker.ready.then(()=>({controlled:Boolean(navigator.serviceWorker.controller),lines:ARCANVEIL.ver('narrative.entradas',[]).length}))`);
   await wait(700);
   await cdp('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });

@@ -27,7 +27,7 @@ export const CORTA = '¿Qué haces?';
  * @param {Object} escena
  * @param {Array<{nombre: string}>} [escena.npcs] Quien está delante.
  * @param {Array<{nombre: string}>} [escena.enemigos] En combate.
- * @param {string} [escena.franja] 'noche', 'anochecer'…
+ * @param {string} [escena.franja] 'noche', 'ocaso', 'alba'…
  * @returns {string[]}
  */
 export function candidatas({ npcs = [], enemigos = [], franja = null } = {}) {
@@ -50,8 +50,9 @@ export function candidatas({ npcs = [], enemigos = [], franja = null } = {}) {
     );
   }
 
-  if (franja === 'noche' || franja === 'anochecer') lista.push('La noche se echa encima. ¿Qué haces?');
-  if (franja === 'amanecer') lista.push('El día empieza. ¿Qué haces?');
+  // Las franjas son las del reloj del juego: «ocaso» y «alba», no «anochecer».
+  if (franja === 'ocaso' || franja === 'noche') lista.push('La noche se echa encima. ¿Qué haces?');
+  if (franja === 'alba') lista.push('El día empieza. ¿Qué haces?');
 
   lista.push('La decisión es tuya. ¿Qué haces?');
   return lista;

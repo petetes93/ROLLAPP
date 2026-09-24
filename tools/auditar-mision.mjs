@@ -92,7 +92,7 @@ const escenas = [
   { npcs: [{ nombre: 'Corlin' }] },
   { enemigos: [{ nombre: 'Saqueador B' }] },
   { franja: 'noche' },
-  { npcs: [{ nombre: 'Maela' }], franja: 'amanecer' },
+  { npcs: [{ nombre: 'Maela' }], franja: 'alba' },
 ];
 
 const todas = escenas.flatMap((e) => candidatas(e));

@@ -386,7 +386,9 @@ export class ProceduralProvider extends IDMProvider {
     if (!primera) return '';
     return this._unico([
       `Tu pasado no te ha dejado llegar aquí por azar. ${capitalizar(primera)}. Hoy ese hilo vuelve a tensarse.`,
-      `Hay una razón personal detrás de cada paso que te trajo hasta aquí: ${primera.toLowerCase()}. Algo en este lugar promete removerla.`,
+      // Solo la primera letra en minúscula: `toLowerCase()` entero aplastaba
+      // los nombres propios y salía «viaja con dhorak, lyssara, caelion».
+      `Hay una razón personal detrás de cada paso que te trajo hasta aquí: ${primera.charAt(0).toLowerCase()}${primera.slice(1)}. Algo en este lugar promete removerla.`,
       `Lo que dejaste atrás sigue viajando contigo. ${capitalizar(primera)}. Esta jornada podría acercarte a una respuesta.`,
     ]);
   }
@@ -695,11 +697,13 @@ export class ProceduralProvider extends IDMProvider {
     const quien = rasgo ? `${e.nombre}, el ${rasgo}` : e.nombre;
 
     if (nota) {
+      // «quien» y no «el que»: del canon no sale el género de nadie, y llamar
+      // «el que» a Elyndra o a Lyssara es inventarse la mitad del personaje.
       return this._unico([
-        `Vuelve el mismo pensamiento: ${quien} que ${nota}.`,
-        `${e.nombre}. El ${rasgo || 'hombre'} que ${nota}. Eso no se va a ninguna parte.`,
-        `No se te quita de la cabeza: ${quien} que ${nota}.`,
-        `Piensas otra vez en ${quien}, el que ${nota}, y aprietas el paso.`,
+        `Vuelve el mismo pensamiento: ${quien}, quien ${nota}.`,
+        `${e.nombre}${rasgo ? `, el ${rasgo},` : ''} ${nota}. Eso no se va a ninguna parte.`,
+        `No se te quita de la cabeza: ${quien}, quien ${nota}.`,
+        `Piensas otra vez en ${quien}, quien ${nota}, y aprietas el paso.`,
       ]);
     }
 

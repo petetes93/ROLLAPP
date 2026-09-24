@@ -218,12 +218,34 @@ export function aSegundaPersona(texto) {
   let anteanterior = null;   // la de antes, para reconocer «el que»
   let inicioClausula = true;
 
+  // Distinto de `inicioClausula`: esto solo lo abre un punto, y sirve para
+  // saber si una palabra en mayúscula puede ser un verbo o es un nombre.
+  let inicioFrase = true;
+
   return partes.map((p) => {
     if (!p || /^\s+$/u.test(p)) return p;
-    if (/^[,.;:!?¡¿«»"()]+$/u.test(p)) { inicioClausula = true; return p; }
+    if (/^[,.;:!?¡¿«»"()]+$/u.test(p)) {
+      inicioClausula = true;
+      if (/[.!?…]/u.test(p)) inicioFrase = true;
+      return p;
+    }
 
     const bajo = p.toLowerCase();
     let salida = p;
+
+    // Una palabra en mayúscula que no abre frase es un nombre propio, no un
+    // verbo. Sin esto, «Viaja con Dhorak, Lyssara, Núcleo» convertía «Núcleo»
+    // —que va tras una coma, o sea en «inicio de cláusula»— en «núcleas». Los
+    // nombres importados de una historia van justo así, en lista.
+    const nombrePropio = !inicioFrase && /^[A-ZÁÉÍÓÚÑ]/u.test(p) && !PRONOMBRES[bajo];
+
+    if (nombrePropio) {
+      inicioClausula = false;
+      inicioFrase = false;
+      anteanterior = anterior;
+      anterior = bajo;
+      return p;
+    }
 
     // ¿Venimos de un relativo que señala a otra persona?
     const relativoAjeno = anterior === 'quien'
@@ -257,6 +279,7 @@ export function aSegundaPersona(texto) {
     }
 
     inicioClausula = false;
+    inicioFrase = false;
     anteanterior = anterior;
     anterior = bajo;
     return salida;

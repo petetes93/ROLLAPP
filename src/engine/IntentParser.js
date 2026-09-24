@@ -231,7 +231,7 @@ export const INTENCIONES = Object.freeze({
     tipo: 'travel',
     verbos: {
       viajar: 10, viajo: 10, ir: 6, voy: 6, dirigirme: 8,
-      partir: 8, marchar: 8, caminar: 7, volver: 7, regresar: 8,
+      partir: 8, parto: 8, marchar: 8, caminar: 7, volver: 7, regresar: 8,
       encaminarme: 8,
     },
     habilidad: null,
@@ -260,6 +260,34 @@ export const INTENCIONES = Object.freeze({
     umbral: 'facil',
     requiereTirada: false,
   },
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VERBOS DE DOS CARAS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Verbos que significan dos cosas, con la prueba que decide cuál.
+ *
+ * «Partir» es irse y también romper. Vivía solo en `travel`, así que «intento
+ * partir la montaña en dos de un tajo» —una hazaña desmedida, de las que el
+ * juego sabe narrar— acababa en el enrutador de viajes y devolvía la línea de
+ * sistema «No sabes cómo llegar a Los Pozos Hondos». Ni narración ni tirada:
+ * el jugador escribe algo épico y el juego le contesta con un error de mapa.
+ *
+ * La prueba es la preposición. Uno parte HACIA un sitio, o parte y ya está; lo
+ * que se parte sin preposición es una cosa. `\s*$` cubre «parto ya».
+ *
+ * Si no se confirma, el verbo simplemente no puntúa para ese tipo y la frase
+ * se resuelve por lo demás que lleve: «partir la montaña» se queda sin verbo
+ * reconocido y cae en el análisis por habilidad, que es donde la evalúa
+ * `Ambicion`.
+ *
+ * @type {Record<string, {tipo: string, confirma: RegExp}>}
+ */
+const AMBIGUOS = Object.freeze({
+  partir: { tipo: 'travel', confirma: /\bpartir\s+(hacia|para|rumbo|de vuelta|al\b|a\s+\w)|\bpartir\s*$/ },
+  parto: { tipo: 'travel', confirma: /\bparto\s+(hacia|para|rumbo|de vuelta|al\b|a\s+\w|ya\b)|\bparto\s*$/ },
 });
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -355,11 +383,20 @@ export function interpretar(texto, contexto = {}) {
     for (const [verbo, peso] of Object.entries(def.verbos)) {
       const verboNormal = sinAcentos(verbo);
 
+      // Un verbo ambiguo solo puntúa para su tipo si el contexto lo confirma.
+      const amb = AMBIGUOS[verboNormal];
+      if (amb && amb.tipo === tipo && !amb.confirma.test(normal)) continue;
+
       // El verbo al principio de la frase pesa el doble: «ataco al goblin» es
       // más claro que «al goblin, si me deja, quizá ataque».
       if (palabras[0] === verboNormal) puntos += peso * 2;
       else if (palabras.includes(verboNormal)) puntos += peso;
-      else if (normal.includes(verboNormal)) puntos += peso * 0.6;
+      // El respaldo existe para los verbos pegados a un signo («voy, y luego»),
+      // que `palabras` deja como «voy,». Pero buscaba la subcadena a pelo, y
+      // «ir» casa dentro de «partir»: «intento partir la montaña» puntuaba como
+      // viaje por un verbo que no está. Con el límite de palabra delante sigue
+      // cogiendo «voy,» y deja de inventarse verbos dentro de otros.
+      else if (new RegExp(`\\b${verboNormal}`).test(normal)) puntos += peso * 0.6;
     }
 
     if (puntos > 0) marcador.set(tipo, puntos);

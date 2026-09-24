@@ -662,9 +662,21 @@ export function buscarLugar(texto) {
     if (nombre === limpio) return l;
   }
 
+  // El encaje parcial exige palabras enteras y al menos cuatro letras.
+  //
+  // Antes bastaba con que una cadena estuviera dentro de la otra. De \u00abIntento
+  // partir la monta\u00f1a en dos de un tajo\u00bb se extra\u00eda el objetivo \u00abdos\u00bb, que
+  // casa dentro de \u00abLos Pozos Hon-dos-\u00bb, y el juego respond\u00eda \u00abNo sabes c\u00f3mo
+  // llegar a Los Pozos Hondos\u00bb a alguien que intentaba partir una monta\u00f1a.
+  // Tres letras metidas dentro de otra palabra no son un destino.
+  if (limpio.length < 4) return null;
+
+  const escapada = limpio.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const palabraEntera = new RegExp(`(^|\\s)${escapada}(\\s|$)`);
+
   for (const l of Object.values(LUGARES)) {
     const nombre = l.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    if (nombre.includes(limpio) || limpio.includes(nombre)) return l;
+    if (palabraEntera.test(nombre) || limpio.includes(nombre)) return l;
   }
 
   return null;

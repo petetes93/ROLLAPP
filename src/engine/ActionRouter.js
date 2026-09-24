@@ -26,6 +26,7 @@
 
 import { SystemBase } from '../core/SystemBase.js';
 import { obtenerSublugar } from '../data/locations.data.js';
+import { evaluarAmbicion } from './Ambicion.js';
 
 /** Destinos posibles. */
 export const RUTA = Object.freeze({
@@ -250,6 +251,24 @@ export class ActionRouter extends SystemBase {
     }
 
     if (!destino.conocido) {
+      // Antes de rechazar por mapa se comprueba si lo escrito es una hazaña.
+      // «Intento partir la montaña en dos de un tajo» encajaba «montaña» con
+      // un lugar desconocido y devolvía «No sabes cómo llegar a Los Pozos
+      // Hondos»: ni narración ni tirada, un error de mapa como respuesta a
+      // algo épico. El analizador de intención ya no manda eso aquí, pero
+      // esto cierra la puerta a las frases que aún lleguen.
+      const ambicion = evaluarAmbicion(intencion.texto ?? '', this.leer('player.nivel', 1));
+
+      if (ambicion.grado === 'desmedida') {
+        return {
+          ruta: RUTA.DIRECTOR,
+          motivo: null,
+          narracion: null,
+          pistaDirector: ambicion.pista,
+          resultado: null,
+        };
+      }
+
       return this._rechazar(`No sabes cómo llegar a ${destino.nombre}.`);
     }
 

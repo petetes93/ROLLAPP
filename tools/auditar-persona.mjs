@@ -48,6 +48,18 @@ const CASOS = [
   ['Juro que no descansaré hasta encontrar a Verros', 'Juras que no descansarás hasta encontrar a Verros'],
   ['Volveré mañana', 'Volverás mañana'],
 
+  // ── Verbos regulares que no están en ninguna lista ────────────────────
+  // «limpio mi hacha junto al fuego» salía «Limpio tu hacha»: cambiaba el
+  // posesivo y no el verbo. Los -iar en primera acaban en -io, igual que un
+  // pretérito sin tilde, y la regla que protege al segundo se comía al primero.
+  ['limpio mi hacha junto al fuego', 'limpias tu hacha junto al fuego'],
+  ['limpio mi hacha', 'limpias tu hacha'],
+  ['afilo la espada', 'afilas la espada'],
+  ['enciendo una hoguera', 'enciendes una hoguera'],
+  ['bebo del arroyo', 'bebes del arroyo'],
+  ['cambio de rumbo y estudio el mapa', 'cambias de rumbo y estudias el mapa'],
+  ['acaricio al caballo', 'acaricias al caballo'],
+
   // ── Lo que NO se toca ─────────────────────────────────────────────────
   ['la puerta que cierra mal', 'la puerta que cierra mal'],
   ['me acerco con la mano lejos del arco', 'te acercas con la mano lejos del arco'],

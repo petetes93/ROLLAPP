@@ -73,6 +73,26 @@ const TRAS_VERBO = new Set(['y', 'e', 'luego', 'después', 'entonces', 'mientras
 const NO_VERBOS = new Set(['lo', 'yo', 'no', 'o', 'como', 'todo', 'algo', 'poco', 'mucho', 'medio', 'otro', 'solo', 'sólo', 'pero', 'luego', 'tanto', 'cuanto', 'primero', 'dentro', 'fuera', 'encima', 'debajo', 'despacio', 'rápido', 'claro', 'mismo', 'pronto',
   'mano', 'foto', 'moto', 'radio', 'libido', 'soprano', 'modelo']);
 
+/**
+ * Verbos en -iar cuya primera persona acaba en -io sin tilde.
+ *
+ * Chocan con el pretérito mal escrito: «limpio» (yo limpio) y «perdio» (él
+ * perdió, sin tilde) tienen la misma forma. `conjugar` deja intacta cualquier
+ * palabra en -io para no convertir «perdio» en «perdias», y por eso «limpio mi
+ * hacha» salía «Limpio tu hacha». Sin analizar la frase no se distinguen, así
+ * que se listan los -iar que salen jugando y el resto sigue protegido.
+ *
+ * Solo verbos que se usan como verbo. «Sitio», «vicio» o «principio» son
+ * -iar en el diccionario, pero en una partida son sustantivos, y al inicio de
+ * cláusula se conjugarían.
+ */
+const IAR = new Set([
+  'limpio', 'cambio', 'copio', 'estudio', 'odio', 'anuncio', 'acaricio',
+  'aprecio', 'desprecio', 'inicio', 'negocio', 'silencio', 'auxilio',
+  'envidio', 'remedio', 'presencio', 'alivio', 'abrevio', 'intercambio',
+  'obsequio', 'premio', 'elogio', 'desperdicio', 'sentencio',
+]);
+
 const PRETERITOS = {
   vi: 'viste', fui: 'fuiste', hice: 'hiciste', dije: 'dijiste', tuve: 'tuviste', estuve: 'estuviste',
   pude: 'pudiste', puse: 'pusiste', supe: 'supiste', quise: 'quisiste', vine: 'viniste', traje: 'trajiste',
@@ -108,6 +128,7 @@ function conjugar(verbo) {
   // «perdias la forja de su padre». Se prefiere dejar intacto un verbo que
   // destrozarlo: lo primero se lee, lo segundo no.
   if (/ío$/.test(bajo)) return `${bajo.slice(0, -2)}ías`;
+  if (IAR.has(bajo)) return `${bajo.slice(0, -1)}as`;
   if (/i[oó]$/.test(bajo)) return null;
 
   if (/[^aeiou]o$/.test(bajo) || /[aeu]o$/.test(bajo)) return `${bajo.slice(0, -1)}as`;

@@ -85,6 +85,10 @@ function el(tag, attrs = {}, ...hijos) {
     else if (k === 'html') n.innerHTML = v;
     else if (k.startsWith('on')) n.addEventListener(k.slice(2).toLowerCase(), v);
     else if (k === 'dataset') Object.assign(n.dataset, v);
+    // `value` va como propiedad. Como atributo, un <textarea> lo ignora: la
+    // descripción y la historia salían vacías al volver a la ficha aunque el
+    // borrador las guardara.
+    else if (k === 'value') n.value = String(v);
     else n.setAttribute(k, String(v));
   }
 
@@ -446,6 +450,15 @@ const borrador = {
 /** Personaje recién creado que se enseña con su ilustración. */
 let personajeCreado = null;
 
+/**
+ * Si el nombre lo ha escrito el jugador y no el dado.
+ *
+ * Hace falta saberlo aparte: el campo copia cada tecla a `borrador.nombre`,
+ * así que comparar el campo con el borrador no distingue un nombre escrito de
+ * uno tirado, y volver a tirar se llevaba por delante el nombre del jugador.
+ */
+let nombreEscrito = false;
+
 function tirarFicha() {
   Object.assign(borrador, fichaAleatoria());
 }
@@ -455,6 +468,7 @@ function abrirCreacion() {
   tirarFicha();
   borrador.retrato = '';
   borrador.lore = '';
+  nombreEscrito = false;
   mostrar('creacion');
   pintarCreacion();
 }
@@ -491,7 +505,7 @@ function pintarCreacion() {
       el('input', {
         id: 'nombre', class: 'campo__entrada', type: 'text',
         maxlength: '28', value: borrador.nombre, autocomplete: 'off',
-        onInput: (e) => { borrador.nombre = e.target.value; },
+        onInput: (e) => { borrador.nombre = e.target.value; nombreEscrito = Boolean(e.target.value.trim()); },
       }),
     ),
     el('div', { class: 'campo retrato-descripcion' },
@@ -544,7 +558,7 @@ function pintarFichaAleatoria() {
           tirarFicha();
           const campo = $('#nombre');
           // El nombre también se tira, salvo que el jugador ya haya escrito el suyo.
-          if (campo && campo.value && campo.value !== nombreAnterior) borrador.nombre = campo.value;
+          if (nombreEscrito) borrador.nombre = nombreAnterior;
           else if (campo) campo.value = borrador.nombre;
           pintarFichaAleatoria();
           caja.classList.remove('se-tira'); void caja.offsetWidth; caja.classList.add('se-tira');

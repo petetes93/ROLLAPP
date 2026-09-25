@@ -3,6 +3,8 @@
 ARCANVEIL puede narrar con **openai/gpt-oss-120b** en la capa gratuita (Free) de Groq. El juego corre en tu equipo; Groq corre en su nube. Entre los dos hay un **puente local** (`tools/groq-proxy.mjs`): solo él tiene la clave y habla con Groq.
 
 > **Estado a 25/09/2026:** toda la mecánica está probada sin clave y sin red (puente contra un Groq falso, proveedor dentro del motor, navegador de extremo a extremo). **La calidad narrativa con el modelo de verdad está sin validar.** Hace falta tu cuenta, tu comprobación del plan y tu permiso. No es ChatGPT: es otro modelo, y no se promete que narre igual.
+>
+> Tres cosas distintas que no hay que mezclar al leer resultados: el **procedural** (sin IA), el **adversario simulado** (un Groq falso que mete errores a propósito; su prosa es de plantilla y sirve para ver el filtro, no para juzgar voz) y **Groq real** (aún sin jugar).
 
 ## Antes de empezar: compruébalo tú en tu cuenta
 
@@ -27,7 +29,9 @@ node tools/iniciar-groq.mjs
 
 Abre **`http://localhost:8080/app/index.html`**. Tiene que ser `localhost` y no `127.0.0.1`: el puente solo atiende al origen exacto de la app.
 
-En el juego: **Narrador › IA Groq**. Lee qué se envía, marca la casilla, pulsa **Probar conexión** (pide la lista de modelos: no genera nada ni envía la partida) y luego **Usar IA Groq**. Desmarcar la casilla corta el envío en el acto.
+En el juego: **Narrador › IA Groq**. Pulsa **Probar conexión**: pide la lista de modelos, no genera nada ni envía la partida, y comprueba que quien contesta es de verdad el puente de ARCANVEIL (a otra dirección no se le envía nada). Luego lee qué se envía, marca la casilla y pulsa **Usar IA Groq**. Desmarcar la casilla corta el envío en el acto.
+
+**El permiso dura la sesión.** No se guarda: al recargar o cargar partida vuelve a narrar el procedural y no sale nada hacia Groq hasta que lo eliges otra vez. (Si prefieres que se recuerde entre sesiones, es una decisión tuya pendiente.)
 
 `Ctrl+C` en la terminal cierra el puente y la app; la clave muere con el proceso.
 
@@ -54,11 +58,18 @@ Groq cachea el prefijo repetido, y **lo cacheado no cuenta para los límites**. 
 - **Con la política en caché:** unos 1.500–2.300 tokens por turno → **del orden de 90 a 130 turnos al día**.
 - **Sin caché:** unos 4.000–4.800 por turno → **unos 40 a 45 turnos al día**.
 
-Son estimaciones, no promesas. Las trazas del puente dicen los tokens reales y cuántos venían de caché. Además, por minuto caben dos o tres turnos (8.000 tokens/min).
+Son estimaciones, no promesas. Las trazas del puente dicen los tokens reales y cuántos venían de caché.
+
+**Cómo cuenta el puente** (para no pasarse sin querer):
+
+- Antes de llamar **reserva el peor caso**: todo lo enviado más la salida máxima, sin suponer caché. Solo cuando Groq responde se ajusta con lo que dice que ha contado (`cached_tokens` incluidos). Por eso, en la práctica, caben **uno o dos turnos por minuto**.
+- La reserva se escribe en disco **antes** de llamar. Si el fichero de uso está dañado, el puente no arranca; si no se puede escribir, no llama.
+- Un timeout o una conexión cortada es un **resultado incierto**: se cuenta como gastado y ese turno no se reenvía. Solo una respuesta que el puente ya vio se reutiliza sin coste si el mismo turno se pide otra vez. Un reintento **puede** costar.
+- Un 429 sin `Retry-After` (o con uno ilegible) se espera 60 s, y mientras tanto nadie llama.
 
 ## Cuando algo falla
 
-- **Groq pide esperar poco** (429 con menos de 8 s): se espera una vez y se reintenta con el mismo identificador de turno, que el puente no cobra dos veces.
+- **Groq pide esperar poco** (429 con menos de 8 s): se espera lo pedido y se reintenta una vez. Un 429 no generó nada, pero el reintento es una petición más.
 - **Límite por minuto o cuota del día agotada:** la IA se pausa hasta que se renueve. El turno lo narra el procedural y se avisa.
 - **Sin red, puente cerrado o error de Groq:** narra el procedural y se avisa. El botón del narrador pasa a **«Narrador: respaldo»**.
 - **La IA contradice el estado** (habla alguien que no está, regala oro, decide por ti, cambia de lugar, revela un secreto…): se quita en local la frase que contradice, sin gastar nada. Si no basta, se pide **una** corrección y se avisa de que gasta otra solicitud. Si tampoco basta, narra el procedural.

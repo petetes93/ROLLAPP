@@ -52,6 +52,16 @@ node tools/medir-narrador.mjs --transcripciones /tmp/partidas
 - `medir-narrador.mjs --ia-simulada` juega las seis partidas con un modelo
   falso que sabotea cinco de cada seis turnos: las fugas a la bitácora deben
   ser cero.
+- `tools/auditar-canon.mjs`: el canon no se pierde (más de seis ediciones, más
+  de ocho entidades, historia larga, revisión del mismo hecho, contradicción
+  tras guardar y cargar, migración de partidas viejas).
+- `tools/auditar-puente-uso.mjs`: la cuenta del puente (simultáneas, reinicio,
+  fichero dañado o sin escritura, timeout incierto, red caída, caché fallida,
+  sin `usage`, 429 sin Retry-After, 4xx).
+- `tools/revision-manual.mjs --modo procedural|simulada|groq`: seis partidas
+  nuevas para LEERLAS enteras, cada modo en su carpeta. Los números no
+  sustituyen a leerlas: en la última revisión el procedural medía 26/27
+  preguntas contestadas y, leyendo, contestaba «De Dalrok no sé nada».
 
 Nada de esto valida la calidad del modelo de verdad. Eso son partidas reales
 (`--groq --partida N`, ver GROQ_LOCAL.md) y el paquete ciego

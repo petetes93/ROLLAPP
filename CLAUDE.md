@@ -373,8 +373,18 @@ Reglas que no se tocan:
 - No hay fallback a otra nube.
 - El canon lo cambia el jugador con `canon: …`.
 
-Pruebas: `auditar-interpretacion`, `auditar-narrador-ia` y
-`medir-narrador --ia-simulada`.
+Pruebas: `auditar-interpretacion`, `auditar-narrador-ia`, `auditar-canon`,
+`auditar-puente-uso` y `medir-narrador --ia-simulada`; para leer partidas
+enteras, `revision-manual.mjs`.
+
+Más reglas que no se tocan:
+
+- El canon del jugador vive íntegro en `MemoryStore.registroCanon` (ver
+  `ai/narrador/Canon.js`) y se proyecta por turno diciendo lo omitido.
+- El permiso para enviar a Groq es de la sesión: no se guarda.
+- Los efectos de un modelo necesitan evidencia del MOTOR (trato registrado,
+  hallazgo resuelto), no palabras de su propia narración.
+- El puente reserva en el peor caso y falla cerrado.
 
 **El techo del director interno.** Ya no baraja frases: cuenta desde el
 estado (`ai/narrador/Conocimiento.js`, `data/rasgos.data.js`, las situaciones

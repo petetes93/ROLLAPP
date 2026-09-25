@@ -1100,7 +1100,11 @@ function retirarConsentimientoGroq() {
   const groq = dm?.proveedor(PROVEEDORES.GROQ);
   // Marcar solo habilita «Usar» si ya se probó en esta sesión; el permiso se
   // da al pulsar «Usar IA Groq», no al marcar.
-  if ($('#groq-consiento').checked) { $('#groq-activar').disabled = !groq?.inspeccionar?.().verificado; return; }
+  if ($('#groq-consiento').checked) {
+    $('#groq-activar').disabled = !groq?.inspeccionar?.().verificado;
+    $('#groq-estado').textContent = $('#groq-estado').textContent.replace(' Para usarla, marca antes la casilla de envío.', '');
+    return;
+  }
   groq?.configurar({ consentido: false });
   $('#groq-activar').disabled = true;
   if (dm?.inspeccionar?.()?.elegido === PROVEEDORES.GROQ) {

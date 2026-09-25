@@ -141,6 +141,9 @@ function elegirObjetivo(t, enemigos, marcado) {
  *   aviso: string|null
  * }}
  */
+/** Palabras en vez de acero. */
+const PARLAMENTA = /\b(?:me rindo|rendirme|tregua|parlament\w*|negocio|negociar|pacto|podemos hablar|no quiero pelear|no quiero luchar|bajad las armas|bajo (?:el|mi) arma|os ofrezco|les ofrezco|le ofrezco|dejadme pasar|les hablo|le hablo|les digo|le digo|os digo)\b/;
+
 export function leerJugada(texto, contexto = {}) {
   const t = llano(texto);
   const enemigos = contexto.enemigos ?? [];
@@ -153,7 +156,11 @@ export function leerJugada(texto, contexto = {}) {
 
   // ─── Qué es ─────────────────────────────────────────────────────────────
   let tipo = 'atacar';
-  if (/\b(huyo|huir|escapo|escapar|me retiro|retirarme|salgo corriendo|me largo|corro hacia la salida)\b/.test(t)) tipo = 'huir';
+  // Hablar en mitad de la pelea no es atacar ni defenderse: «no quiero
+  // pelear», «os ofrezco una tregua», «me rindo». Salvo que en la misma
+  // frase golpee.
+  if (PARLAMENTA.test(t) && !GOLPE.test(t)) tipo = 'parlamentar';
+  else if (/\b(huyo|huir|escapo|escapar|me retiro|retirarme|salgo corriendo|me largo|corro hacia la salida)\b/.test(t)) tipo = 'huir';
   else if (/\b(vendo|vendarme|me curo|curarme|me trato|pocion|taponar|primeros auxilios|bebo la|me bebo)\b/.test(t)) tipo = 'curar';
   else if (/\b(me defiendo|defiendo|bloqueo|me cubro|cubrirme|me protejo|protegerme|me parapeto|me agacho|esquivo)\b/.test(t)) tipo = 'defender';
 

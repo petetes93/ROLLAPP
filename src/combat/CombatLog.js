@@ -380,6 +380,9 @@ export function resumir(registro, contexto) {
     case 'huida':
       partes.push(`Combate contra ${contra}: el personaje escapó.`);
       break;
+    case 'acuerdo':
+      partes.push(`Combate contra ${contra}: se detuvo hablando, sin más sangre.`);
+      break;
     default:
       partes.push(`Combate contra ${contra}: quedó en tablas.`);
   }
@@ -488,6 +491,7 @@ export function cierre(flujo, resultado) {
     case 'victoria': return conPunto(flujo.elegir(PLANTILLAS.victoria));
     case 'derrota': return conPunto(flujo.elegir(PLANTILLAS.derrota));
     case 'huida': return conPunto(flujo.elegir(PLANTILLAS.huida));
+    case 'acuerdo': return 'Se bajan las armas. Hoy nadie más va a sangrar.';
     default: return 'El combate se detiene sin un vencedor claro.';
   }
 }

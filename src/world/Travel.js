@@ -62,7 +62,7 @@ export class Travel extends SystemBase {
   alIniciar() {
     // Un combate interrumpe el viaje; al terminar, se puede reanudar.
     this.escuchar('combat:end', ({ resultado }) => {
-      if (resultado === 'victoria' || resultado === 'huida') {
+      if (resultado === 'victoria' || resultado === 'huida' || resultado === 'acuerdo') {
         this._ofrecerReanudar();
       } else {
         this._cancelar('el combate acabó mal');

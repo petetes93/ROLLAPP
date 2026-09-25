@@ -823,6 +823,13 @@ export class CombatManager extends SystemBase {
         await this.accionJugador({ tipo: 'defender' });
         return jugada;
 
+      case 'parlamentar':
+        this._esperando = false;
+        if (await this._parlamentar(texto)) return jugada;
+        await this._terminarTurnoDe(this._combatientes.jugador);
+        await this._avanzar();
+        return jugada;
+
       case 'curar':
         this._esperando = false;
         this._curarEnCombate(jugada);
@@ -1019,6 +1026,40 @@ export class CombatManager extends SystemBase {
    * @param {string} resultado
    * @private
    */
+  /**
+   * Hablar en mitad de la pelea.
+   *
+   * Con quien atiende a razones (bandidos, guardias: `negociable`) se tira
+   * trato social; más fácil si ya van tocados. Si sale, la pelea se acaba
+   * sin más sangre. Si no, se ha gastado el turno hablando. Con una bestia
+   * no hay con quién hablar, y se dice.
+   *
+   * @param {string} texto
+   * @returns {Promise<boolean>} true si el combate ha terminado.
+   * @private
+   */
+  async _parlamentar(texto) {
+    const enemigos = Object.values(this._combatientes).filter((c) => c.vivo && c.bando === Comb.BANDO.ENEMIGO);
+    if (!enemigos.some((e) => e.negociable)) {
+      this.emitir('narrative:direct', { texto: 'No hay con quién hablar: lo que tienes delante no entiende de palabras.', voz: 'system' });
+      return false;
+    }
+
+    const tocados = enemigos.some((e) => Comb.fraccionVida(e) < 0.5);
+    const tirada = this.sistema('rules')?.resolver({ habilidad: 'trato_social', umbral: tocados ? 'facil' : 'moderada' }) ?? null;
+    const dados = tirada ? ` (d20 ${tirada.natural}: ${tirada.total} contra ${tirada.umbral})` : '';
+
+    if (tirada?.exito) {
+      this.emitir('narrative:direct', { texto: `Te escuchan${dados}. Uno baja el arma; luego, otro.`, voz: 'system' });
+      this.despachar('hazanas/registrar', { clave: 'conflictosResueltosSinViolencia', delta: 1 });
+      await this._terminar('acuerdo');
+      return true;
+    }
+
+    this.emitir('narrative:direct', { texto: `No quieren saber nada${dados}: la pelea sigue.`, voz: 'system' });
+    return false;
+  }
+
   async _terminar(resultado) {
     const flujo = this.rng.combate;
     // Enemigos son los del otro bando: un compañero caído no da experiencia

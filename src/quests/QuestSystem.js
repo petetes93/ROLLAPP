@@ -275,6 +275,64 @@ export class QuestSystem extends SystemBase {
   }
 
   /**
+   * Rechaza una misión ofrecida.
+   *
+   * Queda rechazada y fuera de las ofrecidas; no se vuelve a proponer sola.
+   * Quien la ofrecía lo recuerda.
+   *
+   * @param {string} refId
+   * @returns {{aplicada: boolean, motivo: string|null}}
+   */
+  rechazar(refId) {
+    const mision = this.obtener(refId);
+    if (!mision) return { aplicada: false, motivo: 'No hay tal misión.' };
+
+    const r = Q.rechazar(mision);
+    if (!r.rechazada) return { aplicada: false, motivo: 'Esa misión no está sobre la mesa.' };
+
+    this.despachar('quests/cerrar', { mision: { ...r.mision, turnoCierre: this.leer('meta.turno', 0) }, estado: Q.ESTADO.RECHAZADA });
+    this.emitir('memory:remember', {
+      texto: `Rechazó el encargo «${mision.titulo}»${mision.nombreOrigen ? ` de ${mision.nombreOrigen}` : ''}.`,
+      peso: 2,
+    });
+    if (mision.origen) this.sistema('npcs')?.recordar?.(mision.origen, `Le rechazó el encargo «${mision.titulo}».`, { tipo: 'encargo', peso: 2 });
+
+    return { aplicada: true, motivo: null };
+  }
+
+  /**
+   * Apunta algo que el jugador se propone por su cuenta.
+   *
+   * No lo encarga nadie ni lo inventa el juego: son sus palabras. Nace
+   * aceptada, porque es él quien la decide, y no paga nada.
+   *
+   * @param {string} texto Lo que se propone, en su voz.
+   * @returns {Object|null} La misión creada.
+   */
+  adoptarMeta(texto) {
+    const limpio = String(texto ?? '').replace(/[.\s]+$/u, '').trim();
+    if (limpio.length < 4) return null;
+    const titulo = limpio.charAt(0).toUpperCase() + limpio.slice(1);
+
+    const mision = Q.crear({
+      tipo: 'meta',
+      titulo,
+      resumen: titulo,
+      estado: Q.ESTADO.ACEPTADA,
+      origen: 'jugador',
+      objetivos: [{ clase: 'libre', texto: titulo }],
+      recompensa: { xp: 0, oro: 0, actitud: 0 },
+      turnoOferta: this.leer('meta.turno', 0),
+      turnoAceptada: this.leer('meta.turno', 0),
+      promptDirector: `Objetivo que se ha marcado el jugador: ${titulo}. Es suyo; el mundo puede ofrecerle caminos, no imponérselos.`,
+    });
+
+    this.despachar('quests/registrar', { mision });
+    this.emitir('memory:remember', { texto: `Se propuso: ${titulo}.`, peso: 3 });
+    return mision;
+  }
+
+  /**
    * Acepta una misión ofrecida.
    *
    * @param {string} refId
@@ -620,9 +678,14 @@ export class QuestSystem extends SystemBase {
       recompensa: Q.recompensaEfectiva(mision),
     });
 
-    // El director la presenta: no se anuncia con una notificación seca.
+    // Se cuenta en el mundo: quien lo da se acerca y lo dice, y queda claro
+    // que es una oferta. La nota iba escrita para el modelo («Desarróllala
+    // como te parezca… márcalos cumplidos») y el narrador interno se la
+    // leía tal cual al jugador. El modelo recibe el detalle en MISIONES.
+    const quien = npc?.nombre ? `${npc.nombre} se te acerca` : 'Alguien se te acerca';
+    const asunto = String(mision.resumen || mision.titulo).replace(/[.\s]+$/u, '');
     this.emitir('memory:context', {
-      texto: `HAY UN ENCARGO DISPONIBLE que ${npc?.nombre ?? 'alguien'} puede proponer: ${Q.paraDirector(mision)}`,
+      texto: `EN ESCENA: ${quien} con algo entre manos: «${asunto.charAt(0).toUpperCase()}${asunto.slice(1)}. Si quieres encargarte, dímelo.»`,
       temporal: true,
     });
 
@@ -704,9 +767,12 @@ export class QuestSystem extends SystemBase {
       },
     };
 
-    // Las cerradas se archivan: el historial importa para el director.
+    // Las cerradas se archivan: el historial importa para el director. Un
+    // rechazo no es un fracaso: tiene su propia lista.
     if (nuevoEstado === Q.ESTADO.COMPLETADA) {
       parche.quests.completadas = [...(estado.quests.completadas ?? []), mision.refId];
+    } else if (nuevoEstado === Q.ESTADO.RECHAZADA) {
+      parche.quests.rechazadas = [...(estado.quests.rechazadas ?? []), mision.refId];
     } else {
       parche.quests.fracasadas = [...(estado.quests.fracasadas ?? []), mision.refId];
     }

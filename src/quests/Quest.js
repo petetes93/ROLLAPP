@@ -66,6 +66,9 @@ export const TIPOS = Object.freeze({
   principal: { nombre: 'principal', peso: 3, multiplicadorRecompensa: 2 },
   secundaria: { nombre: 'secundaria', peso: 2, multiplicadorRecompensa: 1 },
   menor: { nombre: 'encargo', peso: 1, multiplicadorRecompensa: 0.6 },
+  // Lo que el jugador se propone por su cuenta. No lo encarga nadie y no
+  // paga nada: es suyo.
+  meta: { nombre: 'objetivo propio', peso: 2, multiplicadorRecompensa: 0 },
 });
 
 /* ═══════════════════════════════════════════════════════════════════════════

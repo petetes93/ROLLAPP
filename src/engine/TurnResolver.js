@@ -46,6 +46,13 @@ import { sinAcentos } from '../utils/text.js';
 import { segmentar, ordenar } from './Segmentos.js';
 import { oficioAusente } from './Presentes.js';
 
+/** Aceptar lo que está sobre la mesa. */
+const ACEPTA = /^(?:si,?\s*)?(?:acepto|lo acepto|acepto el encargo|cuenta conmigo|lo hare|me encargo|me encargo yo|trato hecho|vale,? (?:lo hago|acepto|me encargo))\b/;
+/** Decir que no. */
+const RECHAZA = /^(?:no acepto|no me interesa|no lo hare|rechazo|paso|no cuentes conmigo|no,? gracias|no me encargo|no quiero ese encargo)\b/;
+/** Proponerse algo por su cuenta: son sus palabras, no un encargo. */
+const META = /^(?:me propongo|mi objetivo es|me marco como objetivo|he decidido|juro que)\s+(.+)$|^quiero\s+((?:averiguar|encontrar|descubrir|saber|recuperar|vengar|limpiar)\b.+)$/i;
+
 /**
  * Cose los segmentos hechos en una sola frase: «le digo "no" y espero».
  * @param {Array<{texto: string}>} hechos
@@ -301,6 +308,10 @@ export class TurnResolver extends SystemBase {
     try {
       // ─── 2. La acción se registra en la bitácora ──────────────────────
       this._anadirEntrada(VOCES.JUGADOR, limpio, { turno: numeroTurno });
+
+      // ─── 2a. Encargos y objetivos, dichos con palabras ────────────────
+      const encargo = this._encargosPorTexto(textoFoco);
+      if (encargo) return this._turnoLocal(numeroTurno, encargo, { voz: VOCES.DM });
 
       // ─── 2b. Encuentro pendiente ──────────────────────────────────────
       const exploration = this.sistema('exploration');
@@ -878,6 +889,50 @@ export class TurnResolver extends SystemBase {
     const nombrado = presentes.find((n) => n.nombre && frase.includes(sinAcentos(n.nombre.toLowerCase())));
     if (nombrado || soloNombrado) return nombrado ?? null;
     return presentes.length === 1 ? presentes[0] : null;
+  }
+
+  /**
+   * Aceptar, rechazar o proponerse algo, dicho con palabras.
+   *
+   * Antes un encargo solo se aceptaba con el botón del panel, y ni siquiera
+   * se podía rechazar: se quedaba ofrecido para siempre. Un objetivo propio
+   * no existía: solo había lo que el juego proponía.
+   *
+   * @param {string} texto
+   * @returns {string|null} Lo que se narra, o null si no va de esto.
+   * @private
+   */
+  _encargosPorTexto(texto) {
+    const quests = this.sistema('quests');
+    if (!quests) return null;
+    const n = sinAcentos(String(texto ?? '').toLowerCase()).trim();
+
+    const oferta = quests.ofrecidas?.().at(-1);
+    if (oferta && RECHAZA.test(n)) {
+      quests.rechazar(oferta.refId);
+      const quien = oferta.nombreOrigen;
+      return quien
+        ? `${quien} se encoge de hombros. «Tú sabrás.» El encargo se queda sin dueño.`
+        : 'Lo dejas estar. El encargo se queda sin dueño.';
+    }
+    if (oferta && ACEPTA.test(n)) {
+      const r = quests.aceptar(oferta.refId);
+      if (!r.aplicada) return null;
+      const quien = oferta.nombreOrigen;
+      return `${quien ? `${quien} asiente: trato hecho. ` : 'Trato hecho. '}Queda en tu diario: «${oferta.titulo}».`;
+    }
+
+    const meta = String(texto ?? '').trim().match(META);
+    if (meta) {
+      const lo = (meta[1] ?? meta[2]).trim();
+      const m = quests.adoptarMeta(lo);
+      if (!m) return null;
+      // Solo los posesivos: «averiguar quién quemó la forja de mi padre» es
+      // un infinitivo y se queda; «mi padre» pasa a «tu padre».
+      const suyo = lo.replace(/\bmis\b/gi, 'tus').replace(/\bmi\b/gi, 'tu').replace(/[.\s]+$/u, '');
+      return `Te lo propones en serio: ${suyo}. Queda apuntado entre tus objetivos.`;
+    }
+    return null;
   }
 
   /**

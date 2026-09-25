@@ -2133,6 +2133,13 @@ function pintarMisiones(caja) {
         onClick: protegido('aceptar misión', () => { quests.aceptar(m.refId); pintarLateral(); }),
         text: 'Aceptar',
       }),
+      // Antes no se podía decir que no: el encargo se quedaba ofrecido para
+      // siempre. También se puede escribir «no me interesa».
+      el('button', {
+        class: 'btn btn--pequeno btn--fantasma',
+        onClick: protegido('rechazar misión', () => { quests.rechazar(m.refId); pintarLateral(); }),
+        text: 'Rechazar',
+      }),
     ));
   }
 
@@ -2143,8 +2150,20 @@ function pintarMisiones(caja) {
         class: 'mision__obj' + (o.hecho ? ' es-hecho' : ''),
         text: (o.hecho ? '✓ ' : '· ') + o.texto,
       })),
-      el('p', { class: 'mision__recompensa', text: `${m.recompensa?.xp ?? 0} XP · ${m.recompensa?.oro ?? 0} oro` }),
-      m.objetivos.every((o) => o.hecho) ? el('button', {
+      // Un objetivo propio no paga nada ni lo cierra el juego: lo da por
+      // cumplido el jugador cuando lo considera.
+      m.tipo === 'meta'
+        ? el('p', { class: 'mision__recompensa', text: 'Objetivo propio' })
+        : el('p', { class: 'mision__recompensa', text: `${m.recompensa?.xp ?? 0} XP · ${m.recompensa?.oro ?? 0} oro` }),
+      m.tipo === 'meta' ? el('button', {
+        class: 'btn btn--pequeno btn--fantasma', text: 'Dar por cumplido',
+        onClick: protegido('cumplir objetivo', () => {
+          const r = quests.completar(m.refId, { forzar: true });
+          avisar(r.aplicada ? 'Objetivo cumplido' : r.motivo, r.aplicada ? 'exito' : 'aviso');
+          refrescarTodo();
+        }),
+      }) : null,
+      m.tipo !== 'meta' && m.objetivos.every((o) => o.hecho) ? el('button', {
         class: 'btn btn--pequeno', text: 'Entregar encargo',
         onClick: protegido('entregar misión', () => {
           const r = quests.completar(m.refId);

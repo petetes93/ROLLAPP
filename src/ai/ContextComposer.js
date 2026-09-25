@@ -336,10 +336,15 @@ export class ContextComposer {
 
     if (!activas.length) return '';
 
+    // Qué es cada una. Un rumor o una oferta no es algo que el jugador haya
+    // aceptado, y un objetivo propio no lo ha encargado nadie.
+    const etiqueta = (m) => (m.estado === 'ofrecida' ? 'OFRECIDO, sin aceptar'
+      : m.tipo === 'meta' ? 'objetivo que se ha marcado él'
+        : 'aceptado');
     const lineas = activas.slice(0, 5).map((m) => {
       const pendientes = (m.objetivos ?? []).filter((o) => !o.hecho).map((o) => o.texto);
       const detalle = pendientes.length ? ` Pendiente: ${pendientes.join('; ')}.` : '';
-      return `· ${m.titulo}.${detalle}`;
+      return `· ${m.titulo} (${etiqueta(m)}).${detalle}`;
     });
 
     return `MISIONES ACTIVAS:\n${lineas.join('\n')}`;

@@ -1041,7 +1041,8 @@ function abrirNarrador() {
   $('#ia-url').value = ver('settings.urlLocal', '') || 'http://127.0.0.1:11434';
   $('#ia-modelo').value = ver('settings.modeloLocal', '') || '';
   $('#groq-url').value = ver('settings.urlGroq', '') || 'http://127.0.0.1:11436';
-  $('#groq-consiento').checked = ver('settings.groqConsentido', false) === true;
+  // El permiso es de esta sesión: se ve marcado solo si se dio en ella.
+  $('#groq-consiento').checked = sistema('dungeonmaster')?.proveedor(PROVEEDORES.GROQ)?.inspeccionar?.().consentido === true;
   $('#groq-activar').disabled = true;
   $('#groq-estado').textContent = '';
   mostrarPanelNarrador(null);
@@ -1062,7 +1063,8 @@ async function probarGroq() {
   const estado = $('#groq-estado');
   const activar = $('#groq-activar');
   activar.disabled = true;
-  if (!$('#groq-consiento').checked) { estado.textContent = 'Marca antes que entiendes qué se envía a Groq.'; return; }
+  // Probar no necesita el permiso de enviar la historia: solo pide la lista
+  // de modelos. Ese permiso hace falta para «Usar IA Groq».
   const groq = sistema('dungeonmaster')?.proveedor(PROVEEDORES.GROQ);
   groq?.configurar({ url: ($('#groq-url').value ?? '').trim() });
   estado.textContent = 'Comprobando el puente…';
@@ -1072,9 +1074,10 @@ async function probarGroq() {
     return;
   }
   const uso = r.estado?.usoHoy;
-  estado.textContent = 'Conectado a openai/gpt-oss-120b.' + (uso ? ' Hoy: ' + uso.peticiones + ' peticiones y ' + uso.tokens + ' tokens de este puente.' : '')
-    + (r.estado?.pausa ? ' En pausa: ' + r.estado.pausa.motivo + '.' : '');
-  activar.disabled = false;
+  estado.textContent = 'Conectado al puente y a openai/gpt-oss-120b (no se ha enviado nada de tu partida).' + (uso ? ' Hoy: ' + uso.peticiones + ' peticiones y ' + uso.tokens + ' tokens de este puente.' : '')
+    + (r.estado?.pausa ? ' En pausa: ' + r.estado.pausa.motivo + '.' : '')
+    + ($('#groq-consiento').checked ? '' : ' Para usarla, marca antes la casilla de envío.');
+  activar.disabled = !$('#groq-consiento').checked;
 }
 
 function activarGroq() {
@@ -1083,7 +1086,6 @@ function activarGroq() {
   const url = ($('#groq-url').value ?? '').trim();
   dm?.proveedor(PROVEEDORES.GROQ)?.configurar({ url, consentido: true });
   store.fijar('settings.urlGroq', url);
-  store.fijar('settings.groqConsentido', true);
   const r = dm?.cambiar(PROVEEDORES.GROQ);
   if (!r?.exito || r.motivo) { avisar(r?.motivo ?? 'No se pudo activar Groq', 'aviso'); return; }
   store.fijar('settings.proveedor', PROVEEDORES.GROQ);
@@ -1094,10 +1096,12 @@ function activarGroq() {
 
 /** Retirar el consentimiento: deja de enviarse nada desde ya. */
 function retirarConsentimientoGroq() {
-  if ($('#groq-consiento').checked) return;
   const dm = sistema('dungeonmaster');
-  dm?.proveedor(PROVEEDORES.GROQ)?.configurar({ consentido: false });
-  store.fijar('settings.groqConsentido', false);
+  const groq = dm?.proveedor(PROVEEDORES.GROQ);
+  // Marcar solo habilita «Usar» si ya se probó en esta sesión; el permiso se
+  // da al pulsar «Usar IA Groq», no al marcar.
+  if ($('#groq-consiento').checked) { $('#groq-activar').disabled = !groq?.inspeccionar?.().verificado; return; }
+  groq?.configurar({ consentido: false });
   $('#groq-activar').disabled = true;
   if (dm?.inspeccionar?.()?.elegido === PROVEEDORES.GROQ) {
     dm.cambiar(PROVEEDORES.PROCEDURAL);
@@ -1118,10 +1122,13 @@ function pintarNarrador() {
   const dm = sistema('dungeonmaster');
   const elegido = dm?.inspeccionar?.()?.elegido ?? PROVEEDORES.PROCEDURAL;
   const meta = ver('meta.narrador', null);
-  const respaldo = Boolean(meta?.respaldo) || (elegido !== PROVEEDORES.PROCEDURAL && dm?.proveedorId === PROVEEDORES.PROCEDURAL);
+  const groq = dm?.proveedor?.(PROVEEDORES.GROQ)?.inspeccionar?.();
+  const sinConfirmar = elegido === PROVEEDORES.GROQ && !(groq?.consentido && groq?.verificado);
+  const respaldo = !sinConfirmar && (Boolean(meta?.respaldo) || (elegido !== PROVEEDORES.PROCEDURAL && dm?.proveedorId === PROVEEDORES.PROCEDURAL));
   const corto = { [PROVEEDORES.GROQ]: 'IA Groq', [PROVEEDORES.LOCAL]: 'IA local', [PROVEEDORES.PUENTE]: 'Puente', [PROVEEDORES.PROCEDURAL]: 'Procedural' };
-  boton.textContent = respaldo ? 'Narrador: respaldo' : 'Narrador: ' + (corto[elegido] ?? 'Procedural');
-  boton.title = respaldo ? 'La IA elegida no responde; narra el procedural hasta que vuelva.' : 'Quién narra la aventura';
+  boton.textContent = sinConfirmar ? 'Narrador: Groq sin confirmar' : respaldo ? 'Narrador: respaldo' : 'Narrador: ' + (corto[elegido] ?? 'Procedural');
+  boton.title = sinConfirmar ? 'No se envía nada a Groq hasta que lo confirmes en esta sesión; narra el procedural.'
+    : respaldo ? 'La IA elegida no responde; narra el procedural hasta que vuelva.' : 'Quién narra la aventura';
   boton.classList.toggle('es-respaldo', respaldo);
 }
 

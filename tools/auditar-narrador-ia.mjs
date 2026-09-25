@@ -206,8 +206,14 @@ const dm = m.sistema('dungeonmaster');
 const groq = dm.proveedor('groq');
 const envios = [];
 let respuestas = [];
+let impostor = false;
 groq._fetch = async (url, op = {}) => {
   envios.push({ url, op, cuerpo: op.body ? JSON.parse(op.body) : null });
+  // El puente se identifica; un impostor contesta sin decir quién es.
+  if (/\/(?:probar|estado)$/.test(url)) {
+    const datos = impostor ? { ok: true, disponible: true } : { servicio: 'arcanveil-puente-groq/2', ok: true, disponible: true, generacion: false, usoHoy: { peticiones: 0, tokens: 0 } };
+    return { ok: true, status: 200, headers: { get: () => null }, json: async () => datos };
+  }
   const paso = respuestas.shift() ?? { estado: 500 };
   if (paso.red) throw new TypeError('fetch failed');
   return {
@@ -230,7 +236,10 @@ let t = await jugar('miro el río');
 comprobar(envios.length === 0 && t.length > 0, 'sin consentimiento, Groq no recibe nada y el turno se narra igual', t);
 
 // 2 · Con consentimiento: qué se envía.
-m.store.fijar('settings.groqConsentido', true);
+// Probar no necesita el permiso de enviar, y no envía nada de la partida.
+const ep = envios.length;
+const prueba = await groq.probar();
+comprobar(prueba.ok && envios.slice(ep).every((x) => !x.op?.body), 'probar la conexión funciona sin el permiso de enviar y no envía la partida');
 groq.configurar({ consentido: true });
 dm.cambiar('groq');
 respuestas = [{ estado: 200, contenido: json({
@@ -345,6 +354,16 @@ comprobar(envios.length === e4 && /ningún carretero/.test(t), 'una pregunta a q
 
 // 12 · Guardar y cargar: el siguiente turno lleva lo de antes.
 m.guardarYCargar();
+// Otra sesión: al arrancar de nuevo, el permiso no sigue.
+const e6 = envios.length;
+avisos.length = 0;
+dm.alArrancar();
+m.store.fijar('settings.proveedor', 'groq');
+dm.alArrancar();
+t = await jugar('miro el río');
+comprobar(envios.length === e6 && avisos.some((a) => /otra sesión/.test(a)), 'tras reiniciar, no se envía nada hasta un gesto en esta sesión, y se dice', avisos.join(' / '));
+comprobar(m.ver('settings.groqConsentido', null) === null && !JSON.stringify(m.ver('settings', {})).includes('onsentido'), 'el permiso no se guarda en los ajustes ni en la partida');
+await groq.probar();
 groq.configurar({ consentido: true });
 dm.cambiar('groq');
 respuestas = [{ estado: 200, contenido: json({ story: 'Vervek levanta la vista del hierro, todavía con el martillo en alto.', choices: [] }) }];
@@ -352,7 +371,19 @@ t = await jugar('le pregunto a Vervek si recuerda lo del paso');
 const tras = envios.at(-1)?.cuerpo?.messages?.[1]?.content ?? '';
 comprobar(tras.includes('paso cierra con las nieves') && tras.includes('mandil de cuero'), 'tras cargar, la instantánea recuerda lo que Vervek contó y lo ya narrado', tras.slice(0, 300));
 
-// 13 · Probar la conexión no manda la partida.
+// 13 · Una dirección que contesta pero no es el puente no recibe la historia.
+impostor = true;
+groq.configurar({ url: 'http://127.0.0.1:9999' });
+const e7 = envios.length;
+const pi = await groq.probar();
+t = await jugar('escucho el río');
+comprobar(!pi.ok && /no es el puente/.test(pi.motivo) && envios.slice(e7).every((x) => !x.op?.body), 'una dirección que no se identifica como el puente no recibe nada de la partida', pi.motivo);
+impostor = false;
+groq.configurar({ url: 'http://127.0.0.1:11436' });
+comprobar(groq.comprobar().disponible === false, 'cambiar la dirección obliga a volver a probar');
+await groq.probar();
+
+// 14 · Probar la conexión no manda la partida.
 respuestas = [];
 const e5 = envios.length;
 await groq.probar();

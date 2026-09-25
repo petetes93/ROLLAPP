@@ -93,7 +93,7 @@ export function modeloAdversario() {
 
   async function fetchFalso(url, op = {}) {
     const ok = (datos) => ({ ok: true, status: 200, headers: { get: () => null }, json: async () => datos });
-    if (/\/(?:probar|estado)$/.test(url)) return ok({ ok: true, disponible: true });
+    if (/\/(?:probar|estado)$/.test(url)) return ok({ servicio: 'arcanveil-puente-groq/2', ok: true, disponible: true });
     stats.peticiones += 1;
     const contenido = responder(JSON.parse(op.body));
     return ok({ choices: [{ message: { content: contenido } }], usage: { total_tokens: 0 } });
@@ -107,11 +107,12 @@ export function modeloAdversario() {
  * @param {Object} m El motor sin ventana.
  * @param {ReturnType<typeof modeloAdversario>} modelo
  */
-export function conectar(m, modelo) {
+export async function conectar(m, modelo) {
   const dm = m.sistema('dungeonmaster');
   const groq = dm.proveedor('groq');
   groq._fetch = modelo.fetch;
   groq._dormirMs = async () => {};
+  await groq.probar();
   groq.configurar({ consentido: true });
   dm.cambiar('groq', { silencioso: true });
   const trazas = [];

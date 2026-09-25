@@ -9,9 +9,13 @@
  * que cada turno envía a Groq el contexto narrativo. Por eso:
  *
  *   · No se activa por defecto ni manda nada hasta que el jugador lo elige
- *     sabiendo qué sale de su equipo (`consentido`).
- *   · «Probar conexión» pide la lista de modelos: no genera nada ni envía
- *     la partida.
+ *     sabiendo qué sale de su equipo (`consentido`). Ese permiso vale para
+ *     ESTA sesión: no se guarda. Tras recargar o cargar partida no sale nada
+ *     hasta un gesto nuevo.
+ *   · «Probar conexión» es otro permiso, más pequeño: pide la lista de
+ *     modelos, sin generar nada ni enviar la partida. Y comprueba que quien
+ *     contesta en esa dirección es el puente de ARCANVEIL: no se envía la
+ *     historia a una dirección cualquiera que responda.
  *   · Cada turno es independiente: la política del narrador (idéntica
  *     siempre, para que Groq la cachee) y una instantánea del mundo ya
  *     resuelta. No hay historial que pueda quedarse viejo: tras una caída,
@@ -39,6 +43,9 @@ export const MODELO_GROQ = 'openai/gpt-oss-120b';
 /** Dirección por defecto del puente. */
 export const URL_PUENTE_GROQ = 'http://127.0.0.1:11436';
 
+/** Cómo se identifica el puente de ARCANVEIL (ver tools/groq-proxy.mjs). */
+export const SERVICIO_PUENTE = /^arcanveil-puente-groq\/\d+$/;
+
 /** Lo que se espera como mucho a que Groq deje pasar, sin dar el turno por perdido. */
 const ESPERA_CORTA_S = 8;
 
@@ -51,6 +58,7 @@ export class GroqProvider extends IDMProvider {
     super(opciones);
     this._url = URL_PUENTE_GROQ;
     this._consentido = false;
+    this._verificado = null;   // la dirección que se identificó como el puente, en esta sesión
     this._pausaHasta = 0;
     this._motivoPausa = null;
     this._ultimoUso = null;
@@ -65,7 +73,12 @@ export class GroqProvider extends IDMProvider {
    * @param {boolean} [config.consentido] El jugador sabe qué se envía y lo acepta.
    */
   configurar(config = {}) {
-    if (config.url !== undefined) this._url = String(config.url).trim().replace(/\/+$/, '');
+    if (config.url !== undefined) {
+      const nueva = String(config.url).trim().replace(/\/+$/, '');
+      // Cambiar la dirección obliga a volver a comprobar quién contesta.
+      if (nueva !== this._url) this._verificado = null;
+      this._url = nueva;
+    }
     if (config.consentido !== undefined) this._consentido = config.consentido === true;
   }
 
@@ -76,6 +89,9 @@ export class GroqProvider extends IDMProvider {
     }
     if (!/^http:\/\/(?:127\.0\.0\.1|localhost):\d+$/.test(this._url)) {
       return { disponible: false, motivo: 'El puente de Groq tiene que estar en este equipo (http://127.0.0.1:<puerto>).' };
+    }
+    if (this._verificado !== this._url) {
+      return { disponible: false, motivo: 'Prueba la conexión con el puente en esta sesión antes de usar Groq.' };
     }
     if (this._pausaHasta > Date.now()) {
       return { disponible: false, motivo: this._motivoPausa ?? 'Groq está en pausa por la cuota gratuita.' };
@@ -92,8 +108,14 @@ export class GroqProvider extends IDMProvider {
     try {
       const r = await this._fetch(`${this._url}/probar`);
       const datos = await r.json().catch(() => ({}));
+      if (!SERVICIO_PUENTE.test(String(datos?.servicio ?? ''))) {
+        this._verificado = null;
+        // Si el puente rechaza (p. ej. por el origen), su motivo es más útil.
+        return { ok: false, motivo: r.ok ? 'En esa dirección contesta algo que no es el puente de ARCANVEIL. No se le enviará nada.' : (datos?.error?.message ?? `Respondió ${r.status}.`) };
+      }
       if (!r.ok) return { ok: false, motivo: datos?.error?.message ?? `El puente respondió ${r.status}.` };
       if (!datos.disponible) return { ok: false, motivo: `La cuenta no tiene ${MODELO_GROQ} disponible.` };
+      this._verificado = this._url;
       const estado = await this.estado();
       return { ok: true, motivo: null, estado };
     } catch {
@@ -227,6 +249,7 @@ export class GroqProvider extends IDMProvider {
       url: this._url,
       modelo: MODELO_GROQ,
       consentido: this._consentido,
+      verificado: this._verificado === this._url,
       pausa: this._pausaHasta > Date.now() ? { hasta: new Date(this._pausaHasta).toISOString(), motivo: this._motivoPausa } : null,
       solicitudes: this.solicitudes,
       ultimoUso: this._ultimoUso,

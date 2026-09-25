@@ -283,13 +283,14 @@ const partidas = [];
 let saltadas = 0;
 for (const p of PERSONAJES) {
   const m = await crearMotor({ semilla: p.semilla });
-  if (simulada && !modelo) { modelo = modeloAdversario(); trazasIA = conectar(m, modelo); }
+  if (simulada && !modelo) { modelo = modeloAdversario(); trazasIA = await conectar(m, modelo); }
   if (conGroq && !modelo) {
     // El puente exige el Origin de la app: se pone aquí como lo pondría el
     // navegador. La clave sigue sin salir del puente.
     modelo = { stats: { peticiones: 0, reparaciones: 0, inyectadas: {}, tokens: [], caracteres: [] } };
-    trazasIA = conectar(m, { fetch: (url, op = {}) => fetch(url, { ...op, headers: { ...(op.headers ?? {}), Origin: 'http://localhost:8080' } }) });
-    m.sistema('dungeonmaster').proveedor('groq').configurar({ url: 'http://127.0.0.1:11436', consentido: true });
+    m.sistema('dungeonmaster').proveedor('groq').configurar({ url: 'http://127.0.0.1:11436' });
+    trazasIA = await conectar(m, { fetch: (url, op = {}) => fetch(url, { ...op, headers: { ...(op.headers ?? {}), Origin: 'http://localhost:8080' } }) });
+    if (!m.sistema('dungeonmaster').proveedor('groq').inspeccionar().verificado) throw new Error('El puente no contesta en http://127.0.0.1:11436: arráncalo con node tools/iniciar-groq.mjs');
   }
   for (const [estilo, guion] of [['contemplativo', CONTEMPLATIVO], ['impulsivo', IMPULSIVO]]) {
     const indice = partidas.length + saltadas + 1;

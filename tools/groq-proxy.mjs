@@ -463,11 +463,11 @@ export function crearProxyGroq({ clave, puerto = 11436, origen, upstream = UPSTR
       const r = await fetch(`${upstream}/models`, { signal: control.signal, headers: { Authorization: `Bearer ${clave}` } });
       const datos = await r.json().catch(() => ({}));
       trazar({ ruta: 'probar', estado: r.status, ms: Date.now() - inicio });
-      if (!r.ok) return error(res, r.status, MENSAJES[r.status] ?? `Groq respondió con un error ${r.status}.`);
+      if (!r.ok) return responder(res, r.status, { servicio: SERVICIO, error: { message: MENSAJES[r.status] ?? `Groq respondió con un error ${r.status}.`, code: null } });
       const hay = (datos?.data ?? []).some((m) => m?.id === MODELO_PERMITIDO);
       return responder(res, 200, { ok: hay, servicio: SERVICIO, modelo: MODELO_PERMITIDO, disponible: hay, generacion: false });
     } catch {
-      return error(res, 502, MENSAJES[502]);
+      return responder(res, 502, { servicio: SERVICIO, error: { message: MENSAJES[502], code: null } });
     } finally {
       clearTimeout(reloj);
     }

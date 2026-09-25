@@ -93,19 +93,20 @@ export class DungeonMaster extends SystemBase {
   }
 
   alArrancar() {
-    // Lo que el jugador configuró y aceptó en otra sesión. El consentimiento
-    // de Groq no es un secreto: es su decisión de enviar el contexto. La
-    // clave no está aquí: vive en el puente.
-    this._proveedores.get(PROVEEDORES.GROQ)?.configurar({
-      url: this.leer('settings.urlGroq', 'http://127.0.0.1:11436'),
-      consentido: this.leer('settings.groqConsentido', false) === true,
-    });
+    // La dirección del puente se recuerda; el permiso para enviar la
+    // historia a Groq, NO: vale para la sesión en que se da. Si quedó uno
+    // guardado de antes, se borra.
+    this._proveedores.get(PROVEEDORES.GROQ)?.configurar({ url: this.leer('settings.urlGroq', 'http://127.0.0.1:11436'), consentido: false });
+    if (this.leer('settings.groqConsentido', null) !== null) this.store.fijar('settings.groqConsentido', null);
     const urlLocal = this.leer('settings.urlLocal', '');
     const modeloLocal = this.leer('settings.modeloLocal', '');
     if (urlLocal && modeloLocal) this._proveedores.get(PROVEEDORES.LOCAL)?.configurar({ url: urlLocal, modelo: modeloLocal });
 
     const guardado = this.leer('settings.proveedor', PROVEEDORES.PROCEDURAL);
     this.cambiar(guardado, { silencioso: true });
+    if (guardado === PROVEEDORES.GROQ) {
+      this.emitir('ui:notice', { mensaje: 'Elegiste la IA Groq en otra sesión. En esta no se envía nada hasta que lo confirmes en Narrador. Mientras, narra el procedural.', tipo: 'info' });
+    }
   }
 
   /* ═══════════════════════════════════════════════════════════════════════
@@ -447,7 +448,7 @@ export class DungeonMaster extends SystemBase {
       proveedor: this._elegido,
       urlLocal: this.leer('settings.urlLocal'),
       modeloLocal: this.leer('settings.modeloLocal'),
-      groqConsentido: this.leer('settings.groqConsentido', false) === true,
+      groqConsentido: this._proveedores.get(PROVEEDORES.GROQ)?.inspeccionar?.().consentido === true,
     });
   }
 

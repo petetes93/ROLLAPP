@@ -121,11 +121,12 @@ console.log('\n── En el motor: guardar, cargar y una IA que contradice el ca
   const enviados = [];
   let contenido = '';
   groq._fetch = async (url, op = {}) => {
+    if (/\/(?:probar|estado)$/.test(url)) return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({ servicio: 'arcanveil-puente-groq/2', disponible: true }) };
     if (op.body) enviados.push(JSON.parse(op.body));
     return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({ choices: [{ message: { content: contenido } }] }) };
   };
+  await groq.probar();
   groq.configurar({ consentido: true });
-  groq.consentirEnvio?.();
   dm.cambiar('groq', { silencioso: true });
 
   contenido = JSON.stringify({ story: 'El viento baja de la sierra y levanta polvo de carbón en la calle.\nAldo: «Hermana, te estaba esperando.»\nUna campana suena lejos, en la boca de la mina.', choices: [] });
@@ -143,7 +144,6 @@ console.log('\n── En el motor: guardar, cargar y una IA que contradice el ca
   comprobar(aldo?.revisiones?.length === 1 && /vivo/.test(aldo.texto), 'tras cargar, la revisión y su historial siguen', JSON.stringify(aldo));
 
   groq.configurar({ consentido: true });
-  groq.consentirEnvio?.();
   dm.cambiar('groq', { silencioso: true });
   contenido = JSON.stringify({ story: 'Un arriero se cruza contigo en el camino y te mira dos veces.\nNo dice nada, pero aprieta el paso hacia el pueblo.', choices: [] });
   await jugar('pregunto por Aldo en el camino');

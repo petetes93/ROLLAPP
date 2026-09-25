@@ -1223,9 +1223,10 @@ textarea.entrada{resize:none;overflow-y:auto;line-height:1.45;max-height:180px;d
     <section class="ia-local" id="ia-groq" hidden>
       <h3>IA Groq · capa Free</h3>
       <p>Narra <strong>openai/gpt-oss-120b</strong> en la nube de Groq. El juego habla con el puente que arrancas en tu PC (<code>node tools/iniciar-groq.mjs</code>); la clave vive solo ahí, nunca en el navegador ni en la partida.</p>
-      <p><strong>Qué sale de tu equipo en cada turno:</strong> el lugar, quién está, lo que ha pasado y lo que escribes. No tus partidas guardadas ni datos de tu equipo. Groq no entrena con ello; puede guardarlo hasta 30 días por fiabilidad salvo que actives <em>Zero Data Retention</em> en tu cuenta. No escribas en la historia nada personal que no quieras enviar.</p>
-      <p>Cuota gratuita limitada: si falla o se agota, el turno lo narra el procedural y se avisa. No es ChatGPT: es otro modelo.</p>
-      <label class="ia-consiento"><input type="checkbox" id="groq-consiento"> Entiendo qué se envía a Groq y quiero usarlo</label>
+      <p><strong>Qué sale y cuándo:</strong> en cada turno que narre la IA Groq, el lugar, quién está, lo que ha pasado, lo que escribes y tu canon. No tus partidas guardadas ni datos de tu equipo. Nada sale antes de que pulses «Usar IA Groq», y el permiso dura esta sesión: al recargar o cargar partida se vuelve a pedir.</p>
+      <p><strong>Zero Data Retention: sin verificar.</strong> El juego no puede ver cómo está tu cuenta. Groq no entrena con lo que envías; si no activas Zero Data Retention en Data Controls, puede guardarlo hasta 30 días por fiabilidad. Compruébalo tú en tu cuenta. No escribas en la historia nada personal que no quieras enviar.</p>
+      <p>«Probar conexión» solo pide a Groq la lista de modelos: no envía nada de tu partida. Cuota gratuita limitada: si falla o se agota, narra el procedural y se avisa. No es ChatGPT: es otro modelo.</p>
+      <label class="ia-consiento"><input type="checkbox" id="groq-consiento"> Entiendo qué se envía a Groq en cada turno y quiero enviarlo en esta sesión</label>
       <label class="sub-eti" for="groq-url">Puente local</label><input class="entrada" id="groq-url" value="http://127.0.0.1:11436">
       <div class="modal__acciones"><button class="btn" id="groq-probar">Probar conexión (no genera nada)</button><button class="btn btn--grande" id="groq-activar" disabled>Usar IA Groq</button></div>
       <p class="modal__error" id="groq-estado" aria-live="polite"></p>

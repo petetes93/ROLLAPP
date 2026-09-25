@@ -256,7 +256,25 @@ const SUBJUNTIVOS = Object.freeze({
   coja: 'cojas', abra: 'abras', cierre: 'cierres', mire: 'mires', busque: 'busques',
 });
 
+/** Lo que el jugador pone entre comillas: son sus palabras y no se tocan. */
+const CITA = /(«[^»]*»|"[^"]*"|“[^”]*”)/u;
+
+/**
+ * Pasa a segunda persona lo que va fuera de comillas.
+ *
+ * Lo entrecomillado es lo que dice el personaje, literal. Se convertía como
+ * el resto: «le digo "no voy a firmar"» salía «le dices "no vas a firmar"»,
+ * y la negativa del jugador acababa en boca de otro.
+ *
+ * @param {string} texto
+ * @returns {string}
+ */
 export function aSegundaPersona(texto) {
+  const partes = String(texto ?? '').split(CITA);
+  return partes.map((p, i) => (i % 2 === 1 ? p : convertir(p))).join('');
+}
+
+function convertir(texto) {
   // «Me siento en la taberna» es sentarse, no sentir, y salía «Te sientes en
   // la taberna». El verbo es el mismo en primera persona y solo el contexto lo
   // desambigua: con «me» delante y un sitio detrás, uno se sienta. Sin «me»

@@ -80,6 +80,10 @@ const CASOS = [
   ['subimos la cuesta', 'subís la cuesta'],
   ['los ramos del altar', 'los ramos del altar'],
 
+  // ── Lo entrecomillado son sus palabras, literales ─────────────────────
+  ['le digo "no voy a firmar" y me voy', 'le dices "no voy a firmar" y te vas'],
+  ['Le digo a Mara: «No os entregaré la llave». Luego espero', 'Le dices a Mara: «No os entregaré la llave». Luego esperas'],
+
   // ── Los nombres no se conjugan ────────────────────────────────────────
   ['Seldar me acompaña', 'Seldar te acompaña'],
   ['Dadar, ¿qué sabes del hierro?', 'Dadar, ¿qué sabes del hierro?'],

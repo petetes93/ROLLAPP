@@ -783,7 +783,7 @@ function pintarRevelacion(p, eco = null) {
   );
 
   caja.append(el('div', { class: 'revelacion' },
-    el('div', { class: 'revelacion__marco' }, cara, estado),
+    el('div', { class: 'revelacion__marco' }, cara, estado, opcionesRetrato),
     el('div', { class: 'revelacion__texto' },
       el('p', { class: 'revelacion__eti', text: 'Descripción' }),
       el('p', { class: 'revelacion__cita', text: p.retrato }),

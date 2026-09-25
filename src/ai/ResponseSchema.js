@@ -168,6 +168,16 @@ export const ESQUEMA_RESPUESTA = S.objeto({
     tipo: S.texto({ max: 24, defecto: 'dicho' }),
   }), { max: 4, defecto: [] }),
 
+  // Lo que un modelo PROPONE cambiar. No se aplica tal cual: pasa por la
+  // política de autorización (ver `ai/narrador/Autorizacion.js`), que solo
+  // deja entrar lo que no es del motor y va con su evidencia.
+  proposedEffects: S.lista(S.objeto({
+    tipo: S.texto({ max: 32 }),
+    datos: S.objeto({}, { adicionales: true, defecto: {} }),
+    razon: S.texto({ max: 200 }),
+    evidencia: S.texto({ max: 200 }),
+  }), { max: 6, defecto: [] }),
+
   mood: S.texto({ max: 24, defecto: 'neutro' }),
 
   // La pregunta de mesa con que cierra el turno: «Corlin espera tu respuesta.

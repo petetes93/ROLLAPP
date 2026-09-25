@@ -405,7 +405,11 @@ export class TurnResolver extends SystemBase {
       const intencionTirada = ambicion.grado === 'desmedida'
         ? { ...intencion, requiereTirada: true, habilidad: intencion.habilidad ?? 'atletismo' }
         : intencion;
-      const tirada = intervino ? resuelto.tirada : rules?.resolverIntencion(intencionTirada, {
+      // Comprar pan no se tira. La tasación cuenta si regatea; si no, salía
+      // «No consigues situarlo» debajo de «Compras pan».
+      const compraLlana = intencion.tipo === 'trade' && !intencion.requiereTirada
+        && !/regate|rebaj|descuent|mejor precio|precio justo/.test(sinAcentos(textoFoco.toLowerCase()));
+      const tirada = intervino ? resuelto.tirada : compraLlana ? null : rules?.resolverIntencion(intencionTirada, {
         situacion: this._situacionActual(),
         ...(ambicion.grado === 'desmedida' ? { umbral: 35 } : {}),
         ...(ambicion.grado === 'detallada' ? { bono: 2, fuenteBono: 'Acción bien pensada' } : {}),
@@ -481,7 +485,11 @@ export class TurnResolver extends SystemBase {
         peticion.contexto.situacionResultado = situacion.narracion;
         pistas.push(`Lo que ha pasado al intervenir, ya resuelto por el motor: ${situacion.narracion}`);
       } else if (situacion?.atencion && situacion.narracion) {
-        peticion.contexto.situacionResultado = situacion.narracion;
+        // Si además tira por lo suyo (trepar al tejado desde el que se ve),
+        // primero cómo le sale y después lo que ve. Lo que veía tapaba el
+        // resultado, y no se sabía si había subido.
+        if (peticion.tirada) peticion.contexto.detalleEscena = situacion.narracion;
+        else peticion.contexto.situacionResultado = situacion.narracion;
         pistas.push(`El jugador se fija en lo que está pasando. Lo que ve de cerca: ${situacion.narracion}`);
       } else if (situacion?.omitida) {
         pistas.push('El jugador ha decidido no meterse en lo que está pasando aquí. Respétalo: no le lleves de vuelta a ello ni le castigues por ignorarlo.');

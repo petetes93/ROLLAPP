@@ -150,7 +150,9 @@ export class ProceduralProvider extends IDMProvider {
       // Lo que ha resuelto el motor (el desenlace de un encuentro, lo que
       // pasa en una situación) nunca es plantilla, por corto que sea:
       // «Pones tierra de por medio.» se sustituía por el eco y se perdía.
-      const plantilla = !ctx.situacionResultado && primera.length < 60 && !primera.includes('«');
+      // Y el resultado de una tirada tampoco: «Lo consigues a duras penas» es
+      // lo que ha pasado, y se perdía detrás de «Intentas trepar al tejado».
+      const plantilla = !ctx.situacionResultado && !peticion.tirada && primera.length < 60 && !primera.includes('«');
       parrafos[0] = plantilla ? frase : `${frase} ${primera}`.trim();
     }
 
@@ -183,7 +185,9 @@ export class ProceduralProvider extends IDMProvider {
     const tir = peticion.tirada;
     const mereceLaPena = Boolean(escena) || Boolean(tir?.critico) || Boolean(tir?.pifia);
 
-    if (accion && npc?.nombre && !String(r.story).includes(npc.nombre)
+    // Tras una negativa ya ha reaccionado quien la oyó: otro gesto suyo
+    // debajo la repetía con otras palabras.
+    if (accion && npc?.nombre && !ctx.negativa && !String(r.story).includes(npc.nombre)
         && (mereceLaPena || this._flujo().entero(0, 2) === 0)) {
       parrafos.push(this._unico([
         `${npc.nombre} no te quita ojo. Por su gesto, lo que acabas de hacer le ha dicho de ti más que cualquier presentación.`,
@@ -405,6 +409,8 @@ export class ProceduralProvider extends IDMProvider {
       parrafos.push(ctx.situacionResultado);
     } else if (peticion.tirada) {
       parrafos.push(this._narrarResultado(peticion.tirada, peticion.intencion));
+      // Lo que se ve desde donde quería llegar, solo si ha llegado.
+      if (ctx.detalleEscena && peticion.tirada.exito) parrafos.push(ctx.detalleEscena);
     } else if (peticion.accion) {
       parrafos.push(this._narrarAccionSimple(peticion.intencion, ctx));
     }

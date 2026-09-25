@@ -32,7 +32,7 @@ import { proyectar } from './Canon.js';
 export const VERSION_INSTANTANEA = 2;
 
 /** Presupuesto de la instantánea, en caracteres (≈ 3,5 por token). */
-export const PRESUPUESTO = Object.freeze({ total: 6000, canon: 2400, inmediata: 5, yaContado: 14, hechos: 12, conocidos: 8 });
+export const PRESUPUESTO = Object.freeze({ total: 6000, canon: 2400, canonOmitido: 12, inmediata: 5, yaContado: 14, hechos: 12, conocidos: 8 });
 
 const recortar = (t, n) => {
   const s = String(t ?? '').replace(/\s+/g, ' ').trim();
@@ -208,7 +208,15 @@ export function construirInstantanea(e, extra = {}) {
       notasDelNarrador: (memoria?.notasNarrador ?? []).slice(-6).map((n) => ({ texto: recortar(n.texto, 160), fuente: 'narrador (no es un hecho del motor)', turno: n.turno })),
     },
     yaContado: frasesContadas(extra.entradas),
-    canonOmitido: proyeccion.completa ? null : { n: proyeccion.omitidas.length, total: proyeccion.total, cuales: proyeccion.omitidas.map((o) => o.resumen) },
+    // La lista de lo omitido también cuesta: con un canon grande, sus
+    // resúmenes solos se comían la cuota del minuto. Van los primeros y la
+    // cuenta; el registro entero sigue guardado y verificado en local.
+    canonOmitido: proyeccion.completa ? null : {
+      n: proyeccion.omitidas.length,
+      total: proyeccion.total,
+      cuales: proyeccion.omitidas.slice(0, PRESUPUESTO.canonOmitido).map((o) => recortar(o.resumen, 48)),
+      ...(proyeccion.omitidas.length > PRESUPUESTO.canonOmitido ? { yMas: proyeccion.omitidas.length - PRESUPUESTO.canonOmitido } : {}),
+    },
     canonConflictos: proyeccion.conflictos,
   };
 
@@ -231,6 +239,9 @@ export function ajustarPresupuesto(inst) {
     () => inst.lugar.elementos.length > 3 && inst.lugar.elementos.shift(),
     () => inst.presentes.some((p) => p.sabe.length > 1) && inst.presentes.forEach((p) => p.sabe.splice(1)),
     () => inst.memoria.capitulo.length > 1 && inst.memoria.capitulo.shift(),
+    // La lista de lo omitido es un índice, no canon: se acorta (la cuenta queda).
+    () => (inst.canonOmitido?.cuales?.length ?? 0) > 3 && inst.canonOmitido.cuales.pop()
+      && (inst.canonOmitido.yMas = (inst.canonOmitido.yMas ?? 0) + 1),
   ];
   let i = 0;
   while (medir() > PRESUPUESTO.total && i < 60) {

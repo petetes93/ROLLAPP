@@ -353,6 +353,19 @@ export class FactionSystem extends SystemBase {
    * @param {Object} [opciones] tipo y peso.
    * @returns {boolean}
    */
+  /**
+   * Apunta que un PNJ ya ha contado algo al jugador.
+   * @param {string} refId
+   * @param {string} info
+   * @returns {boolean}
+   */
+  compartir(refId, info) {
+    const npc = this.leer(`npcs.conocidos.porId.${refId}`);
+    if (!npc?.conocimiento || !info) return false;
+    this.despachar('npc/registrar', { npc: N.marcarCompartido(npc, info) });
+    return true;
+  }
+
   recordar(refId, texto, opciones = {}) {
     const npc = this.leer(`npcs.conocidos.porId.${refId}`);
     if (!npc || !texto) return false;

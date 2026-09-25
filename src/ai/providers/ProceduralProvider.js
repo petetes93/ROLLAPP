@@ -23,7 +23,7 @@
 import { IDMProvider } from './IDMProvider.js';
 import {
   atmosferaDe, atmosferaInterior, resultadosDe, categoriaDe,
-  FRANJA, CLIMA, COMBATE, NPC, OPCIONES, CIERRES, AMBIENTE,
+  FRANJA, CLIMA, COMBATE, NPC, OPCIONES, CIERRES,
 } from '../../data/narrative.templates.js';
 import { APP } from '../../config/app.config.js';
 import { capitalizar, trasPreposicion, sinAcentos } from '../../utils/text.js';
@@ -31,6 +31,28 @@ import { aSegundaPersona, esPrimeraPersona } from '../Persona.js';
 import { obtenerLugar } from '../../data/locations.data.js';
 import * as Cadencia from '../Cadencia.js';
 import { comentario } from '../../npc/Companero.js';
+import { queSabe, responder } from '../narrador/Conocimiento.js';
+import { rasgosDe, buscarRasgo, rasgoGeneral } from '../../data/rasgos.data.js';
+import { LUGARES } from '../../data/locations.data.js';
+import { ruta as rutaMapa } from '../../world/MapGraph.js';
+import { horasDichas } from '../narrador/Conocimiento.js';
+
+const minuscula = (t) => { const x = String(t ?? '').trim(); return x.charAt(0).toLowerCase() + x.slice(1); };
+
+/** Lo que hace cada oficio mientras nadie le habla: se ve al mirar a la gente. */
+const ACTIVIDAD = Object.freeze({
+  herrero: '{n} saca una herradura al rojo y la mete en el barril: el vapor sube hasta el alero.',
+  herrera: '{n} saca una herradura al rojo y la mete en el barril: el vapor sube hasta el alero.',
+  tendero: '{n} cuenta sacos detrás del mostrador y vuelve a contarlos.',
+  tendera: '{n} cuenta sacos detrás del mostrador y vuelve a contarlos.',
+  mercader: '{n} recoloca la mercancía para que se vea lo caro primero.',
+  lavandera: '{n} pasa con un cesto de ropa mojada apoyado en la cadera.',
+  guardia: '{n} mira a todo el que cruza como si le debiera algo.',
+  posadero: '{n} barre la puerta de la posada sin quitar ojo a la calle.',
+  posadera: '{n} barre la puerta de la posada sin quitar ojo a la calle.',
+  carretero: '{n} revisa las correas del tiro, una por una.',
+  pastor: '{n} lleva una vara larga y la mirada puesta en otra parte.',
+});
 
 /** Notas de escena que se pueden narrar tal cual: están escritas para el jugador. */
 const PARA_EL_JUGADOR = /^(?:EN ESCENA|HA CAMBIADO DESDE LA ÚLTIMA VISITA):/;
@@ -102,6 +124,18 @@ export class ProceduralProvider extends IDMProvider {
     await this._latencia();
 
     const ctx = peticion.contexto ?? {};
+
+    // Una partida nueva o cargada empieza en un turno anterior: lo que este
+    // narrador recuerda de la otra (qué describió, cuándo usó la antesala)
+    // no vale aquí. Sin esto, «miro alrededor» al empezar otra partida
+    // contestaba «Nada ha cambiado desde la última vez que miraste».
+    const turno = peticion.turno ?? ctx.turno ?? 0;
+    if (turno < (this._turnoVisto ?? -1)) {
+      this._descritos = new Map();
+      this._sinCambio = new Set();
+      this._ultimaAntesala = null;
+    }
+    this._turnoVisto = turno;
 
     switch (peticion.tipo) {
       case 'combate': return this._turnoCombate(peticion, ctx);
@@ -190,13 +224,14 @@ export class ProceduralProvider extends IDMProvider {
 
     // Tras una negativa ya ha reaccionado quien la oyó: otro gesto suyo
     // debajo la repetía con otras palabras.
-    if (accion && npc?.nombre && !ctx.negativa && !String(r.story).includes(npc.nombre)
-        && (mereceLaPena || this._flujo().entero(0, 2) === 0)) {
-      parrafos.push(this._unico([
-        `${npc.nombre} no te quita ojo. Por su gesto, lo que acabas de hacer le ha dicho de ti más que cualquier presentación.`,
-        `${npc.nombre} deja lo que estaba haciendo y te mira de otra manera, como quien recoloca una pieza en un tablero.`,
-        `A tu lado, ${npc.nombre} suelta el aire despacio. No dice nada todavía, pero ha tomado nota.`,
-      ]));
+    // Una reacción sin contenido («no te quita ojo», «ha tomado nota») no es
+    // el mundo reaccionando: es relleno, y se aprendía a saltar en tres
+    // turnos. Solo reacciona quien tiene motivo: un crítico o una pifia
+    // delante de él.
+    if (accion && npc?.nombre && !ctx.negativa && !String(r.story).includes(npc.nombre) && mereceLaPena && (tir?.critico || tir?.pifia)) {
+      parrafos.push(tir.critico
+        ? `${npc.nombre} lo ha visto, y no lo esperaba de ti.`
+        : `${npc.nombre} lo ha visto. No se ríe, pero le cuesta.`);
     }
 
     // El relleno existe para que un turno no quede desnudo, no para alargar
@@ -209,17 +244,11 @@ export class ProceduralProvider extends IDMProvider {
     // saltarse en cuatro turnos. Una frase se lee; tres son ruido.
     const conContenido = Boolean(escena) || parrafos.length >= 2;
 
-    if (!conContenido && parrafos.length < 2) {
-      const atm = this._componerAtmosfera(ctx, { frases: 1 });
-      if (atm && !r.story?.includes(atm)) parrafos.push(atm);
-    }
-    // Orden de preferencia para cerrar un turno flojo: primero lo que el
-    // jugador ha construido, luego sus hilos abiertos, y solo al final el
-    // ambiente de fábrica.
-    //
-    // Es el orden que convierte el relleno en historia. Una bandada cruzando
-    // el cielo vale para cualquier partida; el nombre que él trajo hace diez
-    // turnos vale solo para la suya.
+    // Un turno corto puede quedarse corto. Antes se rellenaba con atmósfera o
+    // con un suceso de catálogo («Un gato salta de un barril») para que no
+    // quedara desnudo, y eso era lo que más se repetía. Solo se trae lo que
+    // el jugador ha construido o un hilo suyo que venga a cuento; si no hay,
+    // silencio.
     if (!conContenido && parrafos.length < 2) {
       // Se comprueba que el canon no haya salido ya arriba, en `_turnoNarrativo`:
       // sin esto podía aparecer dos veces en el mismo turno, y un recuerdo
@@ -230,10 +259,6 @@ export class ProceduralProvider extends IDMProvider {
 
       if (suyo) parrafos.push(suyo);
       else if (hilo) parrafos.push(this._recordarHilo(hilo, ctx));
-      else {
-        const amb = this._elegirAmbiente(ctx);
-        if (amb) parrafos.push(amb);
-      }
     }
 
     // El turno se monta por golpes, no por párrafos.
@@ -305,7 +330,10 @@ export class ProceduralProvider extends IDMProvider {
         // La antesala se gana: solo cuando de verdad gira algo, y solo si no
         // hay sonido. Puesta en cada turno se convierte en muletilla y deja de
         // anunciar nada.
-        antesala: !golpe && Boolean(escena),
+        // Y con aire entre una y otra: en seis partidas medidas salía «Y
+        // entonces...» catorce veces, cada vez que el reloj de una situación
+        // daba un paso.
+        antesala: !golpe && Boolean(escena) && this._antesalaLibre(turnoActual),
         elegir: (lista) => this._unico(lista),
       }),
       choices: this._sugerenciasDeEscena(ctx, r.choices ?? []),
@@ -408,8 +436,14 @@ export class ProceduralProvider extends IDMProvider {
     // Si ha intervenido en algo que estaba pasando, lo que ocurre es eso: la
     // rueda que se calza, la niña que se aparta del pozo. Una frase genérica
     // de tirada («Todo encaja a la primera») no dice nada al lado.
+    const mirada = !ctx.situacionResultado && peticion.accion ? this._observar(peticion, ctx) : null;
     if (ctx.situacionResultado) {
       parrafos.push(ctx.situacionResultado);
+    } else if (mirada) {
+      // Mirar no se narra con «Ves lo principal; los detalles, no tanto»: se
+      // cuenta lo que hay. La tirada decide si aparece lo escondido.
+      parrafos.push(mirada.lineas.join(' '));
+      memoria.push(...mirada.memoria);
     } else if (peticion.tirada) {
       parrafos.push(this._narrarResultado(peticion.tirada, peticion.intencion));
       // Lo que se ve desde donde quería llegar, solo si ha llegado.
@@ -417,6 +451,11 @@ export class ProceduralProvider extends IDMProvider {
     } else if (peticion.accion) {
       parrafos.push(this._narrarAccionSimple(peticion.intencion, ctx));
     }
+
+    // Lo que la acción nombra y está aquí se ve: «corro hacia el puente»,
+    // «bebo agua del río». Una vez, no cada turno.
+    const nombrado = !mirada && !ctx.situacionResultado ? this._rasgoNombrado(peticion, ctx) : null;
+    if (nombrado) parrafos.push(nombrado);
 
     // ─── 2. Atmósfera ──────────────────────────────────────────────────
     // Solo se describe el entorno cuando cambia algo o cada cierto tiempo. Un
@@ -428,8 +467,8 @@ export class ProceduralProvider extends IDMProvider {
     // siempre no es lo que más dice, es lo que cabe.
     // Si hay algo pasando en escena, eso es la escena: sin paisaje encima.
     const conEscena = (ctx.contextoEscena ?? []).length > 0;
-    if (!conEscena && this._tocaDescribirEntorno(ctx)) {
-      parrafos.push(this._componerAtmosfera(ctx, { frases: 2 }));
+    if (!conEscena && !mirada && !nombrado && this._tocaDescribirEntorno(ctx)) {
+      parrafos.push(this._componerAtmosfera(ctx, { frases: 1 }));
     }
 
     // ─── 3. Lo suyo vuelve ─────────────────────────────────────────────
@@ -451,16 +490,10 @@ export class ProceduralProvider extends IDMProvider {
       eventos.push({ type: 'ambient', payload: { hilo: hilo.id }, silent: true });
     }
 
-    // ─── 4. Suceso ambiental ───────────────────────────────────────────
-    if (!conEscena && this._flujo().oportunidad(0.25)) {
-      const ambiente = this._elegirAmbiente(ctx);
-      if (ambiente) parrafos.push(ambiente);
-    }
-
-    // ─── 5. Cierre ─────────────────────────────────────────────────────
-    if (!conEscena && this._flujo().oportunidad(0.3)) {
-      parrafos.push(this._unico(CIERRES));
-    }
+    // Sin suceso ambiental al azar ni cierre de catálogo. «Un gato salta de
+    // un barril», «Algo cruje a tu espalda»: no pasaba nada y lo parecía. Lo
+    // que cambia a la vista llega del mundo (el reloj de las situaciones, lo
+    // que dejó el jugador a medias), y si no cambia nada, el turno calla.
 
     // ─── Consecuencias mecánicas ───────────────────────────────────────
     const playerUpdates = this._consecuencias(peticion, ctx);
@@ -485,6 +518,139 @@ export class ProceduralProvider extends IDMProvider {
       memory: memoria,
       mood: this._tono(peticion, ctx),
     };
+  }
+
+  /** ¿Hace bastante que no se usa la antesala? Si sí, la reserva. @private */
+  _antesalaLibre(turno) {
+    if (turno - (this._ultimaAntesala ?? -99) < 6) return false;
+    this._ultimaAntesala = turno;
+    return true;
+  }
+
+  /**
+   * Mirar, examinar, escuchar: lo que hay en el sitio.
+   *
+   * Sale de los rasgos del lugar (`data/rasgos.data.js`): «miro el río» en el
+   * Vado describe el río, el vado y quién cruza sin pagar; con buena tirada,
+   * además, lo que solo ve quien mira bien, que se apunta como descubierto
+   * una sola vez. Mirar lo mismo otra vez cuenta qué ha cambiado o pasa a lo
+   * siguiente, en vez de repetirse. Escuchar en un pueblo trae lo que se
+   * comenta y aún no se había oído.
+   *
+   * @returns {{lineas: string[], memoria: string[]}|null} null si no es mirar.
+   * @private
+   */
+  _observar(peticion, ctx) {
+    // Todo lo escrito, no solo el foco: en «vuelvo junto a la balanza y miro
+    // qué ha cambiado» el foco es volver, y se miraba nada.
+    const foco = `${ctx.foco ?? ''} ${peticion.accion ?? ''}`.trim();
+    const n = sinAcentos(foco.toLowerCase());
+    const tipo = peticion.intencion?.tipo;
+    const escucha = /\b(?:escucho|oigo|presto oido|pego la oreja|atiendo a lo que)/.test(n);
+    const mira = escucha || tipo === 'observe' || tipo === 'search'
+      || /\b(?:miro|observo|examino|me fijo|inspecciono|estudio|contemplo|echo un vistazo|reviso|registro)\b/.test(n);
+    if (!mira) return null;
+
+    const lugar = obtenerLugar(ctx.mundo?.ubicacion);
+    if (!lugar) return null;
+    const t = peticion.tirada;
+    const buena = !t || t.exito;
+    const sabido = new Set(ctx.hechosTextos ?? []);
+    const lineas = [];
+    const memoria = [];
+    const turno = peticion.turno ?? ctx.turno ?? 0;
+
+    if (escucha) {
+      const oido = (g) => `En ${lugar.nombre} se comenta que ${g}.`;
+      const nuevo = (lugar.ganchos ?? []).find((g) => !sabido.has(oido(g)));
+      if (nuevo && buena) {
+        lineas.push(`Entre precios y quejas del tiempo, una conversación se repite en dos corrillos distintos: ${nuevo}.`);
+        memoria.push(oido(nuevo));
+      } else if (ctx.situacion?.actores?.length) {
+        lineas.push(`De lo que más se habla es de lo que tienes delante: ${ctx.situacion.actores.map((a) => a.nombre).join(' y ')}.`);
+      } else {
+        lineas.push('Precios, el tiempo, quién debe a quién. Nada que no se oiga en cualquier plaza.');
+      }
+      return { lineas, memoria };
+    }
+
+    // Mirar a la gente es mirar quién hay y qué hace.
+    if (/\b(?:la gente|gente|personas|quien hay|los que pasan|la multitud|la calle llena)\b/.test(n)) {
+      const quienes = (ctx.npcsPresentes ?? []).filter((p) => p?.nombre).slice(0, 4);
+      if (quienes.length) {
+        lineas.push(`Por aquí andan ${quienes.map((p) => `${p.nombre}, ${p.genero === 'f' ? 'la' : 'el'} ${p.rol ?? 'vecino'}`).join('; ')}.`);
+        const quien = quienes.find((p) => ACTIVIDAD[sinAcentos(String(p.rol ?? '').toLowerCase())]);
+        if (quien) lineas.push(ACTIVIDAD[sinAcentos(String(quien.rol).toLowerCase())].replace('{n}', quien.nombre));
+      } else {
+        lineas.push('Pasa poca gente, y nadie se para.');
+      }
+      return { lineas, memoria };
+    }
+
+    const lista = rasgosDe(lugar.refId, lugar.terreno);
+    const general = !buscarRasgo(foco, lugar.refId, lugar.terreno);
+    let rasgo = buscarRasgo(foco, lugar.refId, lugar.terreno) ?? rasgoGeneral(lugar.refId, lugar.terreno);
+    if (!rasgo) return null;
+
+    // Lo ya descrito hace poco no se vuelve a describir igual.
+    const clave = (r) => `${lugar.refId}:${r.clave}`;
+    this._descritos ??= new Map();
+    const reciente = (r) => turno - (this._descritos.get(clave(r)) ?? -99) < 12;
+    if (general) {
+      // «miro alrededor»: lo que menos se ha descrito, no lo mismo.
+      const cuando = (r) => this._descritos.get(clave(r)) ?? -99;
+      rasgo = [...lista].sort((a, b) => cuando(a) - cuando(b))[0] ?? rasgo;
+    }
+
+    // Lo que pasó aquí de verdad: hechos del mundo que nombran este rasgo.
+    // No lo que se comenta ni lo que dijo alguien, y sin contar las palabras
+    // del nombre del pueblo («vado» no hace que un rumor sea del río).
+    const delNombre = new Set(sinAcentos(lugar.nombre.toLowerCase()).split(/[^a-zñ]+/u));
+    const suyas = rasgo.palabras.split('|').filter((w) => w.length > 3 && !delNombre.has(w) && w !== 'alrededor');
+    const loQuePaso = (sabido.size ? [...sabido] : [])
+      .filter((h) => !/^(?:Según |En .+?: |En .+? se comenta)/.test(h))
+      .filter((h) => suyas.some((w) => new RegExp(`\\b${w}`).test(sinAcentos(h.toLowerCase()))))
+      .at(-1);
+
+    if (reciente(rasgo)) {
+      // Se dice una vez; si insiste, silencio: repetir «nada ha cambiado»
+      // cada turno es otra coletilla.
+      this._sinCambio ??= new Set();
+      if (loQuePaso) lineas.push(`Desde la última vez, lo que ha cambiado aquí es esto: ${minuscula(loQuePaso)}`);
+      else if (!this._sinCambio.has(clave(rasgo))) lineas.push('Nada ha cambiado desde la última vez que miraste.');
+      this._sinCambio.add(clave(rasgo));
+    } else {
+      this._sinCambio?.delete(clave(rasgo));
+      lineas.push(rasgo.ve);
+      if (loQuePaso && !general) lineas.push(`Y lo que pasó aquí: ${minuscula(loQuePaso)}`);
+    }
+    this._descritos.set(clave(rasgo), turno);
+
+    // Lo escondido, con buena tirada y solo la primera vez.
+    // Se guarda recortado (la memoria admite 200 caracteres): se compara igual.
+    const descubierto = `En ${lugar.nombre}: ${rasgo.detalle}`.slice(0, 200);
+    if (t?.exito && rasgo.detalle && !sabido.has(descubierto)) {
+      lineas.push(rasgo.detalle);
+      memoria.push(descubierto.slice(0, 200));
+    }
+
+    return { lineas, memoria };
+  }
+
+  /**
+   * El rasgo del sitio que la acción nombra, dicho una vez cada tanto.
+   * @private
+   */
+  _rasgoNombrado(peticion, ctx) {
+    const lugar = obtenerLugar(ctx.mundo?.ubicacion);
+    const rasgo = lugar ? buscarRasgo(ctx.foco ?? peticion.accion, lugar.refId, lugar.terreno) : null;
+    if (!rasgo) return null;
+    const turno = peticion.turno ?? ctx.turno ?? 0;
+    this._descritos ??= new Map();
+    const clave = `${lugar.refId}:${rasgo.clave}`;
+    if (turno - (this._descritos.get(clave) ?? -99) < 12) return null;
+    this._descritos.set(clave, turno);
+    return rasgo.ve;
   }
 
   /**
@@ -564,48 +730,12 @@ export class ProceduralProvider extends IDMProvider {
    * @private
    */
   _narrarAccionSimple(intencion, ctx) {
-    const tipo = intencion?.tipo ?? 'custom';
-
-    const plantillas = {
-      observe: [
-        'Te detienes a mirar con calma.',
-        'Dedicas un momento a fijarte en los detalles.',
-      ],
-      explore: [
-        'Avanzas sin prisa, atento a lo que hay alrededor.',
-        'Sigues adelante.',
-      ],
-      wait: [
-        'Esperas. El tiempo pasa despacio.',
-        'Te quedas quieto y dejas que la situación se desarrolle.',
-      ],
-      rest: [
-        'Buscas un sitio resguardado y te sientas.',
-        'Te tomas un respiro.',
-      ],
-      travel: [
-        'Emprendes el camino.',
-        'Te pones en marcha.',
-      ],
-    };
-
-    if (plantillas[tipo]) return this._unico(plantillas[tipo]);
-
-    const accion = String(intencion?.texto ?? intencion?.accion ?? '').trim();
-    // La entrada libre suele venir en primera persona ("anoto", "busco") o
-    // como infinitivo. No la cosemos detrás de "intentas": eso exigiría
-    // conjugar texto arbitrario y producía frases como "intentas anoto".
-    // La conservamos como cita de intención y la narración sigue en segunda persona.
-    const propuesta = accion.replace(/[.!?…]+$/u, '');
-    const lugar = ctx.mundo?.lugar ?? ctx.mundo?.nombreLugar ?? 'este lugar';
-    const abiertas = [
-      propuesta ? `Pones en práctica tu idea: «${propuesta}».` : 'Actúas según tu instinto.',
-      propuesta ? `Sin apartar la vista de ${lugar}, decides actuar: «${propuesta}».` : `Tomas la iniciativa en ${lugar}.`,
-      propuesta ? `No dudas más. Tu intención está clara: «${propuesta}».` : 'Das el siguiente paso.',
-      'Tu decisión rompe la quietud y obliga al mundo a responder.',
-      'Te mueves con intención; alrededor, nada permanece del todo indiferente.',
-    ];
-    return this._unico(abiertas);
+    // El eco del jugador ya cuenta lo que hace. Aquí solo va lo que la acción
+    // cambia de verdad; si no cambia nada que se vea, no se añade nada. Antes
+    // salían frases de catálogo que valían para cualquier acción («Te mueves
+    // con intención; alrededor, nada permanece del todo indiferente»).
+    if (intencion?.tipo === 'rest') return 'Recuperas el aliento.';
+    return '';
   }
 
   /* ═══════════════════════════════════════════════════════════════════════
@@ -773,62 +903,21 @@ export class ProceduralProvider extends IDMProvider {
     const candidatos = canon.filter((c) => c.nombre && dicho.includes(String(c.nombre).toLowerCase()));
     if (!candidatos.length) return '';
 
-    const e = candidatos[0];
-    const rasgo = e.rasgos[0] ?? '';
+    // Quien está delante no se «recuerda»: está.
+    const presentes = new Set((ctx.npcsPresentes ?? []).map((n) => String(n.nombre).toLowerCase()));
+    const e = candidatos.find((c) => !presentes.has(String(c.nombre).toLowerCase()));
+    if (!e) return '';
 
-    // La nota se guarda tal y como la escribió el jugador —«quemó mi forja»—
-    // porque el canon debe conservar sus palabras. Pero quien lo cuenta es el
-    // narrador, y el narrador te habla de tú: sin esto salía «el que quemó mi
-    // forja» en boca de alguien que no tiene forja.
-    //
-    // Solo los posesivos. El verbo no se toca: lo hizo Verros, no tú, y esa es
-    // justo la confusión de persona que se arregló en `Persona.js`.
-    const nota = (e.notas[0] ?? '')
-      .replace(/\bmis\b/gi, 'tus').replace(/\bmi\b/gi, 'tu')
-      .replace(/\bmías\b/gi, 'tuyas').replace(/\bmíos\b/gi, 'tuyos')
-      .replace(/\bmía\b/gi, 'tuya').replace(/\bmío\b/gi, 'tuyo');
-
+    // Solo lo que el mundo sabe. Antes decía lo que el personaje pensaba
+    // («Piensas otra vez en…», «No se te quita de la cabeza»), y eso lo
+    // decide quien juega, no el narrador.
     if (e.tipo === 'lugar') {
-      return this._unico([
-        `${e.nombre} sigue ahí, en el mapa que llevas en la cabeza.`,
-        `Piensas en ${e.nombre} sin querer, como se piensa en lo que queda pendiente.`,
-        `Hay un camino que lleva a ${e.nombre}. No hoy, pero lo hay.`,
-      ]);
+      const destino = Object.values(LUGARES).find((l) => l?.nombre && sinAcentos(l.nombre.toLowerCase()) === sinAcentos(String(e.nombre).toLowerCase()));
+      const r = destino ? rutaMapa(ctx.mundo?.ubicacion, destino.refId) : null;
+      return r?.encontrada && r.tiempoTotal ? `${e.nombre} queda a ${horasDichas(r.tiempoTotal)} de aquí.` : '';
     }
-
-    if (e.tipo === 'cosa') {
-      return this._unico([
-        `Compruebas que ${e.nombre} sigue donde debe estar.`,
-        `${e.nombre} pesa más de lo que debería, y no es por el metal.`,
-      ]);
-    }
-
-    // Personas: el cargo y lo que el jugador contó, cosidos como oración de
-    // relativo. Pegados con comas —«Verros, capitán, quemó mi forja»— sonaba a
-    // ficha de archivo; con el «que» delante es una frase.
-    //
-    // Las palabras son las suyas, sin retocar: si escribió «capitan» sin
-    // tilde, así se queda. Corregirle la ortografía sería meterse donde no nos
-    // llaman, y peor, haría que su texto y el del juego dejaran de parecer lo
-    // mismo.
-    const quien = rasgo ? `${e.nombre}, el ${rasgo}` : e.nombre;
-
-    if (nota) {
-      // «quien» y no «el que»: del canon no sale el género de nadie, y llamar
-      // «el que» a Elyndra o a Lyssara es inventarse la mitad del personaje.
-      return this._unico([
-        `Vuelve el mismo pensamiento: ${quien}, quien ${nota}.`,
-        `${e.nombre}${rasgo ? `, el ${rasgo},` : ''} ${nota}. Eso no se va a ninguna parte.`,
-        `No se te quita de la cabeza: ${quien}, quien ${nota}.`,
-        `Piensas otra vez en ${quien}, quien ${nota}, y aprietas el paso.`,
-      ]);
-    }
-
-    return this._unico([
-      `El nombre de ${e.nombre} te ronda otra vez.`,
-      `Piensas en ${quien} y en lo que falta por saber.`,
-      `${e.nombre} sigue siendo un nombre y poco más. De momento.`,
-    ]);
+    if (e.tipo === 'persona') return `De ${e.nombre}, aquí, ni rastro.`;
+    return '';
   }
 
   /**
@@ -872,26 +961,6 @@ export class ProceduralProvider extends IDMProvider {
       if (nombre && accion.includes(nombre)) return true;
       return (ALIAS[s.tipo] ?? [s.tipo]).some((a) => new RegExp(`\\b${a}`).test(accion));
     }) ?? null;
-  }
-
-  /**
-   * Elige un suceso ambiental adecuado al momento.
-   * @private
-   */
-  _elegirAmbiente(ctx) {
-    const grupos = [AMBIENTE.general];
-
-    if (ctx.mundo?.franja === 'noche' || ctx.mundo?.franja === 'madrugada') {
-      grupos.push(AMBIENTE.noche);
-    }
-    if (ctx.mundo?.terreno === 'ciudad' || obtenerLugar(ctx.mundo?.ubicacion)?.tipo === 'asentamiento') grupos.push(AMBIENTE.ciudad);
-
-    // Cuando lleva muchos turnos sin encuentros, se siembra inquietud. No
-    // promete nada, pero prepara al jugador.
-    if ((ctx.mundo?.turnosDesdeEncuentro ?? 0) > 5) grupos.push(AMBIENTE.peligro);
-
-    const grupo = this._flujo().elegir(grupos);
-    return grupo ? this._unico(grupo) : null;
   }
 
   /**
@@ -1094,10 +1163,10 @@ export class ProceduralProvider extends IDMProvider {
 
     // Una negativa no se contesta con un saludo ni se tira: la reacción de
     // quien la oye la pone `_enriquecer`, desde lo que siente por él.
-    const respuesta = ctx.negativa || testimonio ? '' : this._responderPregunta(peticion, ctx, npc);
+    const respuesta = ctx.negativa || testimonio ? null : this._responderPregunta(peticion, ctx, npc, recuerdo);
 
     if (respuesta) {
-      partes.push(respuesta);
+      partes.push(respuesta.texto);
     } else if (!ctx.negativa && !testimonio) {
       partes.push(this._responderAfirmacion(peticion, ctx, npc, actitud));
     }
@@ -1113,7 +1182,8 @@ export class ProceduralProvider extends IDMProvider {
       // Se ha hablado con alguien concreto: los objetivos «Hablar con…» lo
       // necesitan saber.
       events: npc.refId ? [{ type: 'npc_talk', payload: { refId: npc.refId, nombre: npc.nombre }, silent: true }] : [],
-      memory: [],
+      memory: respuesta?.memory ?? [],
+      npcMemory: respuesta?.npcMemory ?? [],
       mood: 'neutro',
     };
   }
@@ -1219,7 +1289,11 @@ export class ProceduralProvider extends IDMProvider {
 
     const m = frase.match(/\b(?:pregunto|preguntar|hablo|hablar|digo|decir|le pregunto|le digo)\s+(?:a la|al|a|con la|con el|con)\s+([a-zñ]+)/u);
     const destinatario = m?.[1] ?? null;
-    if (!destinatario) return { npc: presentes[0] ?? null, ausente: null };
+    // «le pregunto por el paso» sin decir a quién: a quien se estaba
+    // hablando, no al primero de la lista.
+    const reciente = [...presentes].sort((a, b) => (b.ultimoEncuentro ?? -1) - (a.ultimoEncuentro ?? -1))[0];
+    const nombrado = presentes.find((n) => n?.nombre && frase.includes(llano(n.nombre)));
+    if (!destinatario) return { npc: nombrado ?? reciente ?? presentes[0] ?? null, ausente: null };
 
     const SINONIMOS = {
       tabernero: ['tabernero', 'tabernera', 'posadero', 'posadera', 'mesonero', 'mesonera'],
@@ -1272,112 +1346,47 @@ export class ProceduralProvider extends IDMProvider {
    * @returns {string|null}
    * @private
    */
-  _responderPregunta(peticion, ctx, npc) {
+  _responderPregunta(peticion, ctx, npc, recordado = '') {
     const accion = String(ctx.foco ?? peticion.accion ?? '').trim();
     if (!accion) return null;
 
-    const plano = accion.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const plano = sinAcentos(accion.toLowerCase());
 
-    // Sin `\b` de cierre: lo llevaba y por eso no casaba nunca con la forma
-    // que de verdad escribe la gente. «pregunto» sigue a «pregunt» con una
-    // letra, así que el límite de palabra fallaba justo ahí y el PNJ volvía a
-    // saludar en vez de contestar.
+    // Sin `\b` de cierre: «pregunto» sigue a «pregunt» con una letra.
     const esPregunta = accion.includes('?')
-      || /\b(pregunt|le digo si|si ha visto|si sabe|sabe algo|ha oido|has oido|que sabe|quien|donde|cuando|por que|cuanto)/.test(plano);
+      || /\b(pregunt|le digo si|si ha visto|si sabe|sabe algo|ha oido|has oido|que sabe|quien|donde|cuando|por que|cuanto|exijo que me diga|que me diga)/.test(plano);
     if (!esPregunta) return null;
 
-    const tema = this._temaDePregunta(accion, npc.nombre);
-    const nombre = npc.nombre ?? 'quien tienes delante';
+    // Lo que contesta sale de lo que sabe (ver `narrador/Conocimiento.js`):
+    // del mapa, de la ficha del lugar, de lo que ha visto y de su oficio. Si
+    // no lo sabe, lo dice y señala a quién preguntar; solo esquiva si tiene
+    // un motivo que se ve. Antes salía de tres plantillas evasivas y de un
+    // gancho del lugar al azar: «El paso del norte… mira», y un rumor sobre
+    // hierro que no venía a cuento.
+    const saber = queSabe({
+      npc,
+      texto: accion,
+      lugar: ctx.mundo?.ubicacion,
+      conocidos: ctx.conocidos ?? ctx.npcsPresentes ?? [],
+      situacion: ctx.situacion,
+      hechos: (ctx.hechosTextos ?? []).map((texto) => ({ texto })),
+      estacion: ctx.mundo?.estacion ?? null,
+      lore: ctx.jugador?.lore ?? null,
+    });
 
-    // Lo que este lugar puede ofrecer de verdad como pista.
-    const lugar = obtenerLugar(ctx.mundo?.ubicacion);
-    const gancho = (lugar?.ganchos ?? [])[0] ?? null;
+    // La tirada social ya está echada y manda sobre CUÁNTO cuenta, no sobre
+    // si miente: con éxito se abre más; con fallo contesta lo justo.
+    const t = peticion.tirada;
+    const conGanas = !t || t.exito;
+    if (!conGanas) saber.nuevos = saber.nuevos.slice(0, 1);
+    const { lineas, contado } = responder(saber, npc, { elegir: (l) => this._unico(l), seco: !conGanas, recordado: Boolean(recordado) });
 
-    const exito = peticion.tirada ? peticion.tirada.exito : true;
-
-    // Toda respuesta nombra lo que se preguntó.
-    //
-    // Dos de las tres variantes de éxito y dos de fallo no lo hacían: «Mira»,
-    // dice Corlin, y no termina la frase. Suena a respuesta y no responde a
-    // nada. Si el jugador preguntó por el incendio, la respuesta habla del
-    // incendio, aunque sea para no decir nada de él.
-    const Tema = tema ? capitalizar(tema) : 'Eso';
-
-    // ¿Pregunta por su propia historia? Entonces quien contesta reacciona a
-    // eso, sin inventar hechos: el pasado del personaje lo escribe el jugador.
-    const suyo = this._tocaSuPasado(tema, ctx.jugador?.lore);
-
-    if (exito) {
-      const reaccion = suyo ? 'Sabe de qué le hablas, y se le nota. ' : '';
-      const pista = gancho
-        ? `Y añade algo que no esperabas: ${gancho.charAt(0).toLowerCase()}${gancho.slice(1)}`
-        : 'Y lo que cuenta encaja con lo que ya sospechabas';
-
-      return reaccion + this._unico([
-        `${nombre} tarda en contestar. «¿${Tema}?… Algo se dice.» ${pista}.`,
-        `«${Tema}», repite ${nombre}, como si la palabra pesara. Luego habla. ${pista}.`,
-        `Cuando nombras ${tema || 'eso'}, ${nombre} mira alrededor antes de responder, y eso ya te dice algo. ${pista}.`,
-      ]);
-    }
-
-    return this._unico([
-      `«¿${Tema}? Eso queda lejos de mis asuntos», dice ${nombre}. «Pregunta a los carreteros, que van y vienen.»`,
-      `${nombre} se encoge de hombros. «¿${Tema}? Ni idea. Aquí cada uno se ocupa de lo suyo.»`,
-      `«${Tema}… mira», dice ${nombre}, y no termina la frase. Vuelve a lo que estaba haciendo.`,
-    ]);
-  }
-
-  /**
-   * ¿El tema de la pregunta sale de la historia que escribió el jugador?
-   *
-   * Basta una palabra con peso en común: «el incendio de la forja» y «Perdí la
-   * forja de mi padre en un incendio» comparten «incendio» y «forja».
-   *
-   * @param {string} tema
-   * @param {string} lore
-   * @returns {boolean}
-   * @private
-   */
-  _tocaSuPasado(tema, lore) {
-    if (!tema || !lore) return false;
-    const llano = (t) => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-    const del = new Set(llano(lore).split(/[^a-zñ]+/u).filter((p) => p.length >= 5));
-    return llano(tema).split(/[^a-zñ]+/u).some((p) => p.length >= 5 && del.has(p));
-  }
-
-  /**
-   * El sustantivo clave por el que se pregunta.
-   *
-   * Primero los nombres propios, que es lo que suele importar —«Forja Alta»,
-   * «Helta»—, y si no hay, el sintagma detrás de la preposición.
-   *
-   * @param {string} accion
-   * @returns {string}
-   * @private
-   */
-  _temaDePregunta(accion, aQuien = '') {
-    // El nombre de a quien se pregunta no es el tema: «pregunto a Corlia por
-    // el hierro» es sobre el hierro. Salía «Cuando nombras Corlia, Corlia mira
-    // alrededor…».
-    const propio = accion.match(/\b([A-ZÁÉÍÓÚÑ][a-záéíóúñü]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñü]+)*)\b/g)
-      ?.filter((p) => !/^(Pregunto|Preguntar|Le|Si|El|La|Los|Las|Un|Una|Y|Que|Por|Del?)$/i.test(p))
-      .filter((p) => !aQuien || p.toLowerCase() !== String(aQuien).toLowerCase());
-
-    if (propio?.length) return propio[propio.length - 1];
-
-    // Lo que va detrás de «por», «sobre» o «acerca de», entero y con su
-    // artículo: «el incendio de la forja». Antes se cortaba en dos palabras y
-    // salía «¿Incendio de?», que no es una pregunta que nadie repita.
-    const tras = accion.match(/\b(?:por|sobre|acerca de)\s+([^,.;:!?¿¡«»"]+)/i)?.[1];
-    if (tras) {
-      const palabras = tras.trim().split(/\s+/).slice(0, 6);
-      // Sin preposiciones ni artículos colgando al final.
-      while (palabras.length && /^(de|del|la|el|los|las|a|al|en|con|y|que|un|una)$/i.test(palabras.at(-1))) palabras.pop();
-      if (palabras.length) return palabras.join(' ');
-    }
-
-    const sintagma = accion.match(/\b(?:del|de la|de)\s+(?:el |la |los |las |un |una )?([a-záéíóúñü]+(?:\s+[a-záéíóúñü]+)?)/i);
-    return sintagma?.[1]?.trim() ?? '';
+    return {
+      texto: lineas.join('\n'),
+      npcMemory: npc.refId ? contado.map((texto) => ({ refId: npc.refId, texto, tipo: 'compartido' })) : [],
+      // Lo que cuenta un PNJ es lo que él dice, no la verdad del mundo.
+      memory: contado.slice(0, 2).map((d) => `Según ${npc.nombre}: ${d}`.slice(0, 200)),
+    };
   }
 
   /**

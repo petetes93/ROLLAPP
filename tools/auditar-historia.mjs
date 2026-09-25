@@ -375,7 +375,10 @@ async function encuentro(refId = 'patrulla_hostil') {
     'acercarse al herrero no es atender lo que acaba de ignorar', t2);
   // En el lugar puede haber ya un herrero: contesta el que esté, pero contesta.
   const respuesta = t2.split('\n').slice(2).join(' ');
-  comprobar(/«[^»]*paso del norte[^»]*»/i.test(respuesta), 'y el herrero contesta a lo que se le pregunta', t2);
+  // Con el nombre del jugador o con el del mapa: «el paso del norte» es el
+  // Paso del Yunque, y lo que cuenta tiene que ser de ese paso.
+  comprobar(/«[^»]*(?:paso del norte|Paso del Yunque)[^»]*»/i.test(respuesta) && !/hierro/.test(respuesta),
+    'y el herrero contesta a lo que se le pregunta, sin irse a otra cosa', t2);
 
   const rolls = [];
   m.bus.on('rules:roll', (t) => rolls.push(t));

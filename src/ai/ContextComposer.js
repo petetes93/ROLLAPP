@@ -480,6 +480,7 @@ export class ContextComposer {
         // y describía el terreno de la comarca desde la mesa de una taberna.
         sublugar: mundo.sublugar ?? null,
         franja: mundo.tiempo.franja,
+        estacion: mundo.tiempo.estacion ?? null,
         hora: mundo.tiempo.hora,
         dia: mundo.tiempo.dia,
         clima: mundo.clima.actual,
@@ -492,6 +493,15 @@ export class ContextComposer {
       npcsPresentes: (npcs?.presentes ?? [])
         .map((id) => npcs.conocidos?.porId?.[id])
         .filter(Boolean),
+
+      // A quién conoce el mundo, para saber de quién se habla aunque no
+      // esté delante.
+      conocidos: Object.values(npcs?.conocidos?.porId ?? {})
+        .map((n) => ({ refId: n.refId, nombre: n.nombre, rol: n.rol, genero: n.genero, actitud: n.actitud, lugar: n.lugar })),
+
+      // Lo que el mundo recuerda, en texto: lo que ya se ha descubierto no se
+      // descubre dos veces.
+      hechosTextos: (this.memoria.hechos ?? []).slice(-80).map((h) => h.texto),
 
       accion: peticion.accion,
       intencion: peticion.intencion,

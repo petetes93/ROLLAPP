@@ -31,30 +31,28 @@ export const CORTA = '¿Qué haces?';
  * @returns {string[]}
  */
 export function candidatas({ npcs = [], enemigos = [], franja = null } = {}) {
-  const lista = [CORTA];
+  // Las variantes delante y la corta al final: tras una corta se puede
+  // nombrar a quien espera; tras una variante, siempre la corta (ver
+  // `preguntaDeMesa`).
+  const lista = [];
 
   const enemigo = enemigos.find((e) => e?.nombre)?.nombre;
   if (enemigo) {
-    lista.push(
-      `${enemigo} no te quita ojo. ¿Qué haces?`,
-      `${enemigo} espera tu movimiento. ¿Qué haces?`,
-    );
+    lista.push(`${enemigo} espera tu movimiento. ¿Qué haces?`, CORTA);
     return lista;
   }
 
+  // «No te quita ojo», «te mira, esperando», «La decisión es tuya»: frases
+  // que no dicen nada y se repetían cada dos turnos (49 veces en seis
+  // partidas medidas con `tools/medir-narrador.mjs`). Se queda la forma
+  // corta y, si alguien espera respuesta de verdad, se dice quién.
   const npc = npcs.find((n) => n?.nombre)?.nombre;
-  if (npc) {
-    lista.push(
-      `${npc} espera tu respuesta. ¿Qué haces?`,
-      `${npc} te mira, esperando. ¿Qué haces?`,
-    );
-  }
+  if (npc) lista.push(`${npc} espera tu respuesta. ¿Qué haces?`);
 
   // Las franjas son las del reloj del juego: «ocaso» y «alba», no «anochecer».
   if (franja === 'ocaso' || franja === 'noche') lista.push('La noche se echa encima. ¿Qué haces?');
-  if (franja === 'alba') lista.push('El día empieza. ¿Qué haces?');
 
-  lista.push('La decisión es tuya. ¿Qué haces?');
+  lista.push(CORTA);
   return lista;
 }
 
@@ -68,9 +66,11 @@ export function candidatas({ npcs = [], enemigos = [], franja = null } = {}) {
  * @returns {string}
  */
 export function preguntaDeMesa(escena = {}, { anterior = null, elegir = (l) => l[0] } = {}) {
+  // Después de una variante, la corta: «Vervek espera tu respuesta» dos
+  // turnos seguidos ya es una muletilla.
+  if (anterior && anterior !== CORTA) return CORTA;
   const lista = candidatas(escena);
-  const sinRepetir = lista.filter((p) => p !== anterior);
-  return elegir(sinRepetir.length ? sinRepetir : lista) ?? CORTA;
+  return elegir(lista) ?? CORTA;
 }
 
 /**

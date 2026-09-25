@@ -591,6 +591,16 @@ export class TurnResolver extends SystemBase {
 
       this.memoria.recordarVarios(saneada.memory ?? [], { turno: numeroTurno });
 
+      // Lo que cada PNJ tiene que recordar: lo que ha contado queda como
+      // compartido (no lo volverá a contar como nuevo) y lo demás, en su
+      // memoria. Solo con quien existe.
+      const npcs = this.sistema('npcs');
+      for (const r of saneada.npcMemory ?? []) {
+        if (!r?.refId || !r.texto) continue;
+        if (r.tipo === 'compartido') npcs?.compartir?.(r.refId, r.texto);
+        else npcs?.recordar?.(r.refId, r.texto, { tipo: r.tipo || 'dicho' });
+      }
+
       // Lo que el jugador ha nombrado pasa a existir.
       //
       // Es lo que hace que la historia se construya en vez de olvidarse. Antes

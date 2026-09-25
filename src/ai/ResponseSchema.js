@@ -159,6 +159,15 @@ export const ESQUEMA_RESPUESTA = S.objeto({
 
   memory: S.lista(S.texto({ max: 200 }), { max: COTAS_IA.memoriaPorTurno, defecto: [] }),
 
+  // Lo que un PNJ debe recordar de este turno: lo que ha contado
+  // (`compartido`), lo que le han dicho, lo que ha visto. Sin esto, el
+  // herrero volvía a contar lo mismo como nuevo, o reciclaba cualquier cosa.
+  npcMemory: S.lista(S.objeto({
+    refId: S.texto({ max: 48 }),
+    texto: S.texto({ max: 240 }),
+    tipo: S.texto({ max: 24, defecto: 'dicho' }),
+  }), { max: 4, defecto: [] }),
+
   mood: S.texto({ max: 24, defecto: 'neutro' }),
 
   // La pregunta de mesa con que cierra el turno: «Corlin espera tu respuesta.

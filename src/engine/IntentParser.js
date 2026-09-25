@@ -161,6 +161,11 @@ export const INTENCIONES = Object.freeze({
       mirar: 9, miro: 9, observar: 10, observo: 10, examinar: 9,
       fijarme: 8, contemplar: 7, estudiar: 8, escuchar: 8,
       atender: 6, vigilar: 8, esperar: 4,
+      // Como se escribe jugando: «examino la orilla», «me fijo en la
+      // balanza». Solo estaba el infinitivo, y eso salía sin tirada: mirar
+      // con cuidado no podía encontrar nada.
+      examino: 9, inspecciono: 9, inspeccionar: 9, fijo: 8, contemplo: 7,
+      escucho: 8, vigilo: 8, reviso: 8, revisar: 8,
     },
     habilidad: 'percepcion',
     umbral: 'facil',

@@ -19,7 +19,8 @@
  */
 
 import { crearMotor } from './motor-sin-ventana.mjs';
-import { segmentar } from '../src/engine/Segmentos.js';
+import { segmentar, ordenar } from '../src/engine/Segmentos.js';
+import { resultadosDe, categoriaDe } from '../src/data/narrative.templates.js';
 import { obtenerEncuentro } from '../src/world/EncounterTables.js';
 import * as Prompt from '../src/ai/PromptBuilder.js';
 import { ContextComposer } from '../src/ai/ContextComposer.js';
@@ -343,6 +344,56 @@ async function encuentro(refId = 'patrulla_hostil') {
   const interno = paraInterfaz({}).find((p) => p.id === 'procedural');
   comprobar(interno?.limite && /plantillas/.test(interno.limite) && /Puente manual o una IA/.test(interno.limite),
     'el director interno dice su techo al elegirlo', interno?.limite);
+}
+
+/* ── 8. Lo que destapó la partida de prueba de catorce turnos ────────────── */
+
+{
+  const cond = segmentar('si el herrero me sigue mirando, me voy al puente');
+  comprobar(cond.length === 1 && cond[0].condicion === 'el herrero me sigue mirando' && cond[0].consecuencia === 'me voy al puente',
+    'con la coma del jugador, la condición acaba en la coma («herrero» no es un verbo)', JSON.stringify(cond));
+  comprobar(ordenar(segmentar('me acerco al herrero y le pregunto por el paso del norte')).foco?.texto === 'le pregunto por el paso del norte',
+    'si acercarse solo prepara la pregunta, el foco es la pregunta');
+  comprobar(ordenar(segmentar('abro la puerta y le pregunto quién es')).foco?.texto === 'abro la puerta', 'pero una acción de verdad sigue siendo el foco');
+}
+
+{
+  await nuevaPartida({ ...FICHA, lore: '' });
+  const situaciones = m.sistema('situations');
+  for (const s of situaciones.aqui()) m.store.dispatch('situaciones/guardar', { situacion: { ...s, estado: 'desenlace' } });
+  const sit = situaciones.abrir({ refId: 'encapuchado_vigila' });
+  m.sistema('npcs').introducir({ nombre: 'Vervek', rol: 'herrero', genero: 'm' });
+
+  const presentesAntes = [...m.ver('npcs.presentes', [])].sort().join();
+  const t1 = await m.jugar('si el herrero me sigue mirando, me voy al puente');
+  comprobar([...m.ver('npcs.presentes', [])].sort().join() === presentesAntes && !/^Te vas al puente/m.test(t1),
+    'una condición sola no mueve al personaje', t1);
+  comprobar(/si el herrero te sigue mirando\./.test(t1), 'y lo pendiente se le devuelve en segunda persona', t1);
+
+  const t2 = await m.jugar('Ignoro al encapuchado; me acerco al herrero y le pregunto por el paso del norte');
+  comprobar(!/Desde aquí se ve mejor/.test(t2) && situaciones.todas().find((s) => s.id === sit.id).ignoradaAProposito,
+    'acercarse al herrero no es atender lo que acaba de ignorar', t2);
+  // En el lugar puede haber ya un herrero: contesta el que esté, pero contesta.
+  const respuesta = t2.split('\n').slice(2).join(' ');
+  comprobar(/«[^»]*paso del norte[^»]*»/i.test(respuesta), 'y el herrero contesta a lo que se le pregunta', t2);
+
+  const rolls = [];
+  m.bus.on('rules:roll', (t) => rolls.push(t));
+  await m.jugar('compro pan en el puesto');
+  comprobar(!rolls.length, 'comprar pan no se tira', JSON.stringify(rolls.map((r) => r.habilidad)));
+
+  fijarDado(false);
+  const t3 = await m.jugar('intento trepar al tejado donde estaba el encapuchado');
+  const fallo = resultadosDe('fracaso', categoriaDe('atletismo')).concat(resultadosDe('fracasoGrave', categoriaDe('atletismo')));
+  comprobar(!/No hay ningún encapuchado/.test(t3) && fallo.some((f) => t3.includes(f)), 'trepar al tejado donde estaba alguien se intenta, y se cuenta cómo sale', t3);
+
+  // El robo pasa sin el jugador: el vigía se va y el mercader lo cuenta si se le pregunta.
+  for (let i = 0; i < 6; i += 1) await m.jugar('miro el río');
+  comprobar(situaciones.todas().find((s) => s.id === sit.id).estado === 'desenlace', 'el robo ocurre a su ritmo');
+  comprobar(!m.ver('npcs.presentes', []).includes(sit.actores.vigia.refId), 'quien se ha ido ya no está en escena');
+  m.guardarYCargar();
+  const t4 = await m.jugar(`le pregunto a ${sit.actores.mercader.nombre} qué le ha pasado`);
+  comprobar(/Me han quitado la bolsa/.test(t4), 'preguntado qué le ha pasado, el mercader cuenta el robo, también tras guardar y cargar', t4);
 }
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);

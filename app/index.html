@@ -94,21 +94,21 @@ button{font-family:inherit;cursor:pointer}
    El `padding-right` cubre el trazo de adorno de la ultima letra, que sobra de
    su caja de texto: `getBoundingClientRect` decia que cabia cuando la tinta ya
    estaba fuera. Si algun dia cambia el nombre, hay que volver a medirlo. */
+/* El tamaño va en ancho de pantalla con tope en rem, sin mínimo en rem: con
+   zoom al 200 % o la letra del sistema grande, un mínimo en rem hacía el
+   título más ancho que la pantalla. El relleno de la derecha es el trazo de
+   adorno de la última ele, que sobra de su caja: sin él, en escritorio la
+   tinta salía 80 px fuera, y centrado quedaba torcido a la izquierda.
+   Medido sobre píxeles en tools de capturas (ver regresion-app.mjs). */
 .inicio__marca{
   font-family:var(--display);font-variation-settings:'SOFT' 0,'WONK' 1,'opsz' 144;
-  font-weight:900;font-size:clamp(2rem,13.5vw,5.2rem);line-height:.9;
-  letter-spacing:-.03em;color:var(--titulo);margin:0;
-  padding-right:.08em;
-  text-shadow:0 0 30px rgba(143,124,255,.55),3px 3px 0 rgba(255,111,145,.28);
+  font-weight:900;font-size:min(11.5vw,5.2rem);line-height:.95;
+  letter-spacing:-.03em;color:var(--oro-claro);margin:0;
+  padding:0 .7em 0 .1em;max-width:100%;
+  text-shadow:0 2px #000,0 0 30px rgba(208,157,57,.32);
+  pointer-events:none;
 }
-.inicio__lema{
-  font-family:var(--mono);font-size:.72rem;letter-spacing:.24em;
-  text-transform:uppercase;color:var(--texto-3);margin:.9rem 0 2.5rem;
-}
-.inicio__acciones{display:flex;flex-direction:column;gap:.7rem;min-width:14rem}
-.inicio__pie{
-  margin-top:2.5rem;font-size:.78rem;color:var(--texto-3);max-width:26rem;
-}
+.inicio__acciones{display:flex;flex-direction:column;gap:.6rem;min-width:min(18rem,80vw)}
 
 /* ── creación ───────────────────────────────────────────────────────── */
 .creacion{max-width:52rem;margin:0 auto;padding:2rem 1.25rem 6rem}
@@ -673,9 +673,20 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
 <style id="fantasy-chrome-final">
 /* Última capa intencionada: vence a los estilos históricos del prototipo. */
 .inicio{background:linear-gradient(rgba(6,4,5,.28),rgba(6,4,4,.68)),radial-gradient(ellipse 70% 58% at 50% 20%,rgba(123,77,31,.28),transparent 64%),repeating-linear-gradient(101deg,rgba(119,66,27,.07) 0 2px,transparent 2px 22px),#0d0909}
-.inicio>div{position:relative;width:min(31rem,100%);padding:clamp(1.5rem,5vw,3rem);background:var(--pergamino);border:2px solid #7C5B29;border-radius:3px 20px 3px 20px;box-shadow:inset 0 0 0 4px #130E0C,inset 0 0 0 5px rgba(218,176,79,.18),inset 0 0 50px rgba(0,0,0,.6),0 25px 70px rgba(0,0,0,.72)}
-.inicio>div::before{content:'✦';position:absolute;left:50%;top:-16px;transform:translateX(-50%);width:31px;height:31px;display:grid;place-items:center;color:#E0BD68;background:#17100D;border:2px solid #795929;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
-.inicio__marca{font-family:var(--display);color:var(--oro-claro);text-shadow:0 2px #000,0 0 30px rgba(208,157,57,.32)}
+/* Portada: la marca sola sobre el fondo, y debajo la llamada. El menú es un
+   segundo estado; al abrirlo, la llamada se va y la marca sube un poco. */
+.inicio__portada{display:flex;flex-direction:column;align-items:center;gap:clamp(1.2rem,4vh,2.4rem);width:100%}
+.inicio__jugar{min-height:44px;padding:.7rem 1.4rem;border:0;background:none;color:#E9D39A;font:600 clamp(.82rem,2.6vw,1rem)/1.2 var(--mono);letter-spacing:.32em;text-transform:uppercase;cursor:pointer;text-shadow:0 1px 2px #000;animation:llamada 2.6s ease-in-out infinite}
+.inicio__jugar:hover{color:#FFF0C2}
+.inicio__jugar:focus-visible,.inicio__volver:focus-visible{outline:2px solid #E6C36B;outline-offset:4px;border-radius:4px}
+@keyframes llamada{50%{opacity:.62}}
+.inicio__menu{display:flex;flex-direction:column;align-items:center;gap:.9rem;margin-top:clamp(1.2rem,4vh,2.2rem);width:100%}
+.inicio__menu[hidden]{display:none}
+.inicio__volver{min-height:44px;padding:.5rem 1.2rem;border:0;background:none;color:var(--texto-2);font:600 .8rem/1 var(--mono);letter-spacing:.2em;text-transform:uppercase;cursor:pointer}
+.inicio__volver:hover{color:#F0DDA4}
+.inicio[data-estado="menu"] .inicio__jugar{display:none}
+.inicio[data-estado="menu"] .inicio__marca{font-size:min(9vw,3.6rem)}
+@media(prefers-reduced-motion:reduce){.inicio__jugar{animation:none}}
 .creacion{margin:clamp(.7rem,3vw,2rem) auto;padding:clamp(1.4rem,4vw,2.5rem) clamp(1rem,4vw,2.5rem) 7rem;background:var(--pergamino);border:2px solid #7C5B29;border-radius:3px 20px 3px 20px;box-shadow:inset 0 0 0 4px #130E0C,inset 0 0 0 5px rgba(218,176,79,.18),inset 0 0 50px rgba(0,0,0,.6),0 25px 70px rgba(0,0,0,.72)}
 .cab{position:relative;background:var(--madera);border-bottom:2px solid #795827;box-shadow:inset 0 -3px rgba(10,6,5,.65),0 7px 22px rgba(0,0,0,.48)}
 .tablero{gap:5px;padding:5px;background:radial-gradient(circle at 50% 0,rgba(121,76,34,.11),transparent 48%),#0b0808}.centro,.lateral{background:var(--pergamino);border:1px solid #5D4421;box-shadow:inset 0 0 22px rgba(0,0,0,.48)}
@@ -684,7 +695,7 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
 .linea--dm{font-family:var(--sans);font-size:1.04rem;line-height:1.68;color:#E4D9C1;text-shadow:0 1px #000}.linea--dm::first-letter{font-family:var(--display);font-size:2.1em;line-height:.75;color:#D8AD50;text-shadow:0 1px #000,0 0 7px rgba(218,171,70,.3)}
 .escena{border:2px solid #6E5127;border-radius:2px 15px 2px 15px;box-shadow:inset 0 0 0 1px rgba(235,196,101,.13),0 9px 25px rgba(0,0,0,.52)}.escena__rotulo{background:linear-gradient(transparent,rgba(20,12,8,.96));border-top:1px solid rgba(128,96,45,.55)}.escena__lugar{font-family:var(--display);color:#F0D58A;text-shadow:0 2px #000}
 .modal{background:radial-gradient(circle at center,rgba(46,29,18,.24),rgba(0,0,0,.9));backdrop-filter:blur(7px) saturate(.75)}.modal .modal__panel{background:var(--pergamino);border:2px solid #89662F;border-radius:3px 18px 3px 18px;box-shadow:inset 0 0 0 3px #17100E,inset 0 0 0 4px rgba(215,177,83,.2),inset 0 0 35px rgba(0,0,0,.58),0 22px 60px rgba(0,0,0,.75)}.modal .modal__cab{margin:-1rem -1rem .8rem;padding:.8rem 1rem;font-family:var(--display);letter-spacing:.08em;color:#EDD58C;background:linear-gradient(90deg,#1B110C,#493119 50%,#1B110C);border-bottom:1px solid #80602D}.modal__cab h2::before{content:'❖';margin-right:.5rem;color:#C09A48}.director-opcion{position:relative;font-family:var(--mono);color:#E4D6B0;background:linear-gradient(145deg,#342418,#100C0B);border:1px solid #654A23;border-radius:2px 10px 2px 10px}.director-opcion.es-activo{border-color:#D2AA53;box-shadow:inset 3px 0 #D2AA53,0 0 15px rgba(198,149,57,.14)}
-@media(max-width:560px){.fichas{grid-template-columns:1fr}.inicio{padding:.7rem}.inicio>div{padding:1.4rem .8rem}.inicio__marca{font-size:clamp(2rem,13.5vw,4.2rem)}.creacion{width:calc(100% - .7rem);margin:.35rem;padding:1.2rem .75rem 6rem}.tablero{padding:3px;gap:3px}.pie{padding:.75rem .5rem max(.65rem,env(safe-area-inset-bottom))}.opcion{min-width:min(74vw,18rem)}.lateral{max-height:11.5rem}.modal .modal__panel{padding:.8rem}.modal .modal__cab{margin:-.8rem -.8rem .7rem}}
+@media(max-width:560px){.fichas{grid-template-columns:1fr}.inicio{padding:.7rem}.creacion{width:calc(100% - .7rem);margin:.35rem;padding:1.2rem .75rem 6rem}.tablero{padding:3px;gap:3px}.pie{padding:.75rem .5rem max(.65rem,env(safe-area-inset-bottom))}.opcion{min-width:min(74vw,18rem)}.lateral{max-height:11.5rem}.modal .modal__panel{padding:.8rem}.modal .modal__cab{margin:-.8rem -.8rem .7rem}}
 
 </style>
 <style id="fantasy-actions-final">
@@ -716,7 +727,6 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
 
 <style id="menu-y-creacion">
 /* ── pantalla de título ─────────────────────────────────────────────── */
-.inicio__acciones{min-width:min(18rem,80vw);gap:.6rem}
 .menu-btn{display:flex;flex-direction:column;align-items:center;gap:.15rem;width:100%;font-size:.95rem;letter-spacing:.14em}
 .menu-btn__nota{font:500 .6rem/1.2 var(--mono);letter-spacing:.06em;text-transform:none;opacity:.78;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .menu-btn:disabled{filter:grayscale(.7)}
@@ -1088,17 +1098,18 @@ textarea.entrada{resize:none;overflow-y:auto;line-height:1.45;max-height:180px;d
 </div>
 
 <!-- ═══ inicio ═══════════════════════════════════════════════════════ -->
-<section data-pantalla="inicio" class="inicio" hidden>
-  <div>
+<section data-pantalla="inicio" class="inicio" data-estado="portada" hidden>
+  <!-- La portada es la marca y una llamada. Nada de cuadro alrededor. Al
+       pulsar, el menú de siempre aparece debajo, y «Volver» lo recoge. -->
+  <div class="inicio__portada">
     <h1 class="inicio__marca">ARCANVEIL</h1>
-    <p class="inicio__lema">TU AVENTURA · TUS DECISIONES</p>
-
-    <div class="inicio__acciones" id="inicio-acciones"></div>
-
-    <p class="inicio__pie">
-      Una aventura narrativa de fantasía anime. Escribe cualquier acción, explora, combate y haz crecer a tu personaje.
-    </p>
+    <button type="button" class="inicio__jugar" id="inicio-jugar"
+            aria-controls="inicio-menu" aria-expanded="false">Pulsa para jugar</button>
   </div>
+  <nav class="inicio__menu" id="inicio-menu" aria-label="Menú principal" hidden>
+    <div class="inicio__acciones" id="inicio-acciones"></div>
+    <button type="button" class="inicio__volver" id="inicio-volver">Volver</button>
+  </nav>
 </section>
 
 <!-- ═══ creación ═════════════════════════════════════════════════════ -->

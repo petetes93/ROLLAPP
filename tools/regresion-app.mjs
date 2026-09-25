@@ -167,8 +167,46 @@ try {
   if (boot.screen !== 'inicio' || boot.failures) throw new Error(`arranque inválido ${JSON.stringify(boot)}`);
   await shot(`01-inicio-${viewport.label}.png`);
 
-  const menu = await evaluate(`[...document.querySelectorAll('.menu-btn')].filter(b=>!b.hidden && getComputedStyle(b).display!=='none').map(b=>b.id)`);
-  for (const id of ['menu-nueva', 'menu-cargar', 'menu-ajustes']) if (!menu.includes(id)) throw new Error(`falta ${id} en la portada: ${menu}`);
+  // La portada es la marca y «Pulsa para jugar»; el menú aún no se ve.
+  const visibles = () => evaluate(`[...document.querySelectorAll('.menu-btn')].filter(b=>b.offsetParent!==null).map(b=>b.id)`);
+  if ((await visibles()).length) throw new Error(`el menú se ve antes de pulsar: ${await visibles()}`);
+
+  // La tinta del título, medida sobre los píxeles de la captura: dentro de la
+  // pantalla y centrada. La caja del texto no sirve: el trazo de la última
+  // ele sobra de ella, y en escritorio salía 80 px fuera con la caja «dentro».
+  {
+    await evaluate(`document.getAnimations().forEach((a) => { try { a.finish(); } catch { try { a.cancel(); } catch {} } })`);
+    await wait(300);
+    const foto = await cdp('Page.captureScreenshot', { format: 'png' });
+    const tinta = await evaluate(`(async () => {
+      const h = document.querySelector('.inicio__marca').getBoundingClientRect();
+      const img = new Image(); img.src = 'data:image/png;base64,${foto.data}'; await img.decode();
+      const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
+      const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0);
+      const k = img.width / innerWidth;
+      const y0 = Math.max(0, Math.floor((h.top - 10) * k)), y1 = Math.min(img.height, Math.ceil((h.bottom + 25) * k));
+      const d = cx.getImageData(0, y0, img.width, y1 - y0).data;
+      let min = Infinity, max = -1;
+      for (let y = 0; y < y1 - y0; y++) for (let x = 0; x < img.width; x++) {
+        const i = (y * img.width + x) * 4;
+        if (d[i] > 170 && d[i + 1] > 130 && d[i + 2] < 170 && d[i] - d[i + 2] > 45) { if (x < min) min = x; if (x > max) max = x; }
+      }
+      return { izq: min / k, der: innerWidth - max / k, ancho: innerWidth };
+    })()`);
+    if (!(tinta.izq > 0 && tinta.der > 0)) throw new Error(`la tinta del título se sale: ${JSON.stringify(tinta)}`);
+    if (Math.abs(tinta.izq - tinta.der) > 8) throw new Error(`el título no está centrado: ${JSON.stringify(tinta)}`);
+  }
+
+  // Pulsar abre el menú y lleva el foco dentro; Escape lo cierra y vuelve.
+  await evaluate(`document.querySelector('#inicio-jugar').click()`);
+  const menu = await visibles();
+  for (const id of ['menu-nueva', 'menu-cargar', 'menu-ajustes']) if (!menu.includes(id)) throw new Error(`falta ${id} en el menú: ${menu}`);
+  const foco = await evaluate(`document.activeElement?.id`);
+  if (!/^menu-/.test(foco ?? '')) throw new Error(`al abrir el menú el foco no entra: ${foco}`);
+  await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
+  if ((await visibles()).length || (await evaluate(`document.activeElement?.id`)) !== 'inicio-jugar') throw new Error('Escape no cierra el menú o no devuelve el foco');
+  await evaluate(`document.querySelector('#inicio-jugar').click()`);
+  await shot(`01b-menu-${viewport.label}.png`);
 
   await evaluate(`document.querySelector('#menu-nueva').click()`);
   await until('document.body.dataset.activeScreen === "creacion" && document.querySelector("#aleatoria-raza")');

@@ -213,6 +213,9 @@ const ver = (ruta, defecto) => store.select(ruta, defecto);
    PANTALLAS
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/** A partir del arranque, ir al inicio abre el menú. */
+let menuTrasArrancar = false;
+
 function mostrar(pantalla) {
   // Se acota a las secciones a propósito. La marca del cuerpo va en OTRO
   // atributo (`data-active-screen`, el mismo que usa ui.config.js) porque con
@@ -224,6 +227,10 @@ function mostrar(pantalla) {
   }
 
   document.body.setAttribute('data-active-screen', pantalla);
+
+  // Volver al inicio desde otra pantalla («Atrás» en la creación o en
+  // cargar) es volver al menú, no a la portada vacía.
+  if (pantalla === 'inicio' && menuTrasArrancar) abrirMenuInicio({ foco: false });
 
   const activa = document.querySelector(`section[data-pantalla="${pantalla}"]`);
   if (activa) {
@@ -239,6 +246,31 @@ function mostrar(pantalla) {
  * Pantalla de título, como la de cualquier videojuego: Continuar solo se
  * enciende si hay algo que continuar.
  */
+/**
+ * La portada tiene dos estados: la marca con «Pulsa para jugar», y el menú.
+ * Pulsar no carga nada por su cuenta, ni siquiera si hay partida: abre el
+ * menú, y ahí «Continuar» dice qué partida es. Cargar de golpe al tocar la
+ * portada podía llevar a una ranura que no era la que se quería.
+ */
+function abrirMenuInicio({ foco = true } = {}) {
+  const seccion = document.querySelector('section[data-pantalla="inicio"]');
+  if (!seccion) return;
+  seccion.dataset.estado = 'menu';
+  $('#inicio-menu').hidden = false;
+  $('#inicio-jugar')?.setAttribute('aria-expanded', 'true');
+  if (foco) ($('#inicio-acciones button:not([disabled])') ?? $('#inicio-volver'))?.focus();
+}
+
+function cerrarMenuInicio() {
+  const seccion = document.querySelector('section[data-pantalla="inicio"]');
+  if (!seccion) return;
+  seccion.dataset.estado = 'portada';
+  $('#inicio-menu').hidden = true;
+  const llamada = $('#inicio-jugar');
+  llamada?.setAttribute('aria-expanded', 'false');
+  llamada?.focus();
+}
+
 function pintarInicio() {
   const saves = sistema('saves');
   const reciente = partidaMasReciente();
@@ -2704,9 +2736,19 @@ function conectarEventos() {
   });
 
   $('#cargar-volver')?.addEventListener('click', () => { mostrar('inicio'); pintarInicio(); });
+  $('#inicio-jugar')?.addEventListener('click', () => abrirMenuInicio());
+  $('#inicio-volver')?.addEventListener('click', () => cerrarMenuInicio());
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const seccion = document.querySelector('section[data-pantalla="inicio"]');
+    if (seccion && !seccion.hidden && seccion.dataset.estado === 'menu') cerrarMenuInicio();
+  });
   $('#ajustes-cerrar')?.addEventListener('click', () => { $('#ajustes-modal').hidden = true; });
   $('#menu')?.addEventListener('click', protegido('menú', () => {
     guardarPartidaActual();
+    // Tras recargar, directamente al menú: quien pulsa «Menú» no quiere ver
+    // otra vez la portada.
+    try { sessionStorage.setItem('arcanveil:abrir-menu', '1'); } catch { /* sin sesión, portada */ }
     // Volver al título recargando deja el motor limpio para la próxima partida.
     location.reload();
   }));
@@ -2899,6 +2941,10 @@ async function arrancar() {
     conectarEventos();
     pintarInicio();
     mostrar('inicio');
+    let alMenu = false;
+    try { alMenu = sessionStorage.getItem('arcanveil:abrir-menu') === '1'; sessionStorage.removeItem('arcanveil:abrir-menu'); } catch { /* sin sesión */ }
+    if (alMenu) abrirMenuInicio({ foco: false });
+    menuTrasArrancar = true;
     arranqueListo();
     comenzarPendiente();
   } catch (e) {

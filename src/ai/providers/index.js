@@ -49,6 +49,11 @@ export const CATALOGO = Object.freeze([
     nombre: 'Director interno',
     clase: ProceduralProvider,
     descripcion: 'Narración generada por el propio juego. No necesita nada y nunca falla.',
+    // Su techo, dicho sin adornos: quien elige narrador tiene que saber qué
+    // puede esperar de cada uno.
+    limite: 'Lee lo que escribes por partes y el motor lo resuelve con dados, situaciones y memoria. '
+      + 'Pero la prosa sale de plantillas: se repite, no inventa respuestas nuevas y no improvisa tramas. '
+      + 'Para una historia que improvise de verdad, usa el Puente manual o una IA.',
     requisitos: [],
     sinRed: true,
     sinCredencial: true,
@@ -173,6 +178,7 @@ export function paraInterfaz(estado = {}) {
       id: e.id,
       nombre: e.nombre,
       descripcion: e.descripcion,
+      limite: e.limite ?? null,
       requisitos: e.requisitos,
       listo,
       sinRed: e.sinRed,

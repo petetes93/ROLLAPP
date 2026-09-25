@@ -54,8 +54,10 @@ export const CATALOGO_PROVEEDORES = congelar({
     nombre: 'Director procedural',
     resumen: 'Motor narrativo interno. Sin IA, sin red, sin claves.',
     detalle:
-      'Compone la narración con gramáticas, tablas de encuentros y plantillas. ' +
-      'Las partidas son coherentes y jugables, aunque menos sorprendentes que con un modelo de lenguaje. ' +
+      'Lee el texto del jugador por partes (lo que hace, lo que dice, lo que deja de lado, lo que deja ' +
+      'pendiente, lo que encarga a un compañero) y el motor lo resuelve con dados, situaciones y memoria. ' +
+      'La prosa sale de gramáticas y plantillas: se repite, no inventa respuestas nuevas a lo que se ' +
+      'pregunta y no improvisa tramas ni personajes. Para eso hace falta un modelo de lenguaje. ' +
       'Es también el modo de respaldo: si cualquier otro proveedor falla, el motor cae aquí sin interrumpir la partida.',
     requiereRed: false,
     requiereClave: false,

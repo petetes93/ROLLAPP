@@ -2637,7 +2637,11 @@ function pintarDirectores() {
         pintarDirectores();
         $('#director-modal').hidden = true;
       }),
-    }, el('strong', { text: opcion.nombre }), el('span', { text: opcion.resumen ?? opcion.detalle ?? '' })))
+    // El catálogo trae `descripcion`; se leía `resumen`, que no existe, y
+    // cada opción salía solo con su nombre. Y el límite, si lo tiene: el
+    // director interno no improvisa como un modelo, y se dice aquí.
+    }, el('strong', { text: opcion.nombre }), el('span', { text: opcion.descripcion ?? '' }),
+    opcion.limite ? el('small', { class: 'director-opcion__limite', text: opcion.limite }) : null))
   }
 }
 

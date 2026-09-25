@@ -21,6 +21,9 @@
 import { crearMotor } from './motor-sin-ventana.mjs';
 import { segmentar } from '../src/engine/Segmentos.js';
 import { obtenerEncuentro } from '../src/world/EncounterTables.js';
+import * as Prompt from '../src/ai/PromptBuilder.js';
+import { ContextComposer } from '../src/ai/ContextComposer.js';
+import { paraInterfaz } from '../src/ai/providers/index.js';
 
 let fallos = 0;
 
@@ -321,6 +324,25 @@ async function encuentro(refId = 'patrulla_hostil') {
   await esperar(() => m.sistema('combat').esperandoJugador || !m.ver('combat.activo'));
   const dicho = m.entradas().slice(antes).map((e) => e.texto).join('\n');
   comprobar(/No hay con quién hablar/.test(dicho), 'con bestias no hay con quién parlamentar, y se dice', dicho);
+}
+
+/* ── 7. Cada narrador dice lo que es, y el prompt separa las cosas ───────── */
+
+{
+  const sistemaPrompt = Prompt.sistema();
+  comprobar(['CANON', 'POSIBILIDAD', 'INTENCIÓN', 'RESULTADO'].every((k) => sistemaPrompt.includes(`· ${k}:`)),
+    'el prompt distingue canon, posibilidad, intención y resultado');
+  comprobar(/OPCIONALES/.test(sistemaPrompt), 'y declara opcionales las sugerencias');
+  comprobar(/intención, no hecho/.test(Prompt.turno({ accion: 'lo mato', contextoTexto: '' })), 'lo que escribe el jugador va como intención, no como hecho');
+
+  await nuevaPartida({ ...FICHA, lore: '' });
+  const { texto: contexto } = new ContextComposer({ store: m.store, registry: m.registry, memoria: m.sistema('turns').memoria })
+    .componer({ accion: 'lo mato' });
+  comprobar(!/HA DECIDIDO/.test(contexto) && /intención, no hecho/.test(contexto), 'también en el contexto compuesto', contexto.slice(0, 300));
+
+  const interno = paraInterfaz({}).find((p) => p.id === 'procedural');
+  comprobar(interno?.limite && /plantillas/.test(interno.limite) && /Puente manual o una IA/.test(interno.limite),
+    'el director interno dice su techo al elegirlo', interno?.limite);
 }
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);

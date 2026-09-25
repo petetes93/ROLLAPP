@@ -238,7 +238,8 @@ export class ContextComposer {
 
     // — Acción del jugador —
     if (peticion.accion) {
-      bloques.push('', `EL JUGADOR HA DECIDIDO: «${peticion.accion}»`);
+      // Es lo que intenta, no lo que pasa: «lo mato» no es un hecho.
+      bloques.push('', `LO QUE INTENTA EL JUGADOR (intención, no hecho): «${peticion.accion}»`);
     }
 
     if (peticion.intencion?.tipo && peticion.intencion.tipo !== 'custom') {
@@ -425,7 +426,7 @@ export class ContextComposer {
       `LUGAR: ${mundo.terreno}, ${mundo.tiempo.franja}, ${mundo.clima.actual}.`,
     ];
 
-    if (peticion.accion) bloques.push(`ACCIÓN: «${peticion.accion}»`);
+    if (peticion.accion) bloques.push(`INTENTA (no es un hecho): «${peticion.accion}»`);
     if (peticion.tirada) bloques.push(`RESULTADO YA DECIDIDO: ${peticion.tirada.grado}. Nárralo.`);
 
     return bloques.join('\n');

@@ -82,6 +82,25 @@ Nunca decidas si algo funciona: eso ya está decidido.`,
 · Si el texto es ambiguo, elige la interpretación más razonable y sigue.`,
   );
 
+  // ─── Qué es cada cosa ───────────────────────────────────────────────────
+  // Sin esta distinción el modelo trataba el pasado del personaje como una
+  // misión, un rumor como un encargo aceptado y «lo mato» como un hecho.
+  partes.push(
+`QUÉ ES CADA COSA:
+· CANON: lo que ya es así o ya ha pasado. La ficha y el pasado del
+  personaje, los hechos recordados, lo que cada personaje dijo o prometió.
+  No lo contradigas. Que algo sea canon no lo convierte en misión ni obliga
+  a traerlo a escena.
+· POSIBILIDAD: lo que hay en escena y podría pasar. Situaciones en marcha,
+  encargos ofrecidos sin aceptar, rumores, encuentros. Existe y avanza a su
+  ritmo, pero el jugador no está obligado a seguirlo.
+· INTENCIÓN: lo que escribe el jugador. Es lo que intenta, no lo que
+  ocurre. Lo condicional («si miente, me voy») queda pendiente hasta que se
+  cumpla la condición.
+· RESULTADO: lo que el motor ya ha resuelto (tiradas, desenlaces de
+  encuentros y situaciones). Eso es lo que pasa, y tú lo cuentas.`,
+  );
+
   // ─── Estilo ─────────────────────────────────────────────────────────────
   partes.push(
 `ESTILO:
@@ -137,7 +156,9 @@ Campos:
 · choices: EXACTAMENTE 3 sugerencias, cada una {label, intent, risk}. Son
   frases cortas (máximo 9 palabras) que encajan con lo que acaba de pasar:
   algo que el personaje podría decir o hacer ahora mismo, nombrando a quien
-  o lo que está en escena. Nada genérico como «Explorar» o «Hablar».
+  o lo que está en escena. Nada genérico como «Explorar» o «Hablar». Son
+  OPCIONALES: el jugador puede escribir cualquier otra cosa. No las uses
+  para empujarle hacia una trama.
   intent puede ser: ${DIRECTOR.intenciones.slice(0, 12).join(', ')}…
   risk puede ser: low, medium, high.
 · playerUpdates: cambios en el personaje. Cada campo admite {delta: n}.
@@ -190,7 +211,7 @@ export function turno(peticion, opciones = {}) {
 
   // ─── La acción ──────────────────────────────────────────────────────────
   if (peticion.accion) {
-    partes.push(`ACCIÓN DEL PERSONAJE: «${peticion.accion}»`);
+    partes.push(`LO QUE INTENTA EL PERSONAJE (intención, no hecho; lo que sale lo dice el motor): «${peticion.accion}»`);
   } else {
     partes.push('PRIMER TURNO: abre la crónica situando al personaje.');
   }

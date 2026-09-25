@@ -173,6 +173,12 @@ const misiones = () => {
 {
   await nuevaPartida({ ...FICHA, lore: '' });
   const npcs = m.sistema('npcs');
+  // Sin la situación de apertura ni su gente: la prueba no depende de cuál
+  // haya tocado (si sale la del carro, hay un carretero de verdad).
+  for (const s of m.sistema('situations').aqui()) {
+    m.store.dispatch('situaciones/guardar', { situacion: { ...s, estado: 'desenlace' } });
+    for (const a of Object.values(s.actores)) npcs.retirar(a.refId);
+  }
   const mara = npcs.introducir({ nombre: 'Mara', rol: 'contrabandista', genero: 'f' });
   const lugar = m.ver('world.ubicacion');
 

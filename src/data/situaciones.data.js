@@ -22,6 +22,14 @@
  *   · siIgnorada — cuántos turnos aguanta sin el jugador y cómo termina.
  *     `marchan`: quién se va de la escena cuando pasa. `testimonio`: lo que
  *     contará cada implicado si se le pregunta; se guarda en su memoria.
+ *   · pulsos — lo que cambia a la vista mientras nadie interviene, antes del
+ *     desenlace: el reloj se ve correr.
+ *   · escala — si los intentos fallidos suben la tensión, cuándo estalla y en
+ *     qué pelea. Una vía con `combate` es atacar: pelea directa.
+ *   · secuela — lo que pasa después, causado por cómo terminó: otra
+ *     situación, con los mismos implicados si `hereda` lo dice.
+ *   · lugares — solo en estos sitios (el peaje necesita un puente).
+ *   · soloSecuela — no aparece por azar: solo como consecuencia de otra.
  *
  * Todo en castellano de España. El texto de las vías va en segunda persona.
  * ═══════════════════════════════════════════════════════════════════════════
@@ -83,6 +91,7 @@ export const SITUACIONES = Object.freeze({
       tras: 4,
       texto: 'Al fondo de la calle, {guardia} ha perdido la paciencia: entre tres vuelcan el carro de {carretero} a un lado. Media carga de fruta acaba en el barro.',
       hecho: 'La carga de fruta de {carretero} acabó en el barro de la calle principal.',
+      pulsos: [{ tras: 2, texto: '{guardia} ya no grita: ha ido a buscar a otros dos guardias. {carretero} sigue solo con el eje.' }],
       testimonio: { carretero: '{carretero} se limpia las manos en el pantalón. «Me volcaron el carro entre tres. Media carga al barro, y a ver quién me la paga.»' },
     },
     sugerencia: { label: 'Echar una mano con el carro', intent: 'custom' },
@@ -128,9 +137,14 @@ export const SITUACIONES = Object.freeze({
       tras: 5,
       texto: 'Por la plaza pasa corriendo un chaval con una cuerda al hombro: dicen que {nina} intentó bajar sola al pozo y ahora hay medio pueblo alrededor del brocal.',
       hecho: '{nina} intentó bajar sola al pozo a por el colgante de su madre.',
+      pulsos: [
+        { tras: 2, texto: '{nina} ha desatado el cubo y se enrolla la cuerda del pozo en la muñeca, sin quitar la vista del fondo.' },
+        { tras: 4, texto: '{nina} tiene ya una pierna por encima del brocal.' },
+      ],
       testimonio: { nina: '{nina} se mira las rodillas raspadas. «Quise bajar yo. La cuerda no llegaba.»' },
     },
     sugerencia: { label: 'Acercarte a la niña del pozo', intent: 'talk' },
+    secuela: { tras: 3, refId: 'madre_agradece', cuando: 'resuelta', hereda: { nina: 'nina' } },
   },
 
   encapuchado_vigila: {
@@ -172,6 +186,11 @@ export const SITUACIONES = Object.freeze({
       tras: 5,
       texto: 'Un grito en el mercado: a {mercader} le han quitado la bolsa del mostrador, y nadie ha visto a nadie. En el alero de enfrente ya no hay ninguna figura.',
       hecho: 'A {mercader} le robaron la bolsa en el mercado; alguien le vigilaba desde un tejado.',
+      pulsos: [
+        { tras: 2, texto: 'La figura del tejado se ha movido dos casas, más cerca del puesto de {mercader}.' },
+        { tras: 4, texto: '{mercader} se ha dado la vuelta para atender a una clienta. La bolsa sigue abierta sobre el mostrador.' },
+      ],
+      secuela: { tras: 2, refId: 'guardia_pregunta', cuando: 'desenlace', hereda: { mercader: 'mercader' } },
       marchan: ['vigia'],
       testimonio: { mercader: '{mercader} señala el mostrador vacío. «Me han quitado la bolsa delante de las narices. Ni lo vi venir.»' },
     },
@@ -210,6 +229,7 @@ export const SITUACIONES = Object.freeze({
       tras: 3,
       texto: 'La discusión del puesto de harina se acaba como suelen acabar: {clienta} se va con medio saco y los ojos rojos, y {tendero} vuelve a su balanza.',
       hecho: '{clienta} se fue del puesto de {tendero} con medio saco de harina.',
+      pulsos: [{ tras: 1, texto: 'Alguien del corro le da la razón a {clienta} en voz alta. {tendero} empieza a sudar.' }],
       marchan: ['clienta'],
       testimonio: { tendero: '{tendero} se encoge de hombros. «Se ha ido con medio saco. La balanza es buena, diga lo que diga.»' },
     },
@@ -248,6 +268,7 @@ export const SITUACIONES = Object.freeze({
       tras: 2,
       texto: 'Del huerto vallado llegan gritos: la cabra ha entrado. {pastor} sale arrastrándola por los cuernos mientras el dueño le amenaza con quitarle el jornal de un mes.',
       hecho: 'La cabra de {pastor} se comió medio huerto del posadero.',
+      pulsos: [{ tras: 1, texto: 'La cabra ya está en la valla del huerto, arrancando una col por encima de los tablones.' }],
       testimonio: { pastor: '{pastor} tira de la cuerda con rabia. «Medio huerto. Me quedo sin el jornal del mes.»' },
     },
     sugerencia: { label: 'Ir a por la cabra', intent: 'custom' },
@@ -285,9 +306,141 @@ export const SITUACIONES = Object.freeze({
       tras: 4,
       texto: 'Pasa una carreta en dirección contraria. Poco después, del buhonero del camino solo queda la marca del fardo en la hierba.',
       hecho: 'Una carreta recogió a {buhonero}, el buhonero herido del camino.',
+      pulsos: [{ tras: 2, texto: '{buhonero} intenta ponerse en pie apoyándose en el fardo, y vuelve a caer.' }],
       marchan: ['buhonero'],
     },
     sugerencia: { label: 'Acercarte al buhonero herido', intent: 'talk' },
+  },
+
+  /* ─── Negociar o pelear ───────────────────────────────────────────────── */
+
+  peaje_abusivo: {
+    refId: 'peaje_abusivo',
+    donde: ['asentamiento'],
+    lugares: ['vado_yunque'],
+    actores: [
+      { clave: 'cobrador', rol: 'guardia', genero: 'm' },
+      { clave: 'arriero', rol: 'arriero', genero: 'm' },
+    ],
+    apertura: 'En la garita del puente, {cobrador}, de la guardia del peaje, le cobra a {arriero} el doble de lo que dice la tabla. El viejo cuenta monedas que no tiene, con la mula tirando del ronzal. Otro guardia mira desde el pretil, con la mano en el cinto.',
+    agenda: '{cobrador} se queda la diferencia del peaje y la reparte con los del pretil. No quiere testigos ni líos con la guardia del pueblo, pero tampoco va a dejarse avergonzar delante de sus hombres.',
+    detalle: 'La tabla de la garita dice tres cobres por bestia. {cobrador} pide seis. El del pretil no es de la guardia del pueblo: no lleva el distintivo del Vado.',
+    claves: /peaje|garita|cobrador|arriero|mula|viejo|tabla|guardias?\b|pretil/,
+    vias: [
+      {
+        clave: 'pagar', patron: /\bpag[oa]|\ble doy (?:el |las |unas |dos |tres |cinco )?(?:dinero|monedas|cobres)|\bmonedas\b|\bofrezco (?:dos|tres|unas|cinco)? ?monedas|lo pago/,
+        habilidad: null, coste: { oro: 3 }, resuelveSiExito: true,
+        exito: 'Pones las monedas en la tabla de la garita. {cobrador} las cuenta sin mirarte y le hace un gesto a {arriero}: pasa. El viejo tira de la mula y te busca con los ojos al cruzar.',
+        fracaso: 'Buscas en la bolsa y no te llega. {cobrador} ni se molesta en reírse.',
+        actitud: { arriero: 30 },
+        recuerdo: { arriero: 'Le pagó el peaje en el puente cuando no le llegaba.' },
+      },
+      {
+        clave: 'razonar', patron: /tabla|precio|justo|razon|convenc|abuso|regate|lo que pone|hablo|explico|le digo/,
+        habilidad: 'trato_social', umbral: 'moderada', resuelveSiExito: true, tension: 1,
+        exito: '{cobrador} mira la tabla, te mira a ti y cobra lo que pone. «Lo que pone, lo que pone.» {arriero} cruza sin mirar atrás.',
+        fracaso: '{cobrador} se ríe. «La tabla la leo yo.» El del pretil se despega de la piedra y se acerca despacio.',
+        actitud: { arriero: 20, cobrador: -10 },
+        recuerdo: { arriero: 'Plantó cara al del peaje por él.', cobrador: 'Le afeó el cobro delante de todos.' },
+      },
+      {
+        clave: 'intimidar', patron: /amenaz|parto|parte la cara|te arrepent|apartaos|apartate|o te|intimid|largaos|os mato/,
+        habilidad: 'intimidacion', umbral: 'dificil', resuelveSiExito: true, tension: 1,
+        exito: '{cobrador} calcula, escupe a un lado y le hace un gesto a {arriero} para que pase. No te quita los ojos de encima mientras cruzas.',
+        fracaso: '{cobrador} no se mueve. «¿Tú y cuántos más?» El del pretil ya tiene la porra en la mano.',
+        actitud: { arriero: 15, cobrador: -30 },
+        recuerdo: { cobrador: 'Le amenazó en el peaje.' },
+      },
+      {
+        clave: 'pelear', patron: /\bataco\b|golpeo|le pego|desenvain|punetazo|me lanzo contra/,
+        habilidad: null, combate: { enemies: [{ refId: 'guardia_corrupto', count: 2 }] },
+        exito: '{cobrador} ve venir el golpe y grita al del pretil. Ya no hay nada que hablar.',
+        fracaso: '',
+        actitud: { cobrador: -60 },
+        recuerdo: { cobrador: 'Le atacó en el peaje.' },
+      },
+    ],
+    escala: {
+      umbral: 2,
+      aviso: 'Se acabó la conversación: {cobrador} saca la porra y el del pretil viene detrás.',
+      combate: { enemies: [{ refId: 'guardia_corrupto', count: 2 }] },
+    },
+    siIgnorada: {
+      tras: 4,
+      texto: 'En el puente, {arriero} acaba pagando con la manta que llevaba en la mula. {cobrador} la tira dentro de la garita.',
+      hecho: '{cobrador} le quitó la manta a {arriero} en el peaje del puente.',
+      testimonio: { arriero: '{arriero} se frota los brazos. «Me cobraron el doble y me quitaron la manta. Los del peaje hacen lo que quieren.»' },
+      pulsos: [{ tras: 2, texto: '{arriero} ha empezado a desatar la manta de la mula para ofrecerla. {cobrador} ni la mira.' }],
+    },
+    sugerencia: { label: 'Mirar la tabla del peaje', intent: 'observe' },
+  },
+
+  /* ─── Secuelas: solo como consecuencia de otra ───────────────────────── */
+
+  guardia_pregunta: {
+    refId: 'guardia_pregunta',
+    donde: ['asentamiento'],
+    soloSecuela: true,
+    actores: [
+      { clave: 'guardia', rol: 'guardia', genero: 'f' },
+      { clave: 'mercader', rol: 'mercader', genero: 'm' },
+    ],
+    apertura: '{guardia}, de la guardia del pueblo, va puesto por puesto preguntando por la bolsa de {mercader}. Llega hasta ti: «¿Viste algo esta mañana? Una vecina dice que había alguien en los tejados.»',
+    agenda: '{guardia} tiene poco con qué empezar y lo sabe. Busca a cualquiera que viera algo, sin acusar a nadie.',
+    detalle: '{guardia} lleva una tablilla con tres nombres apuntados y ninguno tachado.',
+    claves: /guardia|bolsa|robo|tejado|encapuch|figura|capucha/,
+    vias: [
+      {
+        clave: 'contar', patron: /\bvi\b|encapuch|tejado|capucha|figura|le cuento|le digo lo que|habia uno|alero/,
+        habilidad: null, resuelveSiExito: true,
+        exito: '{guardia} apunta lo que dices en la tablilla. «Eso cuadra con lo de la vecina.» Se va hacia el callejón de detrás del mercado, deprisa.',
+        fracaso: '',
+        actitud: { guardia: 15, mercader: 10 },
+        recuerdo: { guardia: 'Le contó lo del encapuchado del tejado.' },
+      },
+      {
+        clave: 'callar', patron: /no vi|nada|no se|no he visto|callo|ni idea/,
+        habilidad: null, resuelveSiExito: true,
+        exito: '{guardia} asiente sin mucha fe y sigue con el puesto de al lado.',
+        fracaso: '',
+      },
+    ],
+    siIgnorada: {
+      tras: 3,
+      texto: '{guardia} se cansa de esperar respuesta y sigue preguntando en otro puesto.',
+      hecho: 'La guardia preguntó por el robo del mercado sin sacar nada en claro.',
+    },
+    sugerencia: { label: 'Contarle lo que viste', intent: 'talk' },
+  },
+
+  madre_agradece: {
+    refId: 'madre_agradece',
+    donde: ['asentamiento'],
+    soloSecuela: true,
+    actores: [
+      { clave: 'madre', rol: 'lavandera', genero: 'f' },
+      { clave: 'nina', rol: 'niña', genero: 'f' },
+    ],
+    apertura: 'Un rato después, una mujer con las manos rojas de lavar se abre paso hasta ti con {nina} de la mano. Es {madre}, su madre. «Me han dicho que fuiste tú lo del pozo.»',
+    agenda: '{madre} quiere dar las gracias como pueda, y no tiene dinero. Conoce a todo el pueblo.',
+    detalle: '{nina} lleva el colgante al cuello, por fuera de la ropa, para que se vea.',
+    claves: /madre|mujer|lavandera|gracias|nina|colgante/,
+    vias: [
+      {
+        clave: 'aceptar', patron: /gracias|de nada|no fue nada|me alegro|acepto|no hay de que|no es nada|sonrio/,
+        habilidad: null, resuelveSiExito: true,
+        exito: '{madre} te pone en la mano un pañuelo con pan y queso todavía caliente. «Si necesitas algo del pueblo, pregúntame a mí. Aquí lavo la ropa de todos: sé quién llega y quién se va.»',
+        fracaso: '',
+        actitud: { madre: 40 },
+        recuerdo: { madre: 'Sacó el colgante del pozo antes de que su hija se hiciera daño.' },
+      },
+    ],
+    siIgnorada: {
+      tras: 4,
+      texto: '{madre} se va con {nina} de la mano sin molestarte más.',
+      hecho: 'La madre de {nina} vino a darte las gracias.',
+    },
+    sugerencia: { label: 'Hablar con la madre', intent: 'talk' },
   },
 });
 
@@ -298,7 +451,9 @@ export const SITUACIONES = Object.freeze({
  */
 export function situacionesPara(lugar) {
   const tipo = lugar?.tipo ?? 'asentamiento';
-  return Object.values(SITUACIONES).filter((s) => s.donde.includes(tipo));
+  return Object.values(SITUACIONES).filter((s) => s.donde.includes(tipo)
+    && !s.soloSecuela
+    && (!s.lugares || s.lugares.includes(lugar?.refId)));
 }
 
 /**

@@ -576,6 +576,9 @@ export class TurnResolver extends SystemBase {
       this.despachar('narrative/opciones', { opciones: saneada.choices ?? [] });
 
       // ─── 10. Combate ──────────────────────────────────────────────────
+      // Una situación que acaba a golpes (atacar al del peaje, o que se
+      // acabe la paciencia) pide la pelea ahora, ya contado el porqué.
+      if (situacion?.combate) this.emitir('combat:request', situacion.combate);
       if (saneada.combat?.start) {
         this.emitir('combat:request', saneada.combat);
       }

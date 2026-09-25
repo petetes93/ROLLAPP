@@ -106,7 +106,7 @@ export class SituationSystem extends SystemBase {
    * @param {string} [opciones.refId] Una plantilla concreta.
    * @returns {Object|null} La situación, con `texto` ya relleno.
    */
-  abrir({ refId = null } = {}) {
+  abrir({ refId = null, hereda = null, desde = null } = {}) {
     const lugarId = this.leer('world.ubicacion');
     const lugar = obtenerLugar(lugarId);
     const flujo = this.rng.flujo('mundo');
@@ -121,6 +121,14 @@ export class SituationSystem extends SystemBase {
     const npcs = this.sistema('npcs');
     const actores = {};
     for (const a of plantilla.actores) {
+      // En una secuela vuelven los mismos: el mercader al que robaron es el
+      // que ahora espera a la guardia, no uno nuevo con otro nombre.
+      const previo = hereda?.[a.clave] ? desde?.actores?.[hereda[a.clave]] : null;
+      if (previo?.refId) {
+        npcs?.introducir?.({ refId: previo.refId, nombre: previo.nombre });
+        actores[a.clave] = { ...previo, rol: a.rol };
+        continue;
+      }
       const genero = a.genero ?? (flujo.oportunidad(0.5) ? 'f' : 'm');
       const nombre = this._nombreLibre(genero, flujo);
       const npc = npcs?.introducir?.({ nombre, rol: a.rol, genero }) ?? null;
@@ -139,10 +147,16 @@ export class SituationSystem extends SystemBase {
       ignoradaAProposito: false,
       intentos: 0,
       resolucion: null,
+      tension: 0,
+      pulsos: 0,
+      origen: desde?.id ?? null,
     };
     this._guardar(situacion);
 
-    this.emitir('memory:remember', { texto: this.rellenar(plantilla.agenda, situacion), peso: 1, categoria: 'situacion' });
+    // Lo que quiere cada uno NO es un hecho del mundo: se guardaba en la
+    // memoria general y cualquiera «sabía» lo que el vigía pretendía. La
+    // intención va en el contexto del director (`paraDirector`), que es quien
+    // tiene que conocerla, y no en lo que el mundo recuerda.
     return { ...situacion, texto: this.rellenar(plantilla.apertura, situacion) };
   }
 
@@ -182,7 +196,13 @@ export class SituationSystem extends SystemBase {
     // a otra cosa, y contaba como atender la situación que acababa de
     // ignorar.
     const aOtro = /\b(?:me acerco|acercarme)\s+(?:a|al|hacia|junto)\s+(?!ver\b|mirar\b|curiosear\b)/.test(n);
-    const menciona = nombrados || plantilla.claves.test(n) || (ATIENDE.test(n) && !aOtro);
+    // Si el turno anterior estaba en ello (o acaba de empezar delante de él),
+    // lo que dice ahora sigue siendo con ello si encaja con alguna vía: «le
+    // explico que es un abuso» después de hablar con el del peaje, «no hay de
+    // qué» a la madre que acaba de dar las gracias.
+    const turnoActual = this.leer('meta.turno', 0);
+    const sigue = turnoActual - (sit.ultimaAtencion ?? -99) <= 1 && plantilla.vias.some((v) => v.patron.test(n));
+    const menciona = nombrados || plantilla.claves.test(n) || (ATIENDE.test(n) && !aOtro) || sigue;
     if (!menciona) return null;
 
     // Dejarla de lado a propósito: sigue ahí, con su reloj en marcha. No es
@@ -198,26 +218,68 @@ export class SituationSystem extends SystemBase {
 
     if (!via) {
       // Mirar de cerca también cuenta, y se ve algo que no se veía de lejos.
-      this._guardar({ ...sit, ultimaAtencion: turno, ignoradaAProposito: false });
-      return { situacion: sit, atencion: true, narracion: this.rellenar(plantilla.detalle ?? '', sit) };
+      // El detalle se ve una vez; mirar otra vez no lo repite palabra por
+      // palabra: sigue contando la atención (el reloj se para) y el narrador
+      // describe lo que haya, que es lo que habría si se volviera a mirar.
+      this._guardar({ ...sit, ultimaAtencion: turno, ignoradaAProposito: false, detalleVisto: true });
+      return { situacion: sit, atencion: true, narracion: sit.detalleVisto ? null : this.rellenar(plantilla.detalle ?? '', sit) };
     }
 
-    const tirada = this.sistema('rules')?.resolver({ habilidad: via.habilidad, umbral: via.umbral }) ?? null;
-    const exito = Boolean(tirada?.exito);
-    const narracion = this.rellenar(exito ? via.exito : via.fracaso, sit);
+    // Atacar no se tira aquí: empieza la pelea y la resuelve el combate.
+    if (via.combate) {
+      const narracion = this.rellenar(via.exito, sit);
+      this._guardar({ ...sit, ultimaAtencion: turno, estado: ESTADO_SITUACION.RESUELTA, resolucion: via.clave });
+      this._consecuencias(sit, via);
+      // La pelea no se pide aquí: la pide el turno cuando ya ha contado por
+      // qué empieza. Pedida desde aquí, «Todo se decide ahora» salía antes
+      // que lo que había hecho el jugador.
+      return { situacion: sit, via: via.clave, tirada: null, narracion, resuelta: true, combate: { ...via.combate, playerAmbush: true } };
+    }
 
-    const resuelta = exito && Boolean(via.resuelveSiExito);
-    this._guardar({
+    // Pagar no es una prueba: se tiene o no se tiene.
+    let exito;
+    let tirada = null;
+    if (via.habilidad) {
+      tirada = this.sistema('rules')?.resolver({ habilidad: via.habilidad, umbral: via.umbral }) ?? null;
+      exito = Boolean(tirada?.exito);
+    } else {
+      const oro = via.coste?.oro ?? 0;
+      exito = oro <= (this.leer('player.oro', 0) ?? 0);
+      if (exito && oro) this.despachar('inventory/oro', { delta: -oro, motivo: `situación: ${sit.refId}` });
+    }
+    let narracion = this.rellenar(exito ? via.exito : via.fracaso, sit);
+
+    // Un mal intento sube la tensión; si llega al límite, estalla. Entonces
+    // se cuenta el estallido, no otra vez la misma negativa.
+    const tension = (sit.tension ?? 0) + (!exito && via.tension ? via.tension : 0);
+    const estalla = Boolean(plantilla.escala) && !exito && tension >= plantilla.escala.umbral;
+    if (estalla) narracion = this.rellenar(plantilla.escala.aviso, sit);
+
+    const resuelta = (exito && Boolean(via.resuelveSiExito)) || estalla;
+    const siguiente = {
       ...sit,
       ultimaAtencion: turno,
       ignoradaAProposito: false,
       intentos: (sit.intentos ?? 0) + 1,
+      tension,
       estado: resuelta ? ESTADO_SITUACION.RESUELTA : sit.estado,
-      resolucion: resuelta ? via.clave : sit.resolucion,
-    });
+      resolucion: resuelta ? (estalla ? 'pelea' : via.clave) : sit.resolucion,
+    };
+    this._guardar(resuelta ? this._conSecuela(siguiente, 'resuelta') : siguiente);
 
     if (exito) this._consecuencias(sit, via);
-    return { situacion: sit, via: via.clave, tirada, narracion, resuelta };
+    return { situacion: sit, via: via.clave, tirada, narracion, resuelta, combate: estalla ? { ...plantilla.escala.combate } : null };
+  }
+
+  /**
+   * Apunta la secuela, si la plantilla tiene una para este final.
+   * @private
+   */
+  _conSecuela(sit, final) {
+    const p = obtenerSituacion(sit.refId);
+    const s = p?.secuela ?? p?.siIgnorada?.secuela;
+    if (!s || (s.cuando && s.cuando !== final)) return sit;
+    return { ...sit, secuelaEn: this.leer('meta.turno', 0) + s.tras };
   }
 
   /** Actitudes y recuerdos de cada actor tras una vía que sale bien. @private */
@@ -253,13 +315,36 @@ export class SituationSystem extends SystemBase {
     const aqui = this.leer('world.ubicacion');
 
     for (const sit of this.todas()) {
+      // Lo que vino después: se abre donde pasó, cuando el jugador está.
+      if (sit.secuelaEn != null && !sit.secuelaAbierta && turno >= sit.secuelaEn && sit.lugar === aqui && !this.aqui().length) {
+        const p = obtenerSituacion(sit.refId);
+        const s = p?.secuela ?? p?.siIgnorada?.secuela;
+        const nueva = s ? this.abrir({ refId: s.refId, hereda: s.hereda, desde: sit }) : null;
+        this._guardar({ ...sit, secuelaAbierta: true });
+        if (nueva) this.emitir('memory:context', { texto: `EN ESCENA: ${nueva.texto}`, temporal: true });
+        continue;
+      }
+
       if (sit.estado !== ESTADO_SITUACION.ABIERTA || sit.id === this._atendida) continue;
 
       const plantilla = obtenerSituacion(sit.refId);
       const regla = plantilla?.siIgnorada;
-      if (!regla || turno - sit.ultimaAtencion < regla.tras) continue;
+      if (!regla) continue;
+      const sinAtender = turno - sit.ultimaAtencion;
 
-      this._guardar({ ...sit, estado: ESTADO_SITUACION.DESENLACE, turnoDesenlace: turno });
+      // Antes del desenlace, lo que cambia se ve: la niña ya tiene la cuerda
+      // en la mano. Cada pulso sale una vez, y solo si el jugador está.
+      const pulsos = regla.pulsos ?? plantilla.pulsos ?? [];
+      const toca = pulsos.findIndex((p, i) => i >= (sit.pulsos ?? 0) && sinAtender >= p.tras);
+      if (sinAtender < regla.tras) {
+        if (toca >= 0) {
+          this._guardar({ ...sit, pulsos: toca + 1 });
+          if (sit.lugar === aqui) this.emitir('memory:context', { texto: `EN ESCENA: ${this.rellenar(pulsos[toca].texto, sit)}`, temporal: true });
+        }
+        continue;
+      }
+
+      this._guardar(this._conSecuela({ ...sit, estado: ESTADO_SITUACION.DESENLACE, turnoDesenlace: turno }, 'desenlace'));
       this.emitir('memory:remember', { texto: this.rellenar(regla.hecho, sit), peso: 2, categoria: 'situacion' });
 
       // Quien lo vivió lo cuenta si se le pregunta, también tras guardar y
@@ -302,7 +387,9 @@ export class SituationSystem extends SystemBase {
       id: sit.id,
       texto: this.rellenar(plantilla.apertura, sit),
       agenda: this.rellenar(plantilla.agenda, sit),
-      actores: Object.values(sit.actores).map((a) => ({ nombre: a.nombre, rol: a.rol })),
+      actores: Object.values(sit.actores).map((a) => ({ refId: a.refId, nombre: a.nombre, rol: a.rol })),
+      refId: sit.refId,
+      tension: sit.tension ?? 0,
       sinAtender: this.leer('meta.turno', 0) - sit.ultimaAtencion,
       ignoradaAProposito: Boolean(sit.ignoradaAProposito),
       sugerencia: plantilla.sugerencia ?? null,

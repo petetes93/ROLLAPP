@@ -20,6 +20,7 @@
 
 import { crearMotor } from './motor-sin-ventana.mjs';
 import { segmentar } from '../src/engine/Segmentos.js';
+import { obtenerEncuentro } from '../src/world/EncounterTables.js';
 
 let fallos = 0;
 
@@ -207,6 +208,119 @@ const misiones = () => {
   const t = await m.jugar('Que mi compañera negocie con Mara; yo observo');
   comprobar(/Dejas que Nera negocie con Mara/.test(t) && /Nera/.test(t.split('\n')[1] ?? ''), 'actúa la compañera y él observa', t);
   comprobar(!/(le )?ofreces|propones|le dices/i.test(t), 'no se inventa una oferta ni palabras del jugador', t);
+}
+
+/* ── 5. Los encargos nacen del mundo, y se aceptan o no ─────────────────── */
+
+{
+  await nuevaPartida({ ...FICHA, lore: HISTORIA });
+  const quests = m.sistema('quests');
+  const npcs = m.sistema('npcs');
+  const tobal = npcs.introducir({ nombre: 'Tobal', rol: 'molinero', genero: 'm' });
+
+  const oferta = quests.generarOferta({ npc: m.ver(`npcs.conocidos.porId.${tobal.refId}`) });
+  comprobar(oferta && quests.ofrecidas().length === 1 && !quests.activas().length, 'lo que ofrece alguien es una oferta, no una misión aceptada',
+    JSON.stringify(quests.inspeccionar?.() ?? {}));
+  const t1 = await m.jugar('no me interesa');
+  comprobar(!quests.ofrecidas().length && !quests.activas().length, 'se puede rechazar con palabras', t1);
+  comprobar(/Tobal/.test(t1) && /sin dueño/.test(t1), 'y el mundo lo toma sin castigo', t1);
+  comprobar((m.ver(`npcs.conocidos.porId.${tobal.refId}.memoria`, []) ?? []).length > 0, 'Tobal recuerda que le dijeron que no');
+
+  quests.generarOferta({ npc: m.ver(`npcs.conocidos.porId.${tobal.refId}`) });
+  const t2 = await m.jugar('acepto el encargo');
+  comprobar(quests.activas().length === 1 && /Trato hecho|trato hecho/.test(t2), 'o aceptarlo, y entonces es un compromiso', t2);
+
+  const t3 = await m.jugar('me propongo averiguar quién quemó la forja de mi padre');
+  const meta = quests.activas().find((q) => q.tipo === 'meta');
+  comprobar(meta && /forja/.test(JSON.stringify(meta)), 'un objetivo propio lo marca el jugador, no el juego', JSON.stringify(meta));
+  // La primera línea es el eco del jugador, con su «mi padre».
+  comprobar(/tu padre/.test(t3) && !/mi padre/.test(t3.split('\n').slice(1).join(' ')), 'y se le devuelve en segunda persona', t3);
+  m.guardarYCargar();
+  comprobar(m.sistema('quests').activas().some((q) => q.tipo === 'meta'), 'el objetivo propio sobrevive a guardar y cargar');
+}
+
+/* ── 6. Un enfrentamiento se puede hablar, esquivar o pelear ────────────── */
+
+const esperar = async (cond, ms = 4000) => {
+  const t0 = Date.now();
+  while (!cond() && Date.now() - t0 < ms) await new Promise((r) => setTimeout(r, 20));
+  return cond();
+};
+
+/** Monta un encuentro concreto sin pasar por el azar de las tablas. */
+async function encuentro(refId = 'patrulla_hostil') {
+  await nuevaPartida({ ...FICHA, lore: '' });
+  m.sistema('exploration')._presentar(obtenerEncuentro(refId));
+}
+
+{
+  await encuentro();
+  fijarDado(true);
+  const t = await m.jugar('les hablo con calma: solo estoy de paso y no busco problemas');
+  comprobar(!m.ver('combat.activo') && !m.sistema('exploration').encuentroPendiente(), 'hablar bien con la patrulla la resuelve sin pelea', t);
+}
+
+{
+  await encuentro();
+  fijarDado(false);
+  const t1 = await m.jugar('les hablo con calma: solo estoy de paso y no busco problemas');
+  comprobar(!m.ver('combat.activo') && m.sistema('exploration').encuentroPendiente(), 'un mal intento de hablar tensa la cosa, pero aún no es pelea', t1);
+  fijarDado(false);
+  const t2 = await m.jugar('insisto en que no he hecho nada');
+  comprobar(m.ver('combat.activo'), 'al segundo fallo se acaba la paciencia y hay pelea', t2);
+}
+
+{
+  await encuentro();
+  fijarDado(true);
+  const t = await m.jugar('huyo por el callejón');
+  comprobar(!m.ver('combat.activo') && !m.sistema('exploration').encuentroPendiente(), 'se puede huir', t);
+}
+
+{
+  await encuentro();
+  const t1 = await m.jugar('miro los tejados');
+  comprobar(!m.ver('combat.activo'), 'ignorar a la patrulla una vez no es pelear', t1);
+  const t2 = await m.jugar('sigo mirando los tejados');
+  comprobar(m.ver('combat.activo'), 'pero una patrulla hostil no se queda esperando', t2);
+}
+
+{
+  await encuentro();
+  const t = await m.jugar('ataco al primer guardia');
+  comprobar(m.ver('combat.activo') && await esperar(() => m.sistema('combat').esperandoJugador), 'atacar primero es pelear, y con la iniciativa', t);
+
+  // Hablar en mitad de la pelea.
+  const antes = m.entradas().length;
+  fijarDado(true);
+  await m.sistema('combat').jugadaLibre('bajad las armas, os ofrezco una tregua');
+  await esperar(() => !m.ver('combat.activo'));
+  const dicho = m.entradas().slice(antes).map((e) => e.texto).join('\n');
+  comprobar(!m.ver('combat.activo') && /Te escuchan/.test(dicho) && /nadie más va a sangrar/.test(dicho),
+    'con quien atiende a razones, una tregua bien dicha para la pelea sin más muertos', dicho);
+}
+
+{
+  await encuentro();
+  await m.jugar('ataco al primer guardia');
+  await esperar(() => m.sistema('combat').esperandoJugador);
+  const antes = m.entradas().length;
+  fijarDado(false);
+  await m.sistema('combat').jugadaLibre('me rindo, no quiero pelear');
+  await esperar(() => m.sistema('combat').esperandoJugador || !m.ver('combat.activo'));
+  const dicho = m.entradas().slice(antes).map((e) => e.texto).join('\n');
+  comprobar(m.ver('combat.activo') && /No quieren saber nada/.test(dicho), 'si no convence, la pelea sigue y el turno se ha ido hablando', dicho);
+}
+
+{
+  await encuentro('manada_hambrienta');
+  await m.jugar('ataco al lobo más cercano');
+  await esperar(() => m.sistema('combat').esperandoJugador);
+  const antes = m.entradas().length;
+  await m.sistema('combat').jugadaLibre('les hablo despacio, no quiero pelear');
+  await esperar(() => m.sistema('combat').esperandoJugador || !m.ver('combat.activo'));
+  const dicho = m.entradas().slice(antes).map((e) => e.texto).join('\n');
+  comprobar(/No hay con quién hablar/.test(dicho), 'con bestias no hay con quién parlamentar, y se dice', dicho);
 }
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);

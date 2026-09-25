@@ -294,7 +294,7 @@ try {
   // pero la partida NO empieza con una misión sacada de él, la apertura no
   // lo vuelca y no se abre como hilos de memoria. Antes esta prueba exigía lo
   // contrario —«hermana» en la apertura y una principal aceptada en el turno
-  // 1—, que es justo lo que Alejandro rechazó.
+  // 1—, que es justo lo que el autor rechazó.
   const apertura = await evaluate(`(() => {
     const a = ARCANVEIL.ver('quests.activas', { porId: {}, orden: [] });
     return {

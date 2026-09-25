@@ -36,7 +36,7 @@ function comprobar(bien, texto, detalle = '') {
 /* ── El pasado del personaje es canon, no guion ──────────────────────────── */
 
 // Antes, de la historia salía una misión principal ya aceptada en el turno 1
-// (lugar, PNJ y pista), y al cumplirla la siguiente. Alejandro lo rechazó: la
+// (lugar, PNJ y pista), y al cumplirla la siguiente. El autor lo rechazó: la
 // biografía aporta datos y posibilidades, no dicta la campaña.
 
 comprobar(typeof QuestSystem.prototype.iniciarPrincipal === 'undefined' && typeof QuestSystem.prototype.tomarRelevo === 'undefined',

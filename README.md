@@ -175,3 +175,29 @@ ARCANVEIL.dias(90)             // cambia la estación
 El contenido original —razas, clases, lugares, criaturas— es propio.
 El paquete opcional del SRD se rige por su propia licencia: ver
 [ATTRIBUTION.md](ATTRIBUTION.md).
+
+## Autoría
+
+ARCANVEIL es un proyecto de **[petetes93](https://github.com/petetes93)**:
+el diseño del juego, su ambientación y el código, los textos y el arte
+originales que no proceden de terceros. Ver [AUTHORS](AUTHORS).
+
+No es obra suya, y conserva sus propias licencias y obligaciones:
+
+- el material derivado del SRD 5.1 y 5.2 de Wizards of the Coast
+  (CC BY 4.0) y los paquetes opcionales de datos, según
+  [ATTRIBUTION.md](ATTRIBUTION.md);
+- las tipografías de `assets/fonts/`, bajo SIL Open Font License 1.1 (ver
+  [assets/fonts/README.md](assets/fonts/README.md));
+- las imágenes que el juego pide en ejecución a un servicio externo de
+  generación, que no forman parte del repositorio.
+
+Este aviso deja constancia de quién es el autor en el repositorio. No es un
+registro de propiedad intelectual, y el nombre de usuario por sí solo no
+acredita la titularidad legal. El juego no muestra firma ni autoría en
+pantalla, a propósito.
+
+**Licencia: pendiente de decidir.** El repositorio todavía no declara una
+licencia para el código ni para el contenido original. Mientras no la haya,
+nadie tiene permiso explícito para reutilizarlos más allá de lo que permitan
+las licencias de terceros citadas arriba.

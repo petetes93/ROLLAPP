@@ -4,7 +4,7 @@
  * ---------------------------------------------------------------------------
  * ¿La partida es una historia viva o la adaptación de la biografía?
  *
- * Alejandro corrigió el rumbo: el jugador escribe libremente y el mundo
+ * El autor corrigió el rumbo: el jugador escribe libremente y el mundo
  * reacciona a lo que hace, dice, pregunta, ignora o deja a medias. La
  * historia personal aporta datos, pero no dicta la campaña.
  *

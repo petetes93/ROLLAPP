@@ -329,7 +329,9 @@ export class TurnResolver extends SystemBase {
         // Y si lo narra el máster, lo cierra devolviendo la palabra.
         if (ruta.narracion) {
           const voz = ruta.voz ?? VOCES.SISTEMA;
-          const texto = voz === VOCES.DM ? this._cerrarTurno(ruta.narracion) : ruta.narracion;
+          const texto = voz === VOCES.DM
+            ? this._cerrarTurno(ruta.narracion, null, this._aQuienSeHablo(limpio, { soloNombrado: true }))
+            : ruta.narracion;
           this._anadirEntrada(voz, texto, { turno: numeroTurno });
         }
         await this.sistema('clock').turno({ tipo: 'exploracion' });
@@ -435,13 +437,13 @@ export class TurnResolver extends SystemBase {
       // Con quién se ha hablado, ANTES de cerrar el texto: cumplir un
       // «Hablar con…» puede abrir la siguiente misión principal, y quien la da
       // lo cuenta dentro de este mismo turno, no en una entrada suelta.
-      this._registrarConversacion(saneada, tipo, limpio);
+      const interlocutor = this._registrarConversacion(saneada, tipo, limpio);
       const relevo = this.sistema('quests')?.tomarRelevo?.();
       if (relevo) saneada.story = this._antesDeLaPregunta(saneada.story, relevo);
 
       // Cada turno termina devolviendo la palabra. La pone el modelo si la
       // trae (`pregunta`); si no, el motor.
-      saneada.story = this._cerrarTurno(saneada.story, saneada.pregunta);
+      saneada.story = this._cerrarTurno(saneada.story, saneada.pregunta, interlocutor);
 
       this._anadirEntrada(VOCES.DM, saneada.story, {
         turno: numeroTurno,
@@ -787,6 +789,7 @@ export class TurnResolver extends SystemBase {
       : (HABLA.test(sinAcentos(String(accion ?? '').toLowerCase())) ? this._aQuienSeHablo(accion, { soloNombrado: true }) : null);
     const npc = declarado ?? deLaFrase;
     if (npc?.refId) this.emitir('npc:talked', { refId: npc.refId, nombre: npc.nombre });
+    return npc?.nombre ? npc : null;
   }
 
   /**
@@ -820,23 +823,30 @@ export class TurnResolver extends SystemBase {
    *
    * @param {string} texto
    * @param {string} [propuesta] La que trae el modelo, si trae.
+   * @param {{nombre: string}|null} [interlocutor] Con quién ha hablado el jugador este turno.
    * @returns {string}
    * @private
    */
-  _cerrarTurno(texto, propuesta) {
-    const pregunta = String(propuesta ?? '').trim() || this._preguntar();
+  _cerrarTurno(texto, propuesta, interlocutor = null) {
+    const pregunta = String(propuesta ?? '').trim() || this._preguntar(interlocutor);
     this._ultimaPregunta = pregunta;
     return cerrarConPregunta(texto, pregunta);
   }
 
   /**
-   * Elige la pregunta según quién está en escena.
+   * Elige la pregunta según la escena.
+   *
+   * Solo se nombra a quien el jugador se ha dirigido en este turno. Se nombraba
+   * al primero de los presentes: tras hablar con la posadera cerraba «Ulket te
+   * mira, esperando», y tras un viaje «Ulket espera tu respuesta», aunque Ulket
+   * no hubiera dicho nada. Esperar una respuesta es de quien ha preguntado.
+   *
+   * @param {{nombre: string}|null} [interlocutor]
    * @returns {string}
    * @private
    */
-  _preguntar() {
-    const conocidos = this.leer('npcs.conocidos.porId', {}) ?? {};
-    const npcs = (this.leer('npcs.presentes', []) ?? []).map((id) => conocidos[id]).filter(Boolean);
+  _preguntar(interlocutor = null) {
+    const npcs = interlocutor?.nombre ? [interlocutor] : [];
     const enemigos = this.leer('combat.activo', false)
       ? Object.values(this.leer('combat.combatientes', {}) ?? {}).filter((c) => c.bando === 'enemigo' && c.vida?.actual > 0)
       : [];

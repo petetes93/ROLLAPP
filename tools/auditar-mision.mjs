@@ -139,6 +139,25 @@ comprobar(terminaEnPregunta('Algo.\n¿Qué haces?') && !terminaEnPregunta('Algo.
     'preguntar a alguien nombrado cuenta como hablar con él, aunque el turno sea otra cosa');
   comprobar(!conQuien('busco a Dadar', 'accion').length, 'buscar a alguien no es hablar con él');
   comprobar(!conQuien('le pregunto por el hierro', 'accion').length, 'sin nombre, fuera del diálogo no se adivina con quién');
+
+  // La pregunta de cierre solo nombra a quien se ha hablado. Tras hablar con
+  // la posadera cerraba «Ulket te mira, esperando», y Ulket no pintaba nada.
+  turnos.rng = null;
+  turnos.leer = (ruta, d) => ({ 'npcs.presentes': ['npc_dadar', 'npc_ulket'], 'combat.activo': false, 'world.tiempo.franja': 'manana' })[ruta]
+    ?? ruta.split('.').reduce((o, k) => o?.[k], estado) ?? d;
+  const nombra = (interlocutor) => {
+    const salidas = new Set();
+    for (let i = 0; i < 12; i += 1) {
+      turnos._ultimaPregunta = [...salidas].at(-1) ?? null;
+      salidas.add(turnos._preguntar(interlocutor));
+    }
+    return [...salidas];
+  };
+  const sinNadie = nombra(null);
+  comprobar(!sinNadie.some((p) => /Dadar|Ulket/.test(p)), 'sin interlocutor, la pregunta no nombra a los presentes', sinNadie.join(' | '));
+  const conDadar = nombra({ nombre: 'Dadar' });
+  comprobar(conDadar.some((p) => /Dadar/.test(p)) && !conDadar.some((p) => /Ulket/.test(p)),
+    'tras hablar con Dadar, la pregunta puede nombrarle a él y a nadie más', conDadar.join(' | '));
 }
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);

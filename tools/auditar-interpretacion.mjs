@@ -251,6 +251,49 @@ console.log('\n── Canon: se cambia a propósito, no por una frase de la hist
   comprobar(inst.memoria.canon.some((c) => /Aldo murió/.test(c.texto) && /deliberada/.test(c.fuente)), 'tras guardar y cargar, viaja en el canon de la instantánea con su procedencia', JSON.stringify(inst.memoria.canon).slice(0, 300));
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   5. LO QUE DESTAPÓ LEER SEIS PARTIDAS ENTERAS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+console.log('\n── Lo que destapó la revisión manual de partidas ──');
+{
+  await nuevaPartida({ nombre: 'Korr', raza: 'ferrano', clase: 'vinculado', trasfondo: 'soldado', genero: 'm' }, 9303);
+  const s = m.sistema('situations');
+  for (const x of s.aqui()) { s._guardar({ ...x, estado: 'desenlace' }); for (const a of Object.values(x.actores)) m.sistema('npcs').retirar(a.refId); }
+  const pozo = s.abrir({ refId: 'colgante_en_el_pozo' });
+  const dallin = m.sistema('npcs').introducir({ nombre: 'Dallin', rol: 'tasadora', genero: 'f' });
+  const tiradasAhora = () => (m.entradas() ?? []).filter((e) => e.voz === 'roll' || e.voz === 'tirada').length;
+
+  // Con el pozo recién abierto y el dado a favor: mirar a otra cosa no lo
+  // resuelve (con éxito, la vía de «pescar» sacaba el colgante).
+  const reglas = m.sistema('rules');
+  const resolverOriginal = reglas.resolver;
+  reglas.resolver = (x) => ({ ...resolverOriginal.call(reglas, x), exito: true, grado: 'exitoClaro' });
+  let t = await m.jugar('examino el suelo buscando rastros de lobo');
+  reglas.resolver = resolverOriginal;
+  const tras = s.todas().find((x) => x.id === pozo.id);
+  comprobar(tras?.estado === 'abierta' && !/colgante sube/.test(t), 'buscar rastros de lobo no resuelve la situación del pozo', `${tras?.estado} · ${tras?.resolucion} · ${t}`);
+
+  t = await m.jugar('le pregunto a Dallin si necesita ayuda');
+  comprobar(!/De (?:necesita|Dallin|dallin) no sé/.test(t), 'el tema no es a quien se pregunta ni una palabra suelta', t);
+  const r0 = tiradasAhora();
+  t = await m.jugar('le digo a Dallin que busco trabajo de espada');
+  comprobar(tiradasAhora() === r0 && !/No cuela|ceden|Cede|empeorado/.test(t), 'contarle algo a alguien no se tira ni saca un resultado de catálogo', t);
+  t = await m.jugar('le pregunto a Dallin por el camino y si hay trabajo allí');
+  comprobar(!/Queda en el aire/.test(t), '«y si hay trabajo» dentro de una pregunta no es una condición', t);
+  t = await m.jugar('si alguien me sigue, me escondo; mientras, sigo esperando');
+  comprobar(!/Mientras y/.test(t), 'un «mientras» suelto va con lo que sigue', t);
+  t = await m.jugar('escupo al suelo y me detengo a mirar');
+  comprobar(/Escupes/.test(t) && /te detienes/.test(t), 'los verbos de -er, -ir e irregulares se conjugan bien', t);
+  t = await m.jugar('le pregunto a la anciana del pueblo por la campana');
+  comprobar(/ninguna anciana/.test(t) && !/«/.test(t), 'una persona por cómo es («la anciana») también se resuelve', t);
+  t = await m.jugar('le pregunto al capitán si necesita hombres');
+  comprobar(/ningún capitán/.test(t), 'el aviso usa la palabra con su tilde', t);
+  t = await m.jugar('miro el cielo');
+  comprobar(/cielo/i.test(t) && !/río|puente|garita/.test(t), 'mirar el cielo da el cielo, no un rasgo al azar', t);
+  comprobar(dallin?.refId, 'hay alguien a quien preguntar');
+}
+
 console.log(`\n${casos - fallos}/${casos} comprobaciones · destinatario errado: ${errados.length}${errados.length ? ` (${errados.join('; ')})` : ''}`);
 console.log(fallos ? `\n${fallos} fallos.` : '\nTodo bien.');
 process.exit(fallos ? 1 : 0);

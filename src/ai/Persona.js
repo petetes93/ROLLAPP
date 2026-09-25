@@ -71,7 +71,35 @@ const TRAS_VERBO = new Set(['y', 'e', 'luego', 'después', 'entonces', 'mientras
  * `la` de TRAS_VERBO habría arreglado esto y roto «la miro», que es más común.
  */
 const NO_VERBOS = new Set(['lo', 'yo', 'no', 'o', 'como', 'todo', 'algo', 'poco', 'mucho', 'medio', 'otro', 'solo', 'sólo', 'pero', 'luego', 'tanto', 'cuanto', 'primero', 'dentro', 'fuera', 'encima', 'debajo', 'despacio', 'rápido', 'claro', 'mismo', 'pronto',
-  'mano', 'foto', 'moto', 'radio', 'libido', 'soprano', 'modelo']);
+  'mano', 'foto', 'moto', 'radio', 'libido', 'soprano', 'modelo',
+  // Acaban en -é y no son pretéritos: «¿qué sabes?» salía «¿caste sabes?».
+  'qué', 'porqué', 'café', 'bebé', 'puré']);
+
+/**
+ * Primera del plural, que es como se habla yendo con compañeros: «esperamos
+ * a que anochezca», «nos escondemos tras el carro». No se convertía y salía
+ * «os escondemos». Los pretéritos irregulares van en lista; el resto sigue la
+ * terminación: -amos → -áis, -emos → -éis, -imos → -ís.
+ */
+const PLURALES = {
+  vamos: 'vais', somos: 'sois', hemos: 'habéis', estamos: 'estáis', damos: 'dais',
+  fuimos: 'fuisteis', dijimos: 'dijisteis', hicimos: 'hicisteis', tuvimos: 'tuvisteis',
+  pudimos: 'pudisteis', vinimos: 'vinisteis', pusimos: 'pusisteis', vimos: 'visteis',
+  supimos: 'supisteis', quisimos: 'quisisteis', trajimos: 'trajisteis',
+  estuvimos: 'estuvisteis', dimos: 'disteis', anduvimos: 'anduvisteis',
+};
+
+/** Nombres y adjetivos en -amos/-emos/-imos que no son verbos. */
+const NO_PLURALES = new Set(['ramos', 'tramos', 'gamos', 'remos', 'extremos', 'supremos', 'primos', 'mimos', 'ánimos', 'últimos', 'próximos', 'mínimos', 'máximos']);
+
+function conjugarPlural(bajo) {
+  if (PLURALES[bajo]) return PLURALES[bajo];
+  if (NO_PLURALES.has(bajo) || bajo.length < 5) return null;
+  if (/amos$/.test(bajo)) return `${bajo.slice(0, -4)}áis`;
+  if (/emos$/.test(bajo)) return `${bajo.slice(0, -4)}éis`;
+  if (/imos$/.test(bajo)) return `${bajo.slice(0, -4)}ís`;
+  return null;
+}
 
 /**
  * Verbos en -iar cuya primera persona acaba en -io sin tilde.
@@ -183,6 +211,11 @@ function infinitivoInicial(texto) {
   const m = texto.match(/^(\s*)([A-Za-zÁÉÍÓÚáéíóúñÑ]*?)(ar|er|ir|ír)(te|se|le|lo|la|les|los|las)?(?=\s|$)/iu);
   if (!m) return null;
   const [todo, esp, raiz, term, clitico] = m;
+  // Un nombre propio en -ar, -er o -ir no es un infinitivo. «Ulmir y yo
+  // vigilamos» salía «Ulmes y yo»; «Seldar me acompaña», «Seldas me
+  // acompaña». Un infinitivo al principio no va seguido de «y» ni de un
+  // pronombre suelto; un nombre que hace de sujeto, sí.
+  if (/^\s+(?:y|e|me|te|se|nos|os)\b/iu.test(texto.slice(todo.length))) return null;
   const inf = `${raiz}${term}`.toLowerCase();
   const t = term.toLowerCase();
   let conj = INF_IRREG[inf];
@@ -297,6 +330,9 @@ export function aSegundaPersona(texto) {
       if (c) salida = conMayuscula(p, c);
     } else if ((inicioClausula || TRAS_VERBO.has(anterior)) && IRREGULARES[bajo]) {
       salida = conMayuscula(p, IRREGULARES[bajo]);
+    } else if ((inicioClausula || TRAS_VERBO.has(anterior)) && /(amos|emos|imos)$/.test(bajo)) {
+      const c = conjugarPlural(bajo);
+      if (c) salida = conMayuscula(p, c);
     }
 
     inicioClausula = false;

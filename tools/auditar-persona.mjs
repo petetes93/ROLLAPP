@@ -70,6 +70,20 @@ const CASOS = [
   ['me acerco con la mano lejos del arco', 'te acercas con la mano lejos del arco'],
   ['la miro a los ojos', 'la miras a los ojos'],
   ['lo cojo del suelo', 'lo coges del suelo'],
+
+  // ── En plural, con compañeros ─────────────────────────────────────────
+  ['esperamos a que anochezca', 'esperáis a que anochezca'],
+  ['nos escondemos tras el carro', 'os escondéis tras el carro'],
+  ['Ulmir y yo vigilamos el camino', 'Ulmir y tú vigiláis el camino'],
+  ['le preguntamos por el hierro', 'le preguntáis por el hierro'],
+  ['fuimos al vado ayer', 'fuisteis al vado ayer'],
+  ['subimos la cuesta', 'subís la cuesta'],
+  ['los ramos del altar', 'los ramos del altar'],
+
+  // ── Los nombres no se conjugan ────────────────────────────────────────
+  ['Seldar me acompaña', 'Seldar te acompaña'],
+  ['Dadar, ¿qué sabes del hierro?', 'Dadar, ¿qué sabes del hierro?'],
+  ['Preguntar a Helmir por tu hermana', 'Preguntas a Helmir por tu hermana'],
 ];
 
 /** [texto, si debe detectarse como primera persona] */

@@ -572,7 +572,7 @@ function pintarCreacion() {
         maxlength: '1200', value: borrador.lore,
         onInput: (e) => { borrador.lore = e.target.value; },
       }),
-      el('p', { class: 'campo__ayuda', text: 'El máster convertirá personas, promesas, lugares y conflictos de esta historia en la campaña.' }),
+      el('p', { class: 'campo__ayuda', text: 'Es el pasado de tu personaje: el mundo lo respeta, pero la partida la haces tú. Nada de esto se convierte en misión si tú no quieres.' }),
     ),
     campoIntensidad(),
   );

@@ -91,6 +91,9 @@ export function fichaDeCompanero(npc = {}) {
     nombre: npc.nombre ?? 'Alguien',
     rol: npc.rol ?? 'lugareño',
     genero,
+    // Su linaje de verdad: el retrato lo necesita. Se pintaba como valdés a
+    // cualquier compañero, fuera de donde fuera.
+    linaje: npc.linaje ?? null,
     especialidad: o.especialidad,
     rasgo: o.rasgo,
     vidaMax: o.vida,

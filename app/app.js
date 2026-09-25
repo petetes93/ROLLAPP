@@ -2089,7 +2089,7 @@ function pintarGrupo(caja) {
     ));
 
     // Su retrato sale con las mismas reglas que el del jugador.
-    pintarRetrato(cara, { raza: 'valdes', nombre: f.nombre, descripcion: f.descripcion, genero: f.genero });
+    pintarRetrato(cara, { raza: f.linaje ?? 'valdes', nombre: f.nombre, descripcion: f.descripcion, genero: f.genero });
   }
 }
 
@@ -2560,7 +2560,7 @@ function pintarCombate() {
     else if (c.bando === 'aliado') {
       // Un compañero, con la misma cara que en la pestaña Grupo.
       const f = (sistema('party')?.miembros?.() ?? []).find((m) => m.ficha?.refId === c.refId)?.ficha;
-      if (f) pintarRetrato(cara, { raza: 'valdes', nombre: f.nombre, descripcion: f.descripcion, genero: f.genero });
+      if (f) pintarRetrato(cara, { raza: f.linaje ?? 'valdes', nombre: f.nombre, descripcion: f.descripcion, genero: f.genero });
     } else {
       const plantilla = obtenerEnemigo(c.refId);
       if (plantilla) pintarCriatura(cara, plantilla);

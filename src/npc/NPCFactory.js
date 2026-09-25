@@ -139,6 +139,35 @@ export function generarNombre(flujo, genero = 'm') {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /**
+ * Quién vive en cada región: los linajes que empiezan allí (ver
+ * `inicioSegunLinaje` en locations.data.js).
+ */
+const NATIVOS = Object.freeze({
+  valle_central: ['valdes', 'menudo'],
+  bosque_cenizo: ['sombracorteza'],
+  montanas_yunque: ['ferrano', 'griscuerno'],
+  marisma_velo: ['brumal'],
+  ruinas_albares: ['albar'],
+  dunas_rojas: ['crisol'],
+});
+const TODOS_LOS_LINAJES = ['valdes', 'sombracorteza', 'ferrano', 'albar', 'griscuerno', 'menudo', 'brumal', 'crisol'];
+
+/**
+ * El linaje de un PNJ, por su tierra: casi todos de allí, alguno de fuera.
+ *
+ * No se asignaba a nadie, y el retrato de cualquier compañero salía como
+ * valdés aunque viviera en Forja Alta.
+ *
+ * @param {import('../core/RNG.js').Flujo} flujo
+ * @param {string} [region]
+ * @returns {string}
+ */
+export function linajeDelSitio(flujo, region) {
+  const nativos = NATIVOS[region] ?? ['valdes'];
+  return flujo.oportunidad(0.8) ? flujo.elegir(nativos) : flujo.elegir(TODOS_LOS_LINAJES);
+}
+
+/**
  * Genera un PNJ coherente con el lugar donde aparece.
  *
  * @param {import('../core/RNG.js').Flujo} flujo
@@ -189,6 +218,7 @@ export function generar(flujo, contexto) {
     rasgo,
     faccion,
     actitud,
+    linaje: linajeDelSitio(flujo, region?.refId),
     lugar: contexto.lugar,
     sublugar: contexto.sublugar ?? null,
     conocimiento,

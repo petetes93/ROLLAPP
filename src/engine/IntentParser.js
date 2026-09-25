@@ -266,7 +266,9 @@ export const INTENCIONES = Object.freeze({
     tipo: 'trade',
     verbos: {
       comerciar: 10, comprar: 9, compro: 9, vender: 9, vendo: 9,
-      mercado: 7, tienda: 6, precio: 6, trueque: 8,
+      trueque: 8, regateo: 8, regatear: 8,
+      // Sin sustantivos de sitio: «escucho las conversaciones del mercado»
+      // abría el panel de compra y el turno se quedaba sin narrar.
     },
     habilidad: 'tasacion',
     umbral: 'facil',

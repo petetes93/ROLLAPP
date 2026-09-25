@@ -227,6 +227,11 @@ const HACHA = { id: 'o1', refId: 'hacha_mano', nombre: 'Hacha de mano', categori
     comprobar(interpretar(frase).tipo !== 'travel', `«${frase}» no es un viaje`, interpretar(frase).tipo);
   }
 
+  // Nombrar el mercado no es comerciar: abría el panel de compra en silencio
+  // y el turno se quedaba sin narrar.
+  comprobar(interpretar('escucho las conversaciones del mercado').tipo !== 'trade', 'escuchar en el mercado no es comerciar');
+  comprobar(interpretar('compro pan').tipo === 'trade' && interpretar('quiero vender la daga').tipo === 'trade', 'comprar y vender sí lo son');
+
   const herrera = fichaDeCompanero({ refId: 'npc_maela', nombre: 'Maela', rol: 'herrera', genero: 'f', rasgo: 'brazos quemados' });
   comprobar(herrera.ataque.nombre === 'Martillo de forja' && herrera.vidaMax === 22, 'la ficha sale del oficio, en masculino y en femenino');
   comprobar(/^mujer, herrera/.test(herrera.descripcion), 'su retrato se pide con su sexo y su oficio', herrera.descripcion);

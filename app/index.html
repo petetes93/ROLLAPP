@@ -631,7 +631,8 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
 [data-pantalla].pantalla-entrando{animation:pantallaRevela .55s cubic-bezier(.2,.8,.2,1) backwards}
 @keyframes pantallaRevela{from{opacity:0;transform:translateY(14px) scale(.992);filter:blur(5px)}to{opacity:1;transform:none;filter:none}}
 .inicio__marca{animation:marcaViva 4.8s ease-in-out infinite}
-@keyframes marcaViva{50%{transform:translateY(-4px);text-shadow:0 0 44px rgba(143,124,255,.8),4px 4px 0 rgba(255,111,145,.36)}}
+/* El brillo de la marca, en el oro de la portada: el morado y la sombra rosa eran del estilo anterior. */
+@keyframes marcaViva{50%{transform:translateY(-4px);text-shadow:0 2px #000,0 0 44px rgba(208,157,57,.5)}}
 .eleccion__cara{box-shadow:0 18px 55px rgba(0,0,0,.42);animation:retratoEntra .55s cubic-bezier(.2,.8,.2,1) both}
 .eleccion__cara::after,.retrato-pj::after{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(110deg,transparent 25%,rgba(195,185,255,.14) 45%,transparent 65%);transform:translateX(-130%);animation:destelloRetrato 6s ease-in-out infinite}
 @keyframes retratoEntra{from{opacity:0;transform:translateX(-18px) rotate(-1.5deg)}to{opacity:1;transform:none}}

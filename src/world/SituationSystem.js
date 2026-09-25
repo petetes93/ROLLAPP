@@ -262,6 +262,19 @@ export class SituationSystem extends SystemBase {
       this._guardar({ ...sit, estado: ESTADO_SITUACION.DESENLACE, turnoDesenlace: turno });
       this.emitir('memory:remember', { texto: this.rellenar(regla.hecho, sit), peso: 2, categoria: 'situacion' });
 
+      // Quien lo vivió lo cuenta si se le pregunta, también tras guardar y
+      // cargar: va en su memoria. Y quien se ha ido ya no está en la calle:
+      // el vigía que robó la bolsa seguía «presente» después del robo.
+      const npcs = this.sistema('npcs');
+      for (const [clave, texto] of Object.entries(regla.testimonio ?? {})) {
+        const actor = sit.actores[clave];
+        if (actor?.refId) npcs?.recordar(actor.refId, this.rellenar(texto, sit), { tipo: 'testimonio', peso: 2 });
+      }
+      for (const clave of regla.marchan ?? []) {
+        const actor = sit.actores[clave];
+        if (actor?.refId) npcs?.retirar(actor.refId);
+      }
+
       // Si pasa delante de él, se cuenta en el turno siguiente.
       if (sit.lugar === aqui) {
         this.emitir('memory:context', { texto: `EN ESCENA: ${this.rellenar(regla.texto, sit)}`, temporal: true });

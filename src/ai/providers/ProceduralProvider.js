@@ -35,6 +35,9 @@ import { comentario } from '../../npc/Companero.js';
 /** Notas de escena que se pueden narrar tal cual: están escritas para el jugador. */
 const PARA_EL_JUGADOR = /^(?:EN ESCENA|HA CAMBIADO DESDE LA ÚLTIMA VISITA):/;
 
+/** Preguntar a alguien qué le ha pasado, en llano. */
+const QUE_PASO = /\bque (?:te |le |os |les )?(?:ha |han )?(?:pasado|ocurrido|sucedido|hecho)\b|\bque (?:te |le )?paso\b|\bque ha sido\b|\bestas bien\b/;
+
 export class ProceduralProvider extends IDMProvider {
   static id = 'procedural';
   static nombre = 'Director procedural';
@@ -1084,13 +1087,18 @@ export class ProceduralProvider extends IDMProvider {
     const recuerdo = this._loQueRecuerda(npc, peticion.turno ?? ctx.turno ?? 0);
     if (recuerdo) partes.push(recuerdo);
 
+    // Si le preguntas qué le ha pasado y le ha pasado algo, te lo cuenta.
+    // Antes contestaba lo de siempre aunque acabaran de robarle.
+    const testimonio = this._testimonio(npc, ctx.foco ?? peticion.accion);
+    if (testimonio) partes.push(testimonio);
+
     // Una negativa no se contesta con un saludo ni se tira: la reacción de
     // quien la oye la pone `_enriquecer`, desde lo que siente por él.
-    const respuesta = ctx.negativa ? '' : this._responderPregunta(peticion, ctx, npc);
+    const respuesta = ctx.negativa || testimonio ? '' : this._responderPregunta(peticion, ctx, npc);
 
     if (respuesta) {
       partes.push(respuesta);
-    } else if (!ctx.negativa) {
+    } else if (!ctx.negativa && !testimonio) {
       partes.push(this._responderAfirmacion(peticion, ctx, npc, actitud));
     }
 
@@ -1135,6 +1143,24 @@ export class ProceduralProvider extends IDMProvider {
    * @returns {string}
    * @private
    */
+  /**
+   * Lo que le ha pasado a un PNJ, si se le pregunta por ello.
+   *
+   * Sale de su memoria (tipo `testimonio`): lo apunta el mundo cuando algo
+   * termina sin el jugador, como el robo del mercader.
+   *
+   * @param {Object} npc
+   * @param {string} texto Lo que pregunta el jugador.
+   * @returns {string}
+   * @private
+   */
+  _testimonio(npc, texto) {
+    const t = [...(npc?.memoria ?? [])].reverse().find((m) => m.tipo === 'testimonio');
+    if (!t) return '';
+    const n = sinAcentos(String(texto ?? '').toLowerCase());
+    return QUE_PASO.test(n) ? t.texto : '';
+  }
+
   _loQueRecuerda(npc, turno) {
     const memoria = (npc?.memoria ?? []).filter((m) => m.tipo !== 'encuentro' && m.tipo !== 'actitud');
     if (!memoria.length) return '';

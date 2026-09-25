@@ -20,6 +20,8 @@
  *   · claves — palabras que dicen que el jugador se está fijando en esto.
  *   · vias — maneras de intervenir: patrón, habilidad, umbral y qué pasa.
  *   · siIgnorada — cuántos turnos aguanta sin el jugador y cómo termina.
+ *     `marchan`: quién se va de la escena cuando pasa. `testimonio`: lo que
+ *     contará cada implicado si se le pregunta; se guarda en su memoria.
  *
  * Todo en castellano de España. El texto de las vías va en segunda persona.
  * ═══════════════════════════════════════════════════════════════════════════
@@ -81,6 +83,7 @@ export const SITUACIONES = Object.freeze({
       tras: 4,
       texto: 'Al fondo de la calle, {guardia} ha perdido la paciencia: entre tres vuelcan el carro de {carretero} a un lado. Media carga de fruta acaba en el barro.',
       hecho: 'La carga de fruta de {carretero} acabó en el barro de la calle principal.',
+      testimonio: { carretero: '{carretero} se limpia las manos en el pantalón. «Me volcaron el carro entre tres. Media carga al barro, y a ver quién me la paga.»' },
     },
     sugerencia: { label: 'Echar una mano con el carro', intent: 'custom' },
   },
@@ -125,6 +128,7 @@ export const SITUACIONES = Object.freeze({
       tras: 5,
       texto: 'Por la plaza pasa corriendo un chaval con una cuerda al hombro: dicen que {nina} intentó bajar sola al pozo y ahora hay medio pueblo alrededor del brocal.',
       hecho: '{nina} intentó bajar sola al pozo a por el colgante de su madre.',
+      testimonio: { nina: '{nina} se mira las rodillas raspadas. «Quise bajar yo. La cuerda no llegaba.»' },
     },
     sugerencia: { label: 'Acercarte a la niña del pozo', intent: 'talk' },
   },
@@ -168,6 +172,8 @@ export const SITUACIONES = Object.freeze({
       tras: 5,
       texto: 'Un grito en el mercado: a {mercader} le han quitado la bolsa del mostrador, y nadie ha visto a nadie. En el alero de enfrente ya no hay ninguna figura.',
       hecho: 'A {mercader} le robaron la bolsa en el mercado; alguien le vigilaba desde un tejado.',
+      marchan: ['vigia'],
+      testimonio: { mercader: '{mercader} señala el mostrador vacío. «Me han quitado la bolsa delante de las narices. Ni lo vi venir.»' },
     },
     sugerencia: { label: 'Fijarte en la figura del tejado', intent: 'observe' },
   },
@@ -204,6 +210,8 @@ export const SITUACIONES = Object.freeze({
       tras: 3,
       texto: 'La discusión del puesto de harina se acaba como suelen acabar: {clienta} se va con medio saco y los ojos rojos, y {tendero} vuelve a su balanza.',
       hecho: '{clienta} se fue del puesto de {tendero} con medio saco de harina.',
+      marchan: ['clienta'],
+      testimonio: { tendero: '{tendero} se encoge de hombros. «Se ha ido con medio saco. La balanza es buena, diga lo que diga.»' },
     },
     sugerencia: { label: 'Mirar de cerca la balanza', intent: 'observe' },
   },
@@ -240,6 +248,7 @@ export const SITUACIONES = Object.freeze({
       tras: 2,
       texto: 'Del huerto vallado llegan gritos: la cabra ha entrado. {pastor} sale arrastrándola por los cuernos mientras el dueño le amenaza con quitarle el jornal de un mes.',
       hecho: 'La cabra de {pastor} se comió medio huerto del posadero.',
+      testimonio: { pastor: '{pastor} tira de la cuerda con rabia. «Medio huerto. Me quedo sin el jornal del mes.»' },
     },
     sugerencia: { label: 'Ir a por la cabra', intent: 'custom' },
   },
@@ -276,6 +285,7 @@ export const SITUACIONES = Object.freeze({
       tras: 4,
       texto: 'Pasa una carreta en dirección contraria. Poco después, del buhonero del camino solo queda la marca del fardo en la hierba.',
       hecho: 'Una carreta recogió a {buhonero}, el buhonero herido del camino.',
+      marchan: ['buhonero'],
     },
     sugerencia: { label: 'Acercarte al buhonero herido', intent: 'talk' },
   },

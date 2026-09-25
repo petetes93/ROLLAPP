@@ -16,6 +16,19 @@ Las auditorías prueban piezas sueltas con casos que salieron de partidas
 reales (persona gramatical, combate, creación, misiones, retratos…). La
 regresión juega una partida entera en un Chrome sin ventana.
 
+`tools/auditar-historia.mjs` juega partidas de verdad con el motor completo
+en Node (`tools/motor-sin-ventana.mjs`), sin navegador y en segundos: es la
+que comprueba que la historia la hace el jugador (ver el bloque 3). Para
+probar a mano una idea en ese motor:
+
+```js
+import { crearMotor } from './tools/motor-sin-ventana.mjs';
+const m = await crearMotor({ semilla: 7412 });
+console.log(await m.empezar({ nombre: 'Iselda', raza: 'valdes', clase: 'rastreador', trasfondo: 'gente_campo', lore: '…' }));
+console.log(await m.jugar('Ignoro al encapuchado; le pregunto al herrero por el paso del norte'));
+m.guardarYCargar();
+```
+
 Lo que no se automatiza se comprueba a mano con este guion, en el orden que
 encuentra los fallos antes.
 
@@ -103,18 +116,40 @@ ARCANVEIL.ver('world.ubicacion')
 
 ## 3 · Turno libre
 
-**El turno 1 deja claro qué hacer.** La apertura termina presentando una
-misión principal sacada de la historia del personaje, con un lugar del mapa,
-una persona con nombre y una pista («Dicen que en Saucedo, Dadar, el herrero,
-compró hierro con una marca que conoces»). Sale en el panel de encargos.
+**La historia la hace el jugador, no la biografía.** La historia personal
+del personaje es canon: no se contradice, pero no dicta la campaña. La
+apertura dice dónde y cuándo, y pone delante algo que está pasando en el
+mundo (un carro atascado, una niña asomada a un pozo, alguien vigilando
+desde un tejado) con gente con nombre. No hay misión impuesta: los encargos
+nacen de lo que ofrece alguien y el jugador acepta, o de lo que él mismo se
+propone.
 
 | Comprobar | Criterio de fallo |
 |---|---|
-| La apertura nombra lugar, persona y pista de la misión | Solo atmósfera, sin nada que hacer |
+| La apertura nombra lugar y momento, y presenta algo que pasa, con gente con nombre | Vuelca el pasado del personaje («Tu hermano desapareció…») |
+| Empieza sin misiones en el panel de encargos | Hay una «principal» sacada de la historia |
+| Dos personajes con la misma historia empiezan igual de libres | Los dos arrancan «tras la pista de» lo mismo |
 | Cada turno del narrador acaba con una pregunta en su propia línea | Termina en una descripción y no se sabe si el turno ha acabado |
 | La pregunta solo nombra a alguien si le has hablado en ese turno | «Ulket te mira, esperando» cuando hablaste con otra persona |
-| Preguntar a la persona de la pista («busco a Dadar y le pregunto por el hierro») cumple «Hablar con Dadar» | El objetivo no avanza |
-| Al cumplir la misión, el director propone la siguiente enlazada con la historia | Silencio tras cumplirla |
+
+**Lo que se ignora sigue ahí, a su ritmo.** Escribe, con la situación de
+la apertura delante:
+
+1. `Ignoro al encapuchado; le pregunto al herrero por el paso del norte`
+2. `si el herrero me sigue mirando, me voy al puente`
+3. `Le digo al herrero: «No voy a venderte el anillo». Luego espero`
+4. Cuatro o cinco turnos de otra cosa (`miro el río`)
+5. `le pregunto al mercader qué le ha pasado`
+6. Guarda, recarga y `vuelvo con el herrero y le pregunto otra vez por el paso`
+
+| Comprobar | Criterio de fallo |
+|---|---|
+| Ignorar algo no lo resuelve ni lo narra de cerca; el herrero contesta a la pregunta | Sale el detalle del encapuchado, o nadie contesta |
+| La condición no se ejecuta: el personaje sigue donde estaba y se le devuelve «si el herrero te sigue mirando» | «Te vas al puente» y cambia la gente de alrededor |
+| La negativa se narra con sus palabras exactas, sin entregar nada | «No vas a venderte el anillo», o el anillo cambia de manos |
+| Al cumplirse el plazo, lo ignorado pasa sin el jugador y sin reproches (el robo) | No pasa nunca, o se le culpa |
+| Quien lo vivió lo cuenta si se le pregunta; quien se fue ya no está | El mercader contesta lo de siempre; el vigía sigue «presente» |
+| Al volver, el herrero recuerda la negativa con sus palabras, también tras recargar | Te saluda como si nada |
 
 La partida no tiene botones de acción fijos: solo la caja de texto. Tras 5-10
 segundos sin escribir aparece una ventana con tres sugerencias que nombran lo
@@ -192,6 +227,23 @@ ARCANVEIL.pelear('lobo_ceniciento', 3)
 | El panel se sacude al recibir daño | No hay señal visual |
 | Al bajar del 25 %, algún lobo huye | Pelean hasta morir todos |
 | Al ganar, llega experiencia y botín | No llega nada |
+
+**Un enfrentamiento no es un combate automático.** Con una patrulla
+delante (en el camino o forzada):
+
+```js
+import('/src/world/EncounterTables.js').then((T) => ARCANVEIL.sistema('exploration')._presentar(T.obtenerEncuentro('patrulla_hostil')))
+```
+
+| Comprobar | Criterio de fallo |
+|---|---|
+| `les hablo con calma: solo estoy de paso` con buena tirada la resuelve sin pelea | Hablar cuenta como ignorarlos |
+| Un mal intento de hablar tensa la cosa; el segundo acaba en pelea | Pelea al primer fallo, o nunca |
+| Ignorarlos dos veces acaba en pelea; a una criatura que no persigue se la puede dejar atrás | Nada cambia, o todo acaba en combate |
+| Atacar primero da la iniciativa al jugador | Atacan ellos primero |
+| En la pelea, `bajad las armas, os ofrezco una tregua` tira trato social: si sale, se acaba sin más muertos | No existe hablar en combate |
+| Si no convence, la pelea sigue y el turno se ha ido hablando | Se ignora la frase o se toma como ataque |
+| Con lobos, «no hay con quién hablar» | Los lobos aceptan una tregua |
 
 **Combate contra jefe:**
 
@@ -371,6 +423,10 @@ ARCANVEIL.inspeccionar('quests')
 | Comprobar | Criterio de fallo |
 |---|---|
 | La misión la propone un PNJ, no una notificación | Aparece sola en el registro |
+| Ofrecida no es aceptada: sale como oferta, con botón de rechazar | Entra directa como misión activa |
+| `acepto el encargo` o `no me interesa` escritos valen igual que los botones | Solo funcionan los botones |
+| Quien ofreció recuerda el rechazo, sin castigo | Se enfada sin motivo, o lo vuelve a ofrecer en bucle |
+| `me propongo averiguar quién quemó la forja de mi padre` apunta un objetivo propio, sin pago, que el jugador da por cumplido | No existe, o sale en primera persona («tu mi padre») |
 | Un objetivo de matar avanza al matar | Hay que marcarlo a mano |
 | Un objetivo de recoger baja si vendes lo recogido | Se queda cumplido |
 | Al cumplir todo, avisa de que se puede cobrar | Silencio |
@@ -425,8 +481,16 @@ Prueba los cuatro modos en Ajustes.
 | Comprobar | Criterio de fallo |
 |---|---|
 | Funciona sin red y sin claves | Pide algo |
+| Al elegir narrador, dice su techo: lee por partes y resuelve con dados, situaciones y memoria, pero la prosa sale de plantillas | Promete lo mismo que una IA |
 | No repite frases en veinte turnos | Se repite antes |
 | Describe el entorno al cambiar de terreno | No lo menciona nunca |
+
+Lo que no se le puede pedir: inventar respuestas nuevas. A una pregunta
+sobre algo que el mundo no tiene escrito contesta con frases de catálogo
+(«Ni idea. Aquí cada uno se ocupa de lo suyo»), y a dos preguntas seguidas
+puede contestar con la misma forma. Lo que sí tiene que cumplir: lo que
+el motor resuelve (tiradas, situaciones, recuerdos, negativas, testimonios)
+se cuenta tal cual.
 
 ### Puente manual
 

@@ -66,6 +66,24 @@ export function sinAcentos(s) {
   return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+/** Palabras que abren frase y pueden ir en minúscula al quedar en medio. */
+const COMUNES = new Set(['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'alguien', 'nadie', 'hay', 'se', 'lo', 'le', 'les', 'su', 'sus',
+  'en', 'de', 'con', 'por', 'para', 'cuando', 'al', 'del', 'que', 'este', 'esta', 'ese', 'esa', 'aquel', 'aquella', 'todo', 'toda', 'todos', 'todas',
+  'medio', 'media', 'entre', 'tras', 'desde', 'hace', 'mi', 'mis', 'tu', 'tus', 'nuestro', 'nuestra', 'era', 'fue', 'es', 'no', 'ya', 'si', 'muy',
+  'mucho', 'mucha', 'poco', 'poca', 'otro', 'otra', 'cada', 'algo', 'dos', 'tres']);
+
+/**
+ * Pone en minúscula la primera letra para seguir una frase, pero solo si la
+ * primera palabra es común: «Rora intentó…» no pasa a «rora intentó…».
+ * @param {string} s
+ * @returns {string}
+ */
+export function seguirFrase(s) {
+  const t = String(s ?? '').trim();
+  const primera = sinAcentos(t.split(/\s+/)[0] ?? '').toLowerCase();
+  return COMUNES.has(primera) ? t.charAt(0).toLowerCase() + t.slice(1) : t;
+}
+
 /**
  * Convierte a slug apto para identificadores y clases CSS.
  * @param {string} s

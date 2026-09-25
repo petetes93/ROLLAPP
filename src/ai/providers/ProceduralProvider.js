@@ -26,7 +26,7 @@ import {
   FRANJA, CLIMA, COMBATE, NPC, OPCIONES, CIERRES,
 } from '../../data/narrative.templates.js';
 import { APP } from '../../config/app.config.js';
-import { capitalizar, trasPreposicion, sinAcentos } from '../../utils/text.js';
+import { capitalizar, trasPreposicion, sinAcentos, seguirFrase } from '../../utils/text.js';
 import { aSegundaPersona, esPrimeraPersona } from '../Persona.js';
 import { obtenerLugar } from '../../data/locations.data.js';
 import * as Cadencia from '../Cadencia.js';
@@ -37,7 +37,17 @@ import { LUGARES } from '../../data/locations.data.js';
 import { ruta as rutaMapa } from '../../world/MapGraph.js';
 import { horasDichas } from '../narrador/Conocimiento.js';
 
-const minuscula = (t) => { const x = String(t ?? '').trim(); return x.charAt(0).toLowerCase() + x.slice(1); };
+const minuscula = (t) => seguirFrase(t);
+
+/** El cielo que hay, dicho desde el clima y la hora del mundo. */
+function cieloDe(mundo = {}) {
+  const clima = {
+    despejado: 'limpio, sin una nube', nublado: 'cubierto de nubes bajas', lluvia: 'gris y cargado de lluvia', llovizna: 'gris, con una llovizna fina',
+    tormenta: 'negro de tormenta', niebla: 'borrado por la niebla', nieve: 'blanco, soltando nieve', viento: 'barrido por el viento',
+  }[mundo.clima] ?? 'como siempre por aquí';
+  const hora = { madrugada: 'Aún no ha amanecido', amanecer: 'Está amaneciendo', manana: 'Es media mañana', mediodia: 'Es mediodía', tarde: 'Es por la tarde', atardecer: 'Está atardeciendo', noche: 'Es de noche' }[mundo.franja] ?? '';
+  return `El cielo está ${clima}.${hora ? ` ${hora}.` : ''}`;
+}
 
 /** Lo que hace cada oficio mientras nadie le habla: se ve al mirar a la gente. */
 const ACTIVIDAD = Object.freeze({
@@ -133,6 +143,7 @@ export class ProceduralProvider extends IDMProvider {
     if (turno < (this._turnoVisto ?? -1)) {
       this._descritos = new Map();
       this._sinCambio = new Set();
+      this._situacionesVistas = new Set();
       this._ultimaAntesala = null;
     }
     this._turnoVisto = turno;
@@ -600,6 +611,45 @@ export class ProceduralProvider extends IDMProvider {
 
     const lista = rasgosDe(lugar.refId, lugar.terreno);
     const general = !buscarRasgo(foco, lugar.refId, lugar.terreno);
+
+    // Lo que no es un rasgo del sitio no se contesta con un rasgo al azar:
+    // «miro el cielo» enseñaba el río. Si no hay nada, poco y verdadero.
+    if (general) {
+      if (/\b(?:cielo|nubes|el sol|estrellas|la luna)\b/.test(n)) {
+        lineas.push(cieloDe(ctx.mundo));
+        return { lineas, memoria };
+      }
+      if (/\bquien (?:me|nos) (?:mira|observa|sigue|vigila)|si alguien me (?:mira|observa|sigue|ha seguido)|me (?:esta|estan) mirando|por si alguien/.test(n)) {
+        const sit = String(ctx.situacion?.texto ?? '').split(/(?<=\.)\s+/)[0];
+        lineas.push(sit && /capucha|encapuch|vigil|observa|mira/.test(sinAcentos(sit.toLowerCase())) ? sit : 'Nadie parece fijarse en ti más de la cuenta.');
+        return { lineas, memoria };
+      }
+      if (/\b(?:mis|mi)\s+\p{L}+/u.test(n) && !/alrededor/.test(n)) return { lineas, memoria };
+      const alrededor = /\b(?:alrededor|todo|el sitio|el lugar|la zona|el paisaje|una ultima vez)\b/.test(n);
+      // Lo que está pasando va primero, una vez: repetido cada vez que se
+      // mira alrededor era lo más repetido de la partida.
+      const sitTexto = String(ctx.situacion?.texto ?? '').split(/(?<=\.)\s+/).slice(0, 2).join(' ');
+      this._situacionesVistas ??= new Set();
+      const primeraFrase = sitTexto.split(/(?<=\.)\s+/)[0];
+      const yaNarrada = (ctx.yaContado ?? []).some((f) => f.includes(primeraFrase.slice(0, 40)));
+      if (alrededor && sitTexto && !yaNarrada && !this._situacionesVistas.has(sitTexto)) {
+        this._situacionesVistas.add(sitTexto);
+        lineas.push(sitTexto);
+        return { lineas, memoria };
+      }
+      // Si lo que mira salió en lo que ha pasado aquí, se cuenta cómo quedó.
+      const cosa = n.match(/\b(?:el|la|los|las|un|una|unos|unas)\s+(\p{L}{3,})/u)?.[1];
+      if (cosa) {
+        const raiz = cosa.replace(/(?:as|os|es|a|o|s)$/u, '');
+        const frases = (ctx.escenaTextos ?? []).flatMap((x) => String(x).split(/(?<=[.!?»])\s+/u));
+        const ultima = [...frases].reverse().find((f) => raiz.length >= 3 && sinAcentos(f.toLowerCase()).includes(raiz));
+        if (ultima) { lineas.push(ultima.replace(/^EN ESCENA:\s*/, '')); return { lineas, memoria }; }
+      }
+      if (!alrededor && /\b(?:el|la|los|las|un|una|unos|unas)\s+\p{L}{3,}/u.test(n)) {
+        lineas.push('Nada ahí que llame la atención.');
+        return { lineas, memoria };
+      }
+    }
     let rasgo = buscarRasgo(foco, lugar.refId, lugar.terreno) ?? rasgoGeneral(lugar.refId, lugar.terreno);
     if (!rasgo) return null;
 

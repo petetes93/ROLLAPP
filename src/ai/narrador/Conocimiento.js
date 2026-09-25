@@ -30,6 +30,7 @@
 import { LUGARES, obtenerLugar } from '../../data/locations.data.js';
 import { buscarRasgo } from '../../data/rasgos.data.js';
 import * as Mapa from '../../world/MapGraph.js';
+import { seguirFrase } from '../../utils/text.js';
 
 const llano = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -110,11 +111,16 @@ export function resolverTema(texto, { lugar, conocidos = [], interlocutor = null
   // llega por el Camino del Norte). Desempata la cercanía.
   const palabras = n.split(/[^a-zñ]+/u).filter((p) => p.length > 2 && !VACIAS.has(p));
   // «le pregunto a Vervek por el paso»: el tema va tras «por», no tras «a».
-  const tema = n.match(/\b(?:por|sobre|acerca de|hacia|donde esta|donde queda)\s+(?:el |la |los |las |mi |mis |tu |su )?([a-zñ]+)/)?.[1]
-    ?? n.match(/\b(?:de|a|del|al)\s+(?:el |la |los |las |mi |mis |tu |su )?([a-zñ]+)/)?.[1]
+  const tema = n.match(/\b(?:por|sobre|acerca de|hacia|donde esta|donde queda)\s+(?:el |la |los |las |un |una |unos |unas |mi |mis |tu |su )?([a-zñ]+)/)?.[1]
+    ?? n.match(/\b(?:de|a|del|al)\s+(?:el |la |los |las |un |una |unos |unas |mi |mis |tu |su )?([a-zñ]+)/)?.[1]
     ?? palabras[0];
   // Lo que se pregunta, tal como lo dijo: «la luna», «mi hermano».
-  const dicho = String(texto).match(/\b(?:por|sobre|acerca de)\s+([^,.;:!?¿¡«»"]+)/i)?.[1]?.trim().split(/\s+/).slice(0, 5).join(' ') ?? tema;
+  // Solo lo que de verdad nombra («por el paso», «hablar de un incendio»,
+  // «conoce a los Cuervos Rojos»); si no nombra nada, no hay tema que
+  // repetir. Salía «De necesita no sé nada» con la primera palabra suelta.
+  const explicito = String(texto).match(/\b(?:por|sobre|acerca de)\s+([^,.;:!?¿¡«»"]+)/iu)?.[1]
+    ?? String(texto).match(/\b(?:hablar de|oído hablar de|oido hablar de|sabes de|sabe de|conoce a|conoces a|conoce al|conoces al)\s+((?:el |la |los |las |un |una |unos |unas |mi |mis )?\p{L}+(?:\s+(?:de\s+)?\p{L}+){0,3})/iu)?.[1];
+  const dicho = explicito ? explicito.trim().replace(/[?¿!¡.]+$/u, '').split(/\s+/).slice(0, 5).join(' ') : null;
   let mejor = null;
   for (const l of Object.values(LUGARES)) {
     if (!l?.refId || !l.nombre) continue;
@@ -135,7 +141,7 @@ export function resolverTema(texto, { lugar, conocidos = [], interlocutor = null
   const rasgo = buscarRasgo(texto, lugar, obtenerLugar(lugar)?.terreno);
   if (rasgo && rasgo.palabras.split('|').some((w) => w === tema || w.split(' ').includes(tema))) return { tipo: 'rasgo', ref: rasgo.clave, rasgo };
 
-  return { tipo: 'otro', nombre: dicho ?? tema ?? '' };
+  return { tipo: 'otro', nombre: dicho ?? '' };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -188,10 +194,27 @@ function datosDeLugar(destino, { desde, alcance, estacion }) {
   } else {
     // De oídas: lo que se cuenta, marcado como tal.
     const f = String(destino.promptLore ?? '').split(/(?<=\.)\s+/)[0];
-    if (f) datos.push(`Por lo que cuentan: ${f.charAt(0).toLowerCase()}${f.slice(1)}`);
+    if (f) datos.push(`Por lo que cuentan: ${seguirFrase(f)}`);
     datos.push(`Yo no he ido nunca; queda lejos, ${horasDichas(r.tiempoTotal)} por lo menos.`);
   }
   return datos.filter(Boolean);
+}
+
+/**
+ * «De X no sé nada», solo si X es un tema que se pueda decir. Un trozo
+ * suelto de la pregunta («De aquí una mujer con un», «De un») se dice
+ * «De eso».
+ *
+ * @param {string|null} nombre
+ * @returns {string}
+ */
+function deQue(nombre) {
+  const t = String(nombre ?? '').trim();
+  const n = llano(t);
+  const roto = !t || t.length < 3 || /\b(?:aqui|alli|eso|esto|un|una|unos|unas|que|si|con)$/.test(n) || /^(?:aqui|que|si|donde|como|quien)\b/.test(n)
+    || n.split(/\s+/).length > 6;
+  if (roto) return 'De eso';
+  return `De ${t.replace(/^mi\b/i, 'tu').replace(/^mis\b/i, 'tus')}`.replace(/^De el /, 'Del ');
 }
 
 /**
@@ -228,7 +251,14 @@ function enSuBoca(texto, npc) {
  * @returns {{tema: Object, datos: string[], nuevos: string[], yaDicho: string[], motivoEvasion: string|null, remite: string|null}}
  */
 export function queSabe({ npc, texto, lugar, conocidos = [], situacion = null, hechos = [], sucesos = null, estacion = null, lore = null }) {
-  const tema = resolverTema(texto, { lugar, conocidos, interlocutor: npc?.refId });
+  // A quien se le pregunta no es el tema: «le pregunto a Dalrok si hay un
+  // curandero» salía «De Dalrok no sé nada».
+  // Sobre el texto original: el tema se repite con sus mayúsculas («los
+  // Cuervos Rojos»), no en minúscula.
+  const nombre = String(npc?.nombre ?? '').split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const propio = nombre ? new RegExp(`(?:(?<!\\p{L})(?:a|al|con)\\s+)?(?<!\\p{L})${nombre}(?!\\p{L}),?`, 'giu') : null;
+  const sinNombre = propio ? String(texto).replace(propio, ' ') : texto;
+  const tema = resolverTema(sinNombre, { lugar, conocidos, interlocutor: npc?.refId });
   const oficio = oficioDe(npc?.rol);
   const aqui = obtenerLugar(lugar);
   let datos = [];
@@ -276,7 +306,7 @@ export function queSabe({ npc, texto, lugar, conocidos = [], situacion = null, h
         .filter((t) => t && !/^(?:Según |En .+?: |En .+? se comenta|[^\s(]+ \([^)]+\): |El personaje |Conoció a )/.test(t) && !/quiere|intentará|necesita/.test(t))
         .at(-1);
       const propio = ultimo ? enSuBoca(ultimo, npc) : null;
-      datos.push(propio ? `¿A mí? Nada. Lo que ha pasado aquí es esto: ${propio.charAt(0).toLowerCase()}${propio.slice(1)}` : '¿A mí? Nada. Aquí no ha pasado nada que yo sepa.');
+      datos.push(propio ? `¿A mí? Nada. Lo que ha pasado aquí es esto: ${seguirFrase(propio)}` : '¿A mí? Nada. Aquí no ha pasado nada que yo sepa.');
       break;
     }
     case 'rumores': {
@@ -302,7 +332,7 @@ export function queSabe({ npc, texto, lugar, conocidos = [], situacion = null, h
 
   // Lo que ha visto con sus ojos pesa más que lo que sabe de oídas.
   const vistos = (hechos ?? []).map((h) => h.texto).filter((t) => tema.nombre && llano(t).includes(llano(tema.nombre)));
-  datos.push(...vistos.map((t) => enSuBoca(t, npc)).filter(Boolean).map((t) => `Lo que pasó: ${t.charAt(0).toLowerCase()}${t.slice(1)}`));
+  datos.push(...vistos.map((t) => enSuBoca(t, npc)).filter(Boolean).map((t) => `${t.charAt(0).toUpperCase()}${t.slice(1)}`));
 
   // Lo que ya le ha contado no lo repite como nuevo.
   const dicho = new Set([
@@ -386,7 +416,7 @@ export function responder(saber, npc, { elegir = (l) => l[0], seco = false, reco
   }
 
   if (saber.suPasado) {
-    const de = saber.tema.nombre ? `De ${String(saber.tema.nombre).replace(/^mi\b/i, 'tu').replace(/^mis\b/i, 'tus')}`.replace(/^De el /, 'Del ') : 'De eso';
+    const de = deQue(saber.tema.nombre);
     lineas.push(`${nombre} niega despacio. ${comillas(`${de} no sé nada, y no voy a inventármelo`)}.`);
     lineas.push(`${comillas(`Si alguien sabe, pregunta ${saber.remite}`)}.`);
     return { lineas, contado };
@@ -398,7 +428,7 @@ export function responder(saber, npc, { elegir = (l) => l[0], seco = false, reco
   }
 
   if (!saber.nuevos.length) {
-    const que = saber.tema.nombre ? `De ${saber.tema.nombre.replace(/^mi\b/i, 'tu').replace(/^mis\b/i, 'tus')}`.replace(/^De el /, 'Del ') : 'De eso';
+    const que = deQue(saber.tema.nombre);
     lineas.push(`${nombre} lo piensa y niega. ${comillas(`${que} no sé nada. Pregunta ${saber.remite}`)}.`);
     return { lineas, contado };
   }
@@ -435,8 +465,7 @@ function recortarPrimera(t) {
 }
 
 function minus(t) {
-  const s = String(t).trim().replace(/\.$/, '');
-  return `${s.charAt(0).toLowerCase()}${s.slice(1)}`;
+  return seguirFrase(String(t).trim().replace(/\.$/, ''));
 }
 
 export default { resolverTema, queSabe, responder, horasDichas };

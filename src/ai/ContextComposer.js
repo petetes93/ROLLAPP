@@ -22,6 +22,7 @@
  */
 
 import { CONTEXTO, DIRECTOR } from '../config/ai.config.js';
+import { frasesContadas } from './narrador/Instantanea.js';
 import { instruccionesContrato } from './ResponseSchema.js';
 import { crearCanal } from '../core/Logger.js';
 import { truncar } from '../utils/text.js';
@@ -537,6 +538,10 @@ export class ContextComposer {
       // Lo que está pasando aquí, con o sin él: quién, qué quiere cada uno y
       // si ha decidido no meterse.
       situacion: this.registry?.obtener('situations')?.paraContexto?.() ?? null,
+
+      // Lo ya narrado (sobrevive a guardar y cargar): para no volver a
+      // contar lo mismo, sea quien sea quien narre.
+      yaContado: frasesContadas(this.store.select('narrative.entradas', []) ?? [], 40),
     };
   }
 }

@@ -42,6 +42,16 @@ const IRREGULARES = {
   atiendo: 'atiendes', desciendo: 'desciendes', asciendo: 'asciendes',
   ataco: 'atacas', busco: 'buscas', toco: 'tocas', acerco: 'acercas', coloco: 'colocas',
   bendigo: 'bendices', maldigo: 'maldices', contradigo: 'contradices',
+  // Vistos en partidas de revisión: salían en subjuntivo («te detengas»,
+  // «escupas», «te despidas») porque se conjugaban como si fueran de -ar.
+  detengo: 'detienes', mantengo: 'mantienes', obtengo: 'obtienes', contengo: 'contienes', sostengo: 'sostienes',
+  propongo: 'propones', supongo: 'supones', dispongo: 'dispones', expongo: 'expones', impongo: 'impones',
+  despido: 'despides', impido: 'impides', visto: 'vistes', sonrío: 'sonríes', pierdo: 'pierdes',
+  prefiero: 'prefieres', advierto: 'adviertes', convierto: 'conviertes', miento: 'mientes',
+  escupo: 'escupes', añado: 'añades', acudo: 'acudes', cumplo: 'cumples', admito: 'admites',
+  discuto: 'discutes', sacudo: 'sacudes', muerdo: 'muerdes', huelo: 'hueles', reúno: 'reúnes',
+  ofendo: 'ofendes', prendo: 'prendes', aprieto: 'aprietas', caliento: 'calientas',
+  cuelgo: 'cuelgas', ruego: 'ruegas', niego: 'niegas', friego: 'friegas', riego: 'riegas',
 };
 
 /** Pronombres y posesivos. */
@@ -77,7 +87,9 @@ const TRAS_VERBO = new Set(['y', 'e', 'luego', 'después', 'entonces', 'mientras
 const NO_VERBOS = new Set(['lo', 'yo', 'no', 'o', 'como', 'todo', 'algo', 'poco', 'mucho', 'medio', 'otro', 'solo', 'sólo', 'pero', 'luego', 'tanto', 'cuanto', 'primero', 'dentro', 'fuera', 'encima', 'debajo', 'despacio', 'rápido', 'claro', 'mismo', 'pronto',
   'mano', 'foto', 'moto', 'radio', 'libido', 'soprano', 'modelo',
   // Acaban en -é y no son pretéritos: «¿qué sabes?» salía «¿caste sabes?».
-  'qué', 'porqué', 'café', 'bebé', 'puré']);
+  'qué', 'porqué', 'café', 'bebé', 'puré',
+  // «lo suyo» salía «lo suyas»; «cómo se llega», «cómas se llega».
+  'suyo', 'suyos', 'tuyo', 'tuyos', 'cuyo', 'cuyos', 'cómo', 'cuánto', 'cuántos', 'dónde', 'adónde', 'quizás']);
 
 /**
  * Primera del plural, que es como se habla yendo con compañeros: «esperamos
@@ -285,7 +297,8 @@ export function aSegundaPersona(texto) {
   const abierta = t.match(HABLA_SIN_COMILLAS);
   if (abierta) t = `${abierta[1]}: «${abierta[2]}»${abierta[3]}`;
   const partes = t.split(CITA);
-  return partes.map((p, i) => (i % 2 === 1 ? p : convertir(p))).join('');
+  // «a el pozo» es «al pozo»; «a él», con tilde, se queda.
+  return partes.map((p, i) => (i % 2 === 1 ? p : convertir(p).replace(/\b([aA]) el\b/g, '$1l').replace(/\b([dD])e el\b/g, '$1el'))).join('');
 }
 
 function convertir(texto) {

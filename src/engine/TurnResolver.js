@@ -286,7 +286,11 @@ export class TurnResolver extends SystemBase {
     const plan = ordenar(segmentar(limpio));
     const textoFoco = plan.foco?.texto ?? limpio;
     const textoHecho = plan.hechos.length ? unirHechos(plan.hechos) : limpio;
-    const intencion = interpretar(textoFoco, contextoIntencion);
+    // Si todo es una condición («si el herrero me sigue mirando, me voy al
+    // puente»), este turno no se hace nada: se espera a ver. Se interpretaba
+    // el texto entero, y el «me voy» movía al personaje.
+    const soloCondicion = !plan.foco && plan.pendientes.length > 0;
+    const intencion = interpretar(soloCondicion ? 'espero' : textoFoco, contextoIntencion);
 
     // Negarse no se tira: es una decisión, no un intento que pueda fallar.
     if (plan.foco?.negativa) Object.assign(intencion, { requiereTirada: false, negativa: true });

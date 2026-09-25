@@ -61,6 +61,9 @@ const CORTES = [
 /** ¿Hay en este trozo algo que haga el propio jugador? (primera persona) */
 const HACE_EL = new RegExp(`(?:^|\\s)(?:(?:me|le|lo|la|les|los|las|nos|os|te)\\s+${PRIMERA}|(?!se\\b)\\p{L}{3,}[oé]\\b|(?:voy|doy|estoy|soy)\\b)`, 'iu');
 
+/** Gestos que preparan lo que viene después: acercarse, volver con alguien, enseñar algo. */
+const PREPARA = /^(?:me acerco|me aproximo|vuelvo (?:con|junto|a donde|hacia)|voy (?:hacia|con|junto)|me dirijo|me giro|me vuelvo hacia|(?:le|les) (?:enseno|muestro|tiendo|acerco)|saco)\b/;
+
 const OMISION = /^(?:ignoro|paso de|no hago caso|sin hacer caso|me desentiendo|dejo (?:estar|en paz|atras)|no me meto)\b/;
 const ESPERA = /^(?:espero|aguardo|me quedo esperando|me quedo quiet[oa]|no hago nada|observo(?: en silencio)?)\s*[.!]?$/;
 const HABLA = new RegExp(`^(?:${CLITICO}\\s+)?(?:digo|pregunto|cuento|explico|contesto|respondo|grito|susurro|suplico|exijo|pido|advierto|aviso)\\b`);
@@ -108,7 +111,12 @@ export function segmentar(texto) {
     const primera = llano(t).split(/\s+/)[0];
     if (previo && NO_VERBO.has(primera)) {
       unidos[unidos.length - 1] = `${previo} y ${t}`;
-    } else if (previo && /^si\s/i.test(previo) && !HACE_EL.test(previo.replace(/^si\s+\S+/i, ''))) {
+    } else if (previo && /^si\s/i.test(previo) && !previo.includes(',')
+      && (original.includes(`${previo},`) || !HACE_EL.test(previo.replace(/^si\s+\S+/i, '')))) {
+      // Con la coma del jugador («si el herrero me sigue mirando, me voy»)
+      // no hace falta adivinar dónde acaba la condición: acaba ahí. Sin ella
+      // se adivinaba por la forma de las palabras, y «herrero» parecía un
+      // verbo en primera persona.
       unidos[unidos.length - 1] = `${previo}, ${t}`;
     } else {
       unidos.push(t);
@@ -162,15 +170,24 @@ function clasificar(texto) {
  * Qué se resuelve en este turno y qué no.
  *
  * El foco es lo primero que hace o dice: de ahí salen la intención y la
- * tirada. Lo condicional queda pendiente; lo omitido, apuntado.
+ * tirada. Salvo que lo primero sea solo preparar lo segundo: en «me acerco
+ * al herrero y le pregunto por el paso», lo que pide respuesta es la
+ * pregunta, y el foco se quedaba en acercarse. Lo condicional queda
+ * pendiente; lo omitido, apuntado.
  *
  * @param {ReturnType<typeof segmentar>} segmentos
  * @returns {{foco: Object|null, hechos: Object[], pendientes: Object[], omisiones: Object[], delegacion: Object|null}}
  */
 export function ordenar(segmentos) {
   const hechos = segmentos.filter((s) => [TIPO_SEGMENTO.ACCION, TIPO_SEGMENTO.DIALOGO, TIPO_SEGMENTO.ESPERA, TIPO_SEGMENTO.DELEGACION].includes(s.tipo));
+  let foco = hechos.find((s) => s.tipo === TIPO_SEGMENTO.ACCION || s.tipo === TIPO_SEGMENTO.DIALOGO || s.tipo === TIPO_SEGMENTO.DELEGACION) ?? null;
+  const dialogo = hechos.find((s) => s.tipo === TIPO_SEGMENTO.DIALOGO);
+  if (foco?.tipo === TIPO_SEGMENTO.ACCION && dialogo
+    && hechos.slice(0, hechos.indexOf(dialogo)).every((s) => s.tipo === TIPO_SEGMENTO.ACCION && PREPARA.test(llano(s.texto)))) {
+    foco = dialogo;
+  }
   return {
-    foco: hechos.find((s) => s.tipo === TIPO_SEGMENTO.ACCION || s.tipo === TIPO_SEGMENTO.DIALOGO || s.tipo === TIPO_SEGMENTO.DELEGACION) ?? null,
+    foco,
     hechos,
     pendientes: segmentos.filter((s) => s.tipo === TIPO_SEGMENTO.CONDICIONAL),
     omisiones: segmentos.filter((s) => s.tipo === TIPO_SEGMENTO.OMISION),

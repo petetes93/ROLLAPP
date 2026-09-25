@@ -257,7 +257,9 @@ export class ProceduralProvider extends IDMProvider {
     // ─── Lo que queda en el aire ────────────────────────────────────────
     // Lo condicional no ha pasado: se deja dicho y se devuelve la palabra.
     for (const x of ctx.pendientes ?? []) {
-      if (x.condicion) parrafos.push(`Queda en el aire lo que harás si ${x.condicion}.`);
+      // La condición la escribe el jugador en primera persona: «si el
+      // herrero me sigue mirando» es «si el herrero te sigue mirando».
+      if (x.condicion) parrafos.push(`Queda en el aire lo que harás si ${aSegundaPersona(x.condicion)}.`);
     }
 
     // ─── Lo que dice el grupo ───────────────────────────────────────────

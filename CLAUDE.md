@@ -260,9 +260,14 @@ esto: hay que abrir el navegador y preguntarle al DOM.
 
 ## 8 · El arte · `src/art/`
 
-**Todo el arte lo genera código.** No hay ni un archivo de imagen. 40 piezas
-—8 linajes, 13 criaturas, 19 lugares— salen de tres generadores sembrados con
-el `refId`, así que la misma entrada da siempre el mismo dibujo.
+**La base del arte la genera código**: 40 piezas —8 linajes, 13 criaturas, 19
+lugares— salen de tres generadores sembrados con el `refId`, así que la misma
+entrada da siempre el mismo dibujo. Encima hay tres capas opcionales: las
+ilustraciones WebP del manifiesto (solo las que representan su ficha: ver
+`ART_QC.md` y `ART_REVISION.md`), el retrato generado a partir de la
+descripción del jugador y las escenas generadas al cambiar de escena
+(`retrato-ia.js`, `escena-ia.js`). **Una imagen que contradice su ficha no
+entra en el manifiesto**, por bonita que sea: vuelve el vector.
 
 ```
 src/art/
@@ -348,12 +353,14 @@ no parecer del mismo juego. Eso solo se juzga en rejilla.
 
 Por orden de valor:
 
-**El director procedural narra flojo.** Es lo que más se nota jugando. Turnos
-enteros contestan «Haces lo que has decidido hacer» o «Tú dirás», y muchas
-acciones no enseñan tirada. El motor está bien —resuelve, aplica y consume
-tiempo—, lo pobre es el texto. Es también lo que más ganaría con un director de
-IA de verdad conectado, que es para lo que están `BridgeProvider` y los otros
-proveedores.
+**El techo del director interno.** Ya no baraja frases: cuenta desde el
+estado (`ai/narrador/Conocimiento.js`, `data/rasgos.data.js`, las situaciones
+con reloj y secuelas), contesta con datos del mundo y no repite coletillas; se
+mide con `tools/medir-narrador.mjs`. Lo que no puede hacer sin modelo: inventar
+contenido que el mundo no tiene escrito, improvisar tramas nuevas o variar la
+prosa como un modelo. La voz sale de frases con huecos, y se nota a la larga.
+Para eso están `BridgeProvider` y los otros proveedores, siempre a elección del
+jugador.
 
 **Diálogo con PNJ.** `DialogueSystem` existe y funciona, pero la app solo tiene
 un botón «Hablar» que manda texto libre. Merece un panel propio.

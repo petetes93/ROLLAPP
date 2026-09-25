@@ -442,7 +442,11 @@ try {
     return { lineas: suyos.map(paraJugador), activo: ARCANVEIL.ver('combat.activo', false) };
   })()`);
   if (!peleaGrupo.lineas.length) throw new Error(`${reclutado.nombre} no actuó en el combate`);
-  if (!peleaGrupo.lineas[0].startsWith(`${reclutado.nombre} ataca a`)) throw new Error(`el parte no cuenta al compañero: «${peleaGrupo.lineas[0]}»`);
+  // Si el enemigo esquiva, el parte lo cuenta desde el enemigo («Saqueador A
+  // esquiva el ataque de Bregard»): también es su acción, dicha con su
+  // nombre. Exigir solo «ataca a» hacía fallar la prueba según el dado.
+  const suyo = peleaGrupo.lineas[0];
+  if (!(suyo.startsWith(`${reclutado.nombre} ataca a`) || suyo.includes(`el ataque de ${reclutado.nombre}`))) throw new Error(`el parte no cuenta al compañero: «${suyo}»`);
   if (peleaGrupo.activo) throw new Error('el combate del grupo no terminó');
 
   // La escena cambia al llegar y al pelear, y solo entonces se pide imagen.

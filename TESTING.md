@@ -29,6 +29,17 @@ console.log(await m.jugar('Ignoro al encapuchado; le pregunto al herrero por el 
 m.guardarYCargar();
 ```
 
+El narrador sin modelo se mide, no se opina: `tools/medir-narrador.mjs` juega
+seis partidas comparables (tres personajes, estilo contemplativo e impulsivo,
+veintidós turnos) y cuenta frases repetidas, coletillas, resultados genéricos
+y preguntas contestadas con información. `--transcripciones carpeta/` deja
+cada partida marcada (⟲ lo repetido, ✅/❌ si contesta a lo preguntado).
+`tools/auditar-narrador.mjs` fija los fallos concretos que tenía.
+
+```bash
+node tools/medir-narrador.mjs --transcripciones /tmp/partidas
+```
+
 Lo que no se automatiza se comprueba a mano con este guion, en el orden que
 encuentra los fallos antes.
 
@@ -55,7 +66,12 @@ La consola expone `window.ARCANVEIL` con los atajos que se usan más abajo.
 
 | Comprobar | Criterio de fallo |
 |---|---|
-| La portada aparece en menos de dos segundos con Continuar, Nueva partida, Cargar y Ajustes | Pantalla en blanco, error de módulo o falta un botón |
+| La portada es la marca ARCANVEIL y «Pulsa para jugar», sin cuadro ni menú a la vista | Se ve el menú, un marco o un medallón |
+| La tinta del título cabe y está centrada a 320, 390, 430 px y en escritorio, con zoom al 200 % y letra grande | El trazo de la última ele se sale o el título queda torcido |
+| «Pulsa para jugar» se activa con ratón, dedo, Intro y Espacio, y el foco entra en el menú | Hay que pulsar dos veces o el foco se pierde |
+| El menú trae Continuar, Nueva partida, Cargar y Ajustes, y «Volver» o Escape lo recogen | Falta un botón o no se puede volver |
+| Con partida guardada, pulsar abre el menú; no carga nada solo | Entra directamente en una partida |
+| «Menú» desde la partida vuelve directo al menú | Hay que pasar otra vez por la portada |
 | No hay errores en consola | Cualquier excepción no capturada |
 | «Continuar» y «Cargar» quedan apagados si no hay partidas | Se pueden pulsar y fallan |
 | «Continuar» retoma la última partida guardada | Abre otra o empieza de cero |

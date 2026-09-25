@@ -34,6 +34,7 @@ import { vidaMaxima, manaMaximo } from './Vitals.js';
 import { concederVarias } from './SkillSystem.js';
 import { deducirInicial, describir as describirAlineamiento } from './Alignment.js';
 import { rasgosActivos, capacidadesParaDirector } from './ClassSystem.js';
+import { trasfondoParaDirector } from '../ai/Trasfondo.js';
 
 const log = crearCanal('core');
 
@@ -275,10 +276,11 @@ export function fichaParaDirector(jugador) {
   if (jugador.retrato) {
     bloques.push(`El jugador describió así a su personaje: «${jugador.retrato}»`);
   }
-  if (jugador.lore) {
-    bloques.push(`HISTORIA ESCRITA POR EL JUGADOR (canon prioritario): «${jugador.lore}»`);
-    bloques.push('Convierte personas, promesas, lugares, enemigos y preguntas de esa historia en hilos recurrentes. No la contradigas ni la resuelvas toda de golpe.');
-  }
+  // La historia es canon, no guion: se separa en lo que afirma, lo que quiere
+  // y lo que cree, con la regla de que no dicta la campaña. Antes se pedía
+  // «convertirla en hilos recurrentes» y el director la traía a cada escena.
+  const pasado = trasfondoParaDirector(jugador.lore);
+  if (pasado) bloques.push(pasado);
 
   bloques.push(
     `${jugador.nombre} es ${raza?.nombre ?? 'de origen desconocido'}, de vocación ${clase?.nombre ?? 'indefinida'}, ` +

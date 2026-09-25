@@ -163,7 +163,12 @@ export class ProceduralProvider extends IDMProvider {
     //
     // Reacciona si ha pasado algo —hay escena, o la tirada salió redonda o
     // desastrosa— y si no, una de cada tres veces.
-    const npc = ctx.npcsPresentes?.[0];
+    // Solo reacciona quien tiene que ver con la acción: el que se nombra en
+    // ella. Antes era el primero de los presentes, hubiera pasado lo que
+    // hubiera pasado, y un gesto inventado a un tercero no es el mundo
+    // reaccionando: es relleno.
+    const nombrada = String(peticion.accion ?? '').toLowerCase();
+    const npc = (ctx.npcsPresentes ?? []).find((n) => n?.nombre && nombrada.includes(n.nombre.toLowerCase()));
     const tir = peticion.tirada;
     const mereceLaPena = Boolean(escena) || Boolean(tir?.critico) || Boolean(tir?.pifia);
 
@@ -202,10 +207,11 @@ export class ProceduralProvider extends IDMProvider {
       // sin esto podía aparecer dos veces en el mismo turno, y un recuerdo
       // repetido dos párrafos más abajo deja de ser un recuerdo.
       const yaSalio = (ctx.canon ?? []).some((c) => parrafos.some((p) => p.includes(c.nombre)));
-      const suyo = !yaSalio && this._flujo().oportunidad(0.3) ? this._traerDelCanon(ctx) : '';
+      const suyo = yaSalio ? '' : this._traerDelCanon(ctx, peticion.accion);
+      const hilo = this._hiloPertinente(ctx);
 
       if (suyo) parrafos.push(suyo);
-      else if (ctx.hiloParaRetomar?.texto) parrafos.push(this._recordarHilo(ctx.hiloParaRetomar, ctx));
+      else if (hilo) parrafos.push(this._recordarHilo(hilo, ctx));
       else {
         const amb = this._elegirAmbiente(ctx);
         if (amb) parrafos.push(amb);
@@ -232,7 +238,7 @@ export class ProceduralProvider extends IDMProvider {
     const turnoActual = peticion.turno ?? ctx.turno ?? 0;
     if (grupo.length && (escena || t?.critico || t?.pifia || turnoActual % 3 === 0)) {
       const quien = grupo[turnoActual % grupo.length];
-      parrafos.push(comentario(quien, ctx.misionPrincipal, (lista) => this._unico(lista)));
+      parrafos.push(comentario(quien, ctx.misionEnCurso, (lista) => this._unico(lista)));
     }
 
     // UN golpe por turno, y nunca dos seguidos.
@@ -275,30 +281,20 @@ export class ProceduralProvider extends IDMProvider {
   _sugerenciasDeEscena(ctx, base) {
     const lugar = obtenerLugar(ctx.mundo?.ubicacion);
     const npc = ctx.npcsPresentes?.[0];
-    const lore = String(ctx.jugador?.lore ?? '').toLowerCase();
-    const vinculo = lore.match(/\b(hermana|hermano|padre|madre|hija|hijo|maestra|maestro|amiga|amigo|mentor|esposa|esposo|prometida|prometido)\b/)?.[1];
-    const objeto = lore.match(/\b(medallón|colgante|anillo|espada|carta|mapa|libro|amuleto|diario|llave)\b/)?.[1];
 
     const candidatas = [];
 
-    // Lo que el jugador ha traído al mundo va PRIMERO, porque es lo que él ya
-    // ha dicho que le importa. Una sugerencia que nombra al capitán Verros
-    // vale más que tres genéricas: la escribió él.
-    const suyo = (ctx.canon ?? []).filter((c) => c.menciones >= 2 || c.notas.length);
-
-    for (const c of suyo.slice(0, 2)) {
-      if (c.tipo === 'lugar') candidatas.push({ label: `Buscar el camino ${trasPreposicion('a', c.nombre)}`, intent: 'travel', risk: 'medium' });
-      else if (c.tipo === 'persona' && npc?.nombre) candidatas.push({ label: `Preguntar a ${npc.nombre} por ${c.nombre}`, intent: 'talk', risk: 'low' });
-      else if (c.tipo === 'persona') candidatas.push({ label: `Buscar rastro de ${c.nombre}`, intent: 'search', risk: 'low' });
-    }
+    // La escena primero: lo que está pasando, quien está delante y el sitio.
+    // Antes iban por delante sugerencias sacadas del pasado del personaje
+    // («Preguntar a Torlin por tu padre», «Enseñar el medallón»): la ayuda
+    // para cuando no se sabe qué hacer empujaba otra vez hacia su biografía.
+    // El pasado vuelve cuando él lo busca; no se le propone.
+    if (ctx.situacion?.sugerencia) candidatas.push(ctx.situacion.sugerencia);
 
     if (npc?.nombre) {
-      if (vinculo) candidatas.push({ label: `Preguntar a ${npc.nombre} por tu ${vinculo}`, intent: 'talk', risk: 'low' });
-      candidatas.push({ label: `Ganarte la confianza de ${npc.nombre}`, intent: 'persuade', risk: 'low' });
+      candidatas.push({ label: `Hablar con ${npc.nombre}`, intent: 'talk', risk: 'low' });
       candidatas.push({ label: `Observar a ${npc.nombre} sin que lo note`, intent: 'observe', risk: 'low' });
     }
-    if (objeto && vinculo) candidatas.push({ label: `Enseñar el ${objeto} y preguntar por tu ${vinculo}`, intent: 'talk', risk: 'low' });
-    else if (vinculo) candidatas.push({ label: `Buscar a alguien que conozca a tu ${vinculo}`, intent: 'talk', risk: 'low' });
 
     const sub = this._flujo().elegir(lugar?.sublugares ?? []);
     if (sub?.nombre) candidatas.push({ label: `Ir ${trasPreposicion('a', sub.nombre)}`, intent: 'explore', risk: 'low' });
@@ -306,6 +302,13 @@ export class ProceduralProvider extends IDMProvider {
     const conexion = this._flujo().elegir(lugar?.conexiones ?? []);
     const destino = conexion ? obtenerLugar(conexion.hasta) : null;
     if (destino?.nombre) candidatas.push({ label: `Tomar el camino ${trasPreposicion('hacia', destino.nombre)}`, intent: 'travel', risk: conexion.peligro > 1 ? 'medium' : 'low' });
+
+    // Lo que el jugador ha nombrado jugando, al final: es suyo, pero no se le
+    // empuja hacia ello.
+    const suyo = (ctx.canon ?? []).filter((c) => c.menciones >= 2 && c.origen !== 'importado');
+    for (const c of suyo.slice(0, 1)) {
+      if (c.tipo === 'persona' && npc?.nombre) candidatas.push({ label: `Preguntar a ${npc.nombre} por ${c.nombre}`, intent: 'talk', risk: 'low' });
+    }
 
     candidatas.push(...base);
 
@@ -351,19 +354,10 @@ export class ProceduralProvider extends IDMProvider {
     const eventos = [];
     const memoria = [];
 
-    // ─── 0. Canon personal ─────────────────────────────────────────────
-    // La apertura procedural debe demostrar que leyó la historia escrita por
-    // el jugador. No espera a un modelo remoto ni a que pasen veinte turnos.
-    //
-    // Pero se cuenta UNA vez. La apertura se registra como turno 1 y la
-    // primera acción del jugador también es el turno 1, así que con solo
-    // mirar el número salía dos veces: «Tu pasado no te ha dejado llegar aquí
-    // por azar. Perdiste la forja…» y, al «miro alrededor», «Hay una razón
-    // personal detrás… perdiste la forja…». La memoria ya sabe si hubo turno
-    // antes: si lo hubo, la apertura está contada, la narrara quien la narrase.
-    if ((peticion.turno ?? ctx.turno) <= 1 && ctx.jugador?.lore && !ctx.ultimoTurno) {
-      parrafos.push(this._abrirDesdeLore(ctx.jugador.lore));
-    }
+    // No se abre con el pasado del personaje. Se hacía («Tu pasado no te ha
+    // dejado llegar aquí por azar. Perdiste la forja…»), y la historia que
+    // escribió el jugador pasaba a ser la campaña. Es canon: vuelve cuando él
+    // lo busca o el mundo lo roza, no en la primera línea.
 
     // ─── 1. Resultado de la acción ─────────────────────────────────────
     if (peticion.tirada) {
@@ -390,12 +384,15 @@ export class ProceduralProvider extends IDMProvider {
     // el mismo criterio de siempre: entre repetir una plantilla del juego y
     // repetir algo que escribió el jugador, gana lo segundo. Su historia no la
     // construye el catálogo, la construye él.
-    const hilo = ctx.hiloParaRetomar;
-    const suyo = this._flujo().oportunidad(0.22) ? this._traerDelCanon(ctx) : '';
+    // Pero solo lo que viene a cuento. Antes salía al azar un turno de cada
+    // cuatro, para aparentar continuidad: un recuerdo sin motivo no es
+    // memoria, es un gancho repetido.
+    const hilo = this._hiloPertinente(ctx);
+    const suyo = this._traerDelCanon(ctx, peticion.accion);
 
     if (suyo) {
       parrafos.push(suyo);
-    } else if (hilo && this._flujo().oportunidad(0.4)) {
+    } else if (hilo) {
       parrafos.push(this._recordarHilo(hilo, ctx));
       eventos.push({ type: 'ambient', payload: { hilo: hilo.id }, silent: true });
     }
@@ -434,20 +431,6 @@ export class ProceduralProvider extends IDMProvider {
       memory: memoria,
       mood: this._tono(peticion, ctx),
     };
-  }
-
-  /** Abre la campaña desde una pieza concreta del canon del jugador. */
-  _abrirDesdeLore(lore) {
-    const limpio = String(lore).replace(/\s+/g, ' ').trim();
-    const primera = aSegundaPersona(limpio.split(/(?<=[.!?…])\s+/u)[0].slice(0, 220).replace(/[.!?…]+$/u, ''));
-    if (!primera) return '';
-    return this._unico([
-      `Tu pasado no te ha dejado llegar aquí por azar. ${capitalizar(primera)}. Hoy ese hilo vuelve a tensarse.`,
-      // Solo la primera letra en minúscula: `toLowerCase()` entero aplastaba
-      // los nombres propios y salía «viaja con dhorak, lyssara, caelion».
-      `Hay una razón personal detrás de cada paso que te trajo hasta aquí: ${primera.charAt(0).toLowerCase()}${primera.slice(1)}. Algo en este lugar promete removerla.`,
-      `Lo que dejaste atrás sigue viajando contigo. ${capitalizar(primera)}. Esta jornada podría acercarte a una respuesta.`,
-    ]);
   }
 
   /**
@@ -703,17 +686,18 @@ export class ProceduralProvider extends IDMProvider {
    * @returns {string}
    * @private
    */
-  _traerDelCanon(ctx) {
+  _traerDelCanon(ctx, accion = '') {
     const canon = ctx.canon ?? [];
     if (!canon.length) return '';
 
-    // Solo lo que el jugador ha repetido: una mención suelta puede ser de
-    // pasada, y traer de vuelta algo que dijo una vez sin darle importancia
-    // hace ruido en lugar de continuidad.
-    const candidatos = canon.filter((c) => c.menciones >= 2 || c.notas.length);
+    // Solo lo que el jugador nombra en esta acción. Antes se elegía al azar
+    // entre lo que había repetido, y volvía cuando no venía a cuento: él
+    // preguntaba por el pozo y el narrador le recordaba a Verros.
+    const dicho = String(accion ?? '').toLowerCase();
+    const candidatos = canon.filter((c) => c.nombre && dicho.includes(String(c.nombre).toLowerCase()));
     if (!candidatos.length) return '';
 
-    const e = this._flujo().elegir(candidatos);
+    const e = candidatos[0];
     const rasgo = e.rasgos[0] ?? '';
 
     // La nota se guarda tal y como la escribió el jugador —«quemó mi forja»—
@@ -842,6 +826,34 @@ export class ProceduralProvider extends IDMProvider {
    *
    * @private
    */
+  /**
+   * El hilo abierto que viene a cuento ahora, si lo hay.
+   *
+   * Pertinente es que toque a quien está delante o al sitio donde se está.
+   * Los hilos que nacían del pasado del personaje (`player_lore`) no vuelven
+   * nunca solos: eran fragmentos de su biografía convertidos en ganchos.
+   *
+   * @param {Object} ctx
+   * @returns {Object|null}
+   * @private
+   */
+  _hiloPertinente(ctx) {
+    const hilo = ctx.hiloParaRetomar;
+    if (!hilo?.texto || /^player_lore/.test(hilo.relacionadoCon ?? '') || /^De su historia:/i.test(hilo.texto)) return null;
+
+    const texto = String(hilo.texto).toLowerCase();
+    const aqui = [
+      ...(ctx.npcsPresentes ?? []).map((n) => n?.nombre),
+      obtenerLugar(ctx.mundo?.ubicacion)?.nombre,
+    ].filter(Boolean).map((x) => String(x).toLowerCase());
+    const presentes = new Set((ctx.npcsPresentes ?? []).map((n) => n?.refId).filter(Boolean));
+
+    const toca = presentes.has(hilo.relacionadoCon)
+      || hilo.relacionadoCon === ctx.mundo?.ubicacion
+      || aqui.some((x) => texto.includes(x));
+    return toca ? hilo : null;
+  }
+
   _recordarHilo(hilo, ctx) {
     // Los hilos de la historia del jugador llegan en su voz («Mi hermana
     // cruzó…»); se devuelven en la tuya y sin la etiqueta interna.

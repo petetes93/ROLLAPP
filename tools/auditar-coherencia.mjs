@@ -282,8 +282,28 @@ const HACHA = { id: 'o1', refId: 'hacha_mano', nombre: 'Hacha de mano', categori
   // Las partidas guardadas antes del grupo siguen cargando.
   const viejo = { version: 5, estado: { player: { nombre: 'X' }, meta: {} } };
   const migrado = migrar(viejo);
-  comprobar(migrado.guardado?.estado?.party?.miembros?.length === 0 && migrado.guardado.version === 6,
+  comprobar(migrado.guardado?.estado?.party?.miembros?.length === 0 && migrado.guardado.version >= 6,
     'una partida del formato 5 carga con el grupo vacío', JSON.stringify(migrado.guardado?.estado?.party));
+
+  // Las partidas donde el pasado se abrió como hilos: se cierran como
+  // trasfondo, sin darlos por resueltos, y la misión guardada no se toca.
+  const conHilos = {
+    version: 6,
+    estado: {
+      player: { nombre: 'X', lore: 'Mi hermana cruzó el Umbral.' }, meta: {}, party: { miembros: [] },
+      ai: { memoria: { hilos: [
+        { id: 'h1', texto: 'De su historia: Mi hermana cruzó el Umbral.', relacionadoCon: 'player_lore', cerrado: false },
+        { id: 'h2', texto: 'Prometió volver con el dinero', relacionadoCon: 'npc_corlin', cerrado: false },
+      ] } },
+      quests: { activas: { porId: { q1: { refId: 'q1', tipo: 'principal', estado: 'aceptada', objetivos: [{ hecho: true }] } }, orden: ['q1'] } },
+    },
+  };
+  const cargada = migrar(conHilos).guardado;
+  const [h1, h2] = cargada.estado.ai.memoria.hilos;
+  comprobar(h1.cerrado && h1.resolucion === null && !h2.cerrado,
+    'al cargar, los hilos del pasado se cierran como trasfondo y los de la partida siguen abiertos', JSON.stringify(cargada.estado.ai.memoria.hilos));
+  comprobar(cargada.estado.quests.activas.porId.q1.estado === 'aceptada' && cargada.estado.player.lore === 'Mi hermana cruzó el Umbral.',
+    'la misión guardada y la historia se conservan');
 }
 
 /* ── Caer en combate detiene la partida también al acabar la pelea ────────── */

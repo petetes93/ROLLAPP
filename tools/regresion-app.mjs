@@ -252,24 +252,25 @@ try {
   if (intensidad !== 'relato') throw new Error(`la partida empezó en ${intensidad}, no en Pacífica`);
   await evaluate(`window.__encuentros = 0; ARCANVEIL.bus.on('exploration:encounter', () => { window.__encuentros += 1; })`);
   await evaluate(`window.__escenas = []; ARCANVEIL.bus.on('scene:changed', (e) => { window.__escenas.push(e.motivo); })`);
-  const aperturaLore = await evaluate(`({texto:ARCANVEIL.ver('narrative.entradas',[]).map(e=>e.texto??'').join(' '), memoria:ARCANVEIL.ver('ai.memoria.hilos',[])})`);
-  if (!/hermana|medallón|Umbral/i.test(aperturaLore.texto)) throw new Error('la apertura procedural ignoró el lore');
-  if (!aperturaLore.memoria.some(h => h.relacionadoCon === 'player_lore')) throw new Error('el lore no abrió un hilo persistente');
-  if (!aperturaLore.memoria.some(h => h.tipo === 'relacion')) throw new Error('el lore no reconoció el hilo familiar');
-
-  // Misión principal desde el turno 1: un lugar, alguien con nombre y una
-  // pista, ya aceptada y visible. Y la apertura devuelve la palabra.
-  const mision = await evaluate(`(() => {
+  // El pasado del personaje es canon, no guion. Se conserva en la ficha,
+  // pero la partida NO empieza con una misión sacada de él, la apertura no
+  // lo vuelca y no se abre como hilos de memoria. Antes esta prueba exigía lo
+  // contrario —«hermana» en la apertura y una principal aceptada en el turno
+  // 1—, que es justo lo que Alejandro rechazó.
+  const apertura = await evaluate(`(() => {
     const a = ARCANVEIL.ver('quests.activas', { porId: {}, orden: [] });
-    const m = a.orden.map(id => a.porId[id]).find(x => x?.tipo === 'principal');
-    const apertura = ARCANVEIL.ver('narrative.entradas', []).filter(e => e.voz === 'dm').at(-1)?.texto ?? '';
-    return { m, apertura };
+    return {
+      lore: ARCANVEIL.ver('player.lore', ''),
+      misiones: a.orden.map((id) => a.porId[id]).filter(Boolean).map((m) => m.tipo + ':' + m.estado),
+      hilosDelPasado: ARCANVEIL.ver('ai.memoria.hilos', []).filter((h) => /^player_lore/.test(h.relacionadoCon ?? '')).length,
+      texto: ARCANVEIL.ver('narrative.entradas', []).filter((e) => e.voz === 'dm').at(-1)?.texto ?? '',
+    };
   })()`);
-  if (!mision.m) throw new Error('la partida empezó sin misión principal');
-  if (mision.m.estado !== 'aceptada') throw new Error(`la misión principal está ${mision.m.estado}`);
-  if (!mision.m.nombreOrigen || !mision.m.lugar) throw new Error('la misión principal no tiene a quién ni dónde');
-  if (!mision.apertura.includes(mision.m.nombreOrigen)) throw new Error('la apertura no presenta la misión');
-  if (!/\?$/.test(mision.apertura.trim().split('\n').at(-1))) throw new Error(`la apertura no pregunta: «${mision.apertura.split('\n').at(-1)}»`);
+  if (!apertura.lore.includes('hermana')) throw new Error('la historia del personaje no se conservó en la ficha');
+  if (apertura.misiones.length) throw new Error(`la partida empezó con misiones impuestas: ${apertura.misiones.join(', ')}`);
+  if (apertura.hilosDelPasado) throw new Error(`el pasado se abrió como ${apertura.hilosDelPasado} hilos de memoria`);
+  if (/hermana|medallón|Umbral/i.test(apertura.texto)) throw new Error(`la apertura vuelca el pasado del personaje: «${apertura.texto.slice(0, 160)}»`);
+  if (!/\?$/.test(apertura.texto.trim().split('\n').at(-1))) throw new Error(`la apertura no pregunta: «${apertura.texto.split('\n').at(-1)}»`);
 
   const acciones = [
     'miro alrededor','escucho tras la puerta','exploro con cuidado','examino las huellas',
@@ -292,13 +293,13 @@ try {
     .filter(ultima => !/\\?[»"]?$/.test(ultima))`);
   if (sinPregunta.length) throw new Error(`turnos que no terminan en pregunta: ${sinPregunta.slice(0, 3).join(' | ')}`);
 
-  // La apertura desde el lore se cuenta una vez. Salía otra vez en el primer
-  // «miro alrededor» con otra de sus tres variantes.
+  // Ninguna frase de las que abrían desde el pasado del personaje: ni en la
+  // apertura ni en los turnos siguientes.
   const aperturas = await evaluate(`ARCANVEIL.ver('narrative.entradas', [])
     .map(e => e.texto ?? '')
     .filter(t => /Tu pasado no te ha dejado llegar|Hay una razón personal detrás|Lo que dejaste atrás sigue viajando/.test(t))
     .length`);
-  if (aperturas !== 1) throw new Error(`la apertura desde el lore salió ${aperturas} veces`);
+  if (aperturas !== 0) throw new Error(`el narrador abrió desde el pasado del personaje ${aperturas} veces`);
 
   // Pacífica: en los treinta primeros turnos, como mucho un encuentro.
   for (let i = 0; i < 10; i += 1) {

@@ -16,10 +16,9 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import { principalDesdeHistoria } from '../src/quests/QuestGenerator.js';
+import { leerTrasfondo, trasfondoParaDirector } from '../src/ai/Trasfondo.js';
+import { QuestSystem } from '../src/quests/QuestSystem.js';
 import { preguntaDeMesa, cerrarConPregunta, terminaEnPregunta, candidatas } from '../src/ai/Pregunta.js';
-import { GestorRNG } from '../src/core/RNG.js';
-import { obtenerLugar, LUGARES } from '../src/data/locations.data.js';
 import { TurnResolver } from '../src/engine/TurnResolver.js';
 
 let fallos = 0;
@@ -34,57 +33,29 @@ function comprobar(bien, texto, detalle = '') {
   }
 }
 
-/* ── 50 aperturas ────────────────────────────────────────────────────────── */
+/* ── El pasado del personaje es canon, no guion ──────────────────────────── */
 
-const HISTORIAS = [
-  'Perdí la forja de mi padre en un incendio. Busco a quien lo provocó.',
-  'Mi hermana cruzó el Umbral con nuestro medallón. La busco desde entonces.',
-  'Me robaron el anillo de mi madre en el camino del norte.',
-  'Juré proteger el templo y fallé.',
-  'Tengo un medallón que no sé de dónde viene.',
-  'Busco a mi maestro, que se marchó sin decir nada.',
-  'Crecí en el vado entre barqueros y nunca he salido de él.',
-  '',
-];
+// Antes, de la historia salía una misión principal ya aceptada en el turno 1
+// (lugar, PNJ y pista), y al cumplirla la siguiente. Alejandro lo rechazó: la
+// biografía aporta datos y posibilidades, no dicta la campaña.
 
-// Lugares de salida posibles: los asentamientos de partida.
-const SALIDAS = Object.values(LUGARES)
-  .filter((l) => l.tipo === 'asentamiento')
-  .map((l) => l.refId);
+comprobar(typeof QuestSystem.prototype.iniciarPrincipal === 'undefined' && typeof QuestSystem.prototype.tomarRelevo === 'undefined',
+  'el sistema de misiones ya no fabrica misiones desde el pasado ni las encadena');
 
-const problemas = [];
+{
+  const t = leerTrasfondo('Mi hermana cruzó el Umbral con nuestro medallón. La busco desde entonces. Dicen que la vieron en el norte.');
+  comprobar(t.hechos.length === 1 && /hermana cruzó/.test(t.hechos[0]), 'lo que afirma es un hecho', JSON.stringify(t));
+  comprobar(t.aspiraciones.length === 1 && /La busco/.test(t.aspiraciones[0]), 'lo que busca es una aspiración, no un encargo', JSON.stringify(t));
+  comprobar(t.sospechas.length === 1 && /Dicen que/.test(t.sospechas[0]), 'lo que le contaron es una sospecha, no un hecho', JSON.stringify(t));
 
-for (let i = 0; i < 50; i += 1) {
-  const lore = HISTORIAS[i % HISTORIAS.length];
-  const salida = SALIDAS[i % SALIDAS.length];
-  const r = principalDesdeHistoria(new GestorRNG(9000 + i).flujo('mundo'), {
-    lugar: salida, lore, clase: 'Rastreador', orden: 1,
-  });
+  const s1 = leerTrasfondo('Creo que debo volver al vado.');
+  comprobar(s1.sospechas.length === 1 && !s1.aspiraciones.length, 'lo que cree no se toma por decidido', JSON.stringify(s1));
 
-  const fallo = (motivo) => problemas.push(`#${i} (${salida}, «${lore.slice(0, 30)}»): ${motivo}`);
-
-  if (!r?.mision) { fallo('sin misión'); continue; }
-  if (r.mision.tipo !== 'principal') fallo(`tipo ${r.mision.tipo}`);
-
-  // Un lugar real del mapa, con gente.
-  const lugar = obtenerLugar(r.mision.lugar);
-  if (!lugar) fallo(`lugar inexistente: ${r.mision.lugar}`);
-  else if (!r.mision.resumen.includes(lugar.nombre.replace(/^(El|La|Los|Las)\s/, ''))) fallo('el resumen no nombra el lugar');
-
-  // Alguien con nombre y oficio, nombrado en el resumen.
-  if (!r.npc?.nombre || !r.npc?.rol) fallo('sin PNJ con nombre y oficio');
-  else if (!r.mision.resumen.includes(r.npc.nombre)) fallo('el resumen no nombra al PNJ');
-
-  // Objetivos que el motor sabe cerrar: sin «libres», que solo cierra un modelo.
-  if (r.mision.objetivos.some((o) => o.clase === 'libre')) fallo('tiene objetivos libres');
-  if (!r.mision.objetivos.some((o) => o.clase === 'hablar' && o.objetivo === r.npc.refId)) fallo('no hay «Hablar con» su PNJ');
-
-  // Nada de artículos en mayúscula a media frase.
-  if (/\s(en|a|de|por|hacia)\s(El|La|Los|Las)\s/.test(r.mision.resumen)) fallo(`artículo en mayúscula: ${r.mision.resumen}`);
+  const director = trasfondoParaDirector('Perdí la forja de mi padre en un incendio. Busco a quien lo provocó.');
+  comprobar(/canon, no guion/.test(director) && /NO es una misión/.test(director) && /Perdí la forja/.test(director),
+    'el director recibe el pasado como canon y con la regla de no hacerlo misión', director);
+  comprobar(trasfondoParaDirector('') === '', 'sin historia, nada que decir al director');
 }
-
-comprobar(!problemas.length, '50 aperturas: siempre misión con lugar, PNJ con nombre y pista',
-  problemas.slice(0, 4).join('\n     '));
 
 /* ── La pregunta de mesa ─────────────────────────────────────────────────── */
 

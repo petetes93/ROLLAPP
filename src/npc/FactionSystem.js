@@ -272,10 +272,10 @@ export class FactionSystem extends SystemBase {
   /**
    * Da residencia a un PNJ en un lugar concreto.
    *
-   * Es para quien la historia ya ha nombrado —el herrero de la misión
-   * principal— antes de que el jugador llegue. Queda como residente de ese
-   * sitio, y `_alLlegar` lo pone en escena al entrar como a cualquier vecino.
-   * Si el jugador ya está allí, aparece en el acto.
+   * Es para quien el mundo ya ha puesto en un sitio —el actor de una
+   * situación— antes de que el jugador llegue o mientras está. Queda como
+   * residente de ese sitio, y `_alLlegar` lo pone en escena al entrar como a
+   * cualquier vecino. Si el jugador ya está allí, aparece en el acto.
    *
    * @param {{refId: string, nombre: string, rol: string, genero?: string, lugar: string}} propuesta
    * @returns {Object|null}

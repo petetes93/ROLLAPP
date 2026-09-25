@@ -47,27 +47,6 @@ import { sinAcentos } from '../utils/text.js';
 /** Verbos de hablar con alguien, sin tildes: «le pregunto», «hablo», «le cuento». */
 const HABLA = /\b(?:pregunt\w*|habl[oa]\w*|dig[oa]|decirle|cuent[oa]|contarle|charl\w*|convers\w*|interrog\w*|salud[oa]\w*|le explico|le pido)\b/;
 
-/** Convierte la historia libre en varios hilos jugables sin inventar hechos. */
-function hilosDesdeLore(lore) {
-  const texto = String(lore ?? '').replace(/\s+/g, ' ').trim();
-  if (!texto) return [];
-  const partes = texto.split(/(?<=[.!?…;])\s+|,\s+(?=(?:pero|aunque|porque|y\s+(?:quiero|busco|debo|temo))\b)/iu)
-    .map(x => x.trim()).filter(x => x.length >= 8).slice(0, 5);
-  const clasificar = (x) => {
-    const n = x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    if (/prometi|promesa|jure|juramento|debo devolver|debo cumplir/.test(n)) return 'promesa';
-    if (/enemig|persigue|caza|amenaz|venganza|matar/.test(n)) return 'amenaza';
-    if (/herman|madre|padre|hij|amig|mentor|maestr|familia/.test(n)) return 'relacion';
-    if (/ciudad|pueblo|bosque|torre|templo|umbral|montana|rio|isla|reino/.test(n)) return 'lugar';
-    if (/medallon|anillo|espada|libro|mapa|llave|reliquia/.test(n)) return 'objeto';
-    return 'misterio';
-  };
-  return partes.map((textoHilo, i) => ({
-    tipo: clasificar(textoHilo), texto: `De su historia: ${textoHilo}`,
-    turno: 0, relacionadoCon: i === 0 ? 'player_lore' : `player_lore_${i + 1}`,
-  }));
-}
-
 /** Eventos del ciclo de turno. */
 export const EVENTOS_TURNO = Object.freeze({
   INICIO: 'turn:start',
@@ -141,10 +120,10 @@ export class TurnResolver extends SystemBase {
 
       this.memoria.limpiar();
       this.memoria.canon = importado;
-      // La historia libre no es decoración del prompt: nace como hilo real de
-      // memoria incluso con el director procedural y sobrevive a los turnos.
-      const lore = String(this.leer('player.lore', '') ?? '').trim();
-      for (const hilo of hilosDesdeLore(lore)) this.memoria.abrirHilo(hilo);
+      // La historia del jugador NO se abre como hilos de memoria. Lo hacía
+      // y cada fragmento se volvía un gancho cuya urgencia crecía al
+      // ignorarlo: el pasado acababa dictando la campaña. Vive en la ficha
+      // como canon (ver `ai/Trasfondo.js`) y vuelve cuando el jugador lo busca.
       this.store.fijar('ai.memoria', this.memoria.serializar());
     });
 
@@ -434,12 +413,9 @@ export class TurnResolver extends SystemBase {
       // ─── 8. Narración a la bitácora ───────────────────────────────────
       if (saneada.sceneBreak) this._cortarEscena();
 
-      // Con quién se ha hablado, ANTES de cerrar el texto: cumplir un
-      // «Hablar con…» puede abrir la siguiente misión principal, y quien la da
-      // lo cuenta dentro de este mismo turno, no en una entrada suelta.
+      // Con quién se ha hablado, antes de cerrar el texto: la pregunta final
+      // solo nombra a quien de verdad ha intervenido.
       const interlocutor = this._registrarConversacion(saneada, tipo, limpio);
-      const relevo = this.sistema('quests')?.tomarRelevo?.();
-      if (relevo) saneada.story = this._antesDeLaPregunta(saneada.story, relevo);
 
       // Cada turno termina devolviendo la palabra. La pone el modelo si la
       // trae (`pregunta`); si no, el motor.
@@ -886,10 +862,11 @@ export class TurnResolver extends SystemBase {
     this._bloquearEntrada(true);
 
     try {
-      // La misión principal existe antes de que se narre nada: la apertura
-      // tiene que poder presentarla, y el panel de misiones mostrarla ya.
-      const principal = this.sistema('quests')?.iniciarPrincipal?.() ?? null;
-
+      // La apertura NO crea ni presenta una misión sacada del pasado del
+      // personaje. Lo hacía: la biografía se convertía en «busca al culpable,
+      // está en Saucedo» y la campaña quedaba decidida antes de jugar. Ahora
+      // se abre una escena del mundo con algo que atender o ignorar, y el
+      // pasado es canon que vuelve cuando el jugador lo busca.
       const peticion = {
         accion: '',
         intencion: { tipo: 'custom', requiereTirada: false, confianza: 1 },
@@ -901,22 +878,14 @@ export class TurnResolver extends SystemBase {
 
       if (this._idDirector() !== PROVEEDORES.PROCEDURAL) {
         const compuesto = this._compositor.componer({ accion: '', tipo: 'narracion' });
-        const encargo = principal
-          ? `\n\nMISIÓN PRINCIPAL: ${principal.objetivo} ${principal.pista} Preséntala al final de la apertura en dos o tres frases cortas, nombrando a ${principal.npc.nombre} y el lugar.`
-          : '';
-        peticion.prompt = `${compuesto.texto}\n\nESTE ES EL PRIMER TURNO. Abre la crónica situando al personaje en un lugar concreto, con algo que reclame su atención de inmediato.${encargo}`;
+        peticion.prompt = `${compuesto.texto}\n\nESTE ES EL PRIMER TURNO. Abre la crónica con una escena viva y concreta del mundo: el lugar, la hora, quién hay y algo que está pasando y admite más de una respuesta (hablar, mirar, intervenir, marcharse). No es un encargo ni una misión, y el jugador puede ignorarlo. No abras con el pasado del personaje ni lo conviertas en el motivo de la escena: puede colorear un detalle, nada más. Termina devolviendo la palabra.`;
       }
 
       const resultado = await this.director.dirigir(peticion);
       const validacion = validarRespuesta(resultado.respuesta);
       const respuesta = validacion.valida ? validacion.respuesta : resultado.respuesta;
 
-      // La misión se presenta en golpes cortos, uno por línea. Si el modelo ya
-      // la ha contado —nombra a quien da la pista—, no se repite.
       let story = respuesta.story;
-      if (principal && !story.includes(principal.npc.nombre)) {
-        story = `${story.trimEnd()}\nY hoy, por fin, hay por dónde empezar.\n${principal.objetivo}\n${principal.pista}`;
-      }
       story = this._cerrarTurno(story, respuesta.pregunta);
 
       this._anadirEntrada(VOCES.DM, story, { turno: 1, escenaAbierta: true });

@@ -232,6 +232,39 @@ export const MIGRACIONES = Object.freeze([
       return { guardado: { ...g, estado, version: 6 }, avisos };
     },
   },
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     6 → 7 · El pasado del personaje deja de ser una lista de hilos
+     ───────────────────────────────────────────────────────────────────────── */
+  {
+    desde: 6,
+    descripcion: 'cierra los hilos de memoria que se abrían desde la historia del personaje',
+    aplicar: (g) => {
+      const avisos = [];
+      const estado = clonar(g.estado);
+
+      // Cada frase de la historia se abría como hilo, y su urgencia crecía al
+      // ignorarla hasta que el director la retomaba por su cuenta. Se cierran
+      // sin resolución: no se borra nada (la historia sigue en la ficha, que
+      // es donde vive ahora) y no se convierten en hechos cumplidos. Las
+      // misiones guardadas no se tocan: su progreso sigue donde estaba.
+      const hilos = estado.ai?.memoria?.hilos;
+      if (Array.isArray(hilos)) {
+        let cerrados = 0;
+        for (const h of hilos) {
+          if (!h.cerrado && /^player_lore/.test(h.relacionadoCon ?? '')) {
+            h.cerrado = true;
+            h.resolucion = null;
+            h.motivoCierre = 'trasfondo';
+            cerrados += 1;
+          }
+        }
+        if (cerrados) avisos.push(`${cerrados} hilos del pasado del personaje pasan a ser trasfondo`);
+      }
+
+      return { guardado: { ...g, estado, version: 7 }, avisos };
+    },
+  },
 ]);
 
 /* ═══════════════════════════════════════════════════════════════════════════

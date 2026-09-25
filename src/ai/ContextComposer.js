@@ -293,14 +293,16 @@ export class ContextComposer {
   }
 
   /**
-   * La misión principal aceptada, en lo justo: título y lugar.
+   * El primer encargo que el jugador ha aceptado, en lo justo: título y
+   * lugar. Ya no hay una «principal» que salga de su pasado; lo que haya en
+   * curso es lo que él ha decidido llevar.
    * @returns {{titulo: string, nombreLugar: string|null}|null}
    * @private
    */
-  _misionPrincipal() {
+  _misionEnCurso() {
     const misiones = this.store.select('quests.activas', { porId: {}, orden: [] });
     const m = misiones.orden.map((id) => misiones.porId[id])
-      .find((x) => x?.tipo === 'principal' && x.estado === 'aceptada');
+      .find((x) => x?.estado === 'aceptada');
     if (!m) return null;
     const lugar = m.lugar ? this.store.select(`world.localizaciones.porId.${m.lugar}.nombre`, null) : null;
     return { titulo: m.titulo, nombreLugar: lugar };
@@ -486,7 +488,7 @@ export class ContextComposer {
       grupo: (this.registry?.obtener('party')?.miembros?.() ?? []).map((m) => ({ ...m.ficha, herido: m.herido })),
 
       // La misión principal en curso: los compañeros la tienen presente.
-      misionPrincipal: this._misionPrincipal(),
+      misionEnCurso: this._misionEnCurso(),
     };
   }
 }

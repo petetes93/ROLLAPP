@@ -41,7 +41,6 @@ export const EVENTOS_MISION = Object.freeze({
   COMPLETADA: 'quests:completed',
   FRACASADA: 'quests:failed',
   CADUCA: 'quests:expiring',
-  PRINCIPAL: 'quests:principal',
 });
 
 /** Misiones activas simultáneas como máximo. */
@@ -64,8 +63,6 @@ export class QuestSystem extends SystemBase {
     /** Plantillas ya usadas, para variar. @private */
     this._plantillasUsadas = [];
 
-    /** Relevo de la última principal cumplida, pendiente de narrar. @private */
-    this._relevo = null;
   }
 
   /* ═══════════════════════════════════════════════════════════════════════
@@ -278,76 +275,6 @@ export class QuestSystem extends SystemBase {
   }
 
   /**
-   * El relevo pendiente de la última principal cumplida, y lo olvida.
-   *
-   * Lo narra el turno: quien daba la pista le pasa al jugador la siguiente.
-   *
-   * @returns {string|null} Las líneas a narrar, o null si no hay relevo.
-   */
-  tomarRelevo() {
-    const r = this._relevo;
-    this._relevo = null;
-    if (!r?.npc) return null;
-
-    const art = r.npc.genero === 'f' ? 'la' : 'el';
-    const donde = r.lugar?.nombre ? ` ${trasPreposicion('en', r.lugar.nombre)}` : '';
-    const quien = r.anterior ?? 'Alguien';
-
-    return `${quien} baja la voz: «Pregunta${donde} por ${r.npc.nombre}, ${art} ${r.npc.rol}. Sabe más que yo.»\n${r.objetivo}`;
-  }
-
-  /**
-   * Abre la misión principal: un lugar, alguien con nombre y una pista.
-   *
-   * La primera sale de la historia del personaje; las siguientes, de los
-   * hilos que esa historia dejó en la memoria (`player_lore_2`, `_3`…), para
-   * que cada una empuje hacia la siguiente parte de su pasado. Se acepta sola:
-   * es la razón por la que el personaje está aquí, no una oferta más.
-   *
-   * @param {Object} [opciones]
-   * @param {number} [opciones.orden=1]
-   * @returns {Object|null} Lo que devuelve `principalDesdeHistoria`.
-   */
-  iniciarPrincipal({ orden = 1 } = {}) {
-    const jugador = this.leer('player', {}) ?? {};
-
-    // La historia de la que sale. La primera, el lore entero; las siguientes,
-    // el hilo que le toca, si lo hay.
-    let lore = jugador.lore ?? '';
-    if (orden > 1) {
-      const hilos = this.leer('ai.memoria.hilos', []) ?? [];
-      const hilo = hilos.find((h) => h.relacionadoCon === `player_lore_${orden}`);
-      lore = String(hilo?.texto ?? '').replace(/^De su historia:\s*/u, '');
-    }
-
-    const r = Generador.principalDesdeHistoria(this.rng.flujo('mundo'), {
-      lugar: this.leer('world.ubicacion'),
-      lore,
-      clase: obtenerClase(jugador.clase)?.nombre,
-      trasfondo: obtenerTrasfondo(jugador.trasfondo)?.nombre,
-      turno: this.leer('meta.turno', 1),
-      orden,
-    });
-    if (!r?.mision) return null;
-
-    this.despachar('quests/registrar', { mision: r.mision });
-    this.aceptar(r.mision.refId);
-
-    // Quien da la pista vive donde dice la pista: al llegar, está.
-    this.sistema('npcs')?.residir?.(r.npc);
-
-    this.emitir(EVENTOS_MISION.PRINCIPAL, {
-      refId: r.mision.refId,
-      titulo: r.mision.titulo,
-      orden,
-      npc: r.npc,
-      lugar: r.lugar?.refId ?? null,
-    });
-
-    return r;
-  }
-
-  /**
    * Acepta una misión ofrecida.
    *
    * @param {string} refId
@@ -429,19 +356,11 @@ export class QuestSystem extends SystemBase {
 
     this.despachar('hazanas/registrar', { clave: 'misionesCompletadas', delta: 1 });
 
-    // Una principal cumplida abre la siguiente, enlazada con su historia.
-    //
-    // Es lo que hace que la partida tenga un hilo en vez de una lista de
-    // encargos sueltos: acabar una parte de su pasado le lleva a la próxima.
-    //
-    // Quien daba la pista es quien pasa el testigo: «Pregunta en los Pilotes
-    // por Corce, la posadera.» El relevo queda guardado para que el turno lo
-    // narre dentro de su propio texto, antes de devolver la palabra, en vez de
-    // como una entrada suelta después de la pregunta.
-    if (mision.tipo === 'principal') {
-      const siguiente = this.iniciarPrincipal({ orden: (mision.orden ?? 1) + 1 });
-      if (siguiente) this._relevo = { ...siguiente, anterior: mision.nombreOrigen };
-    }
+    // Una principal cumplida ya no abre la siguiente. Lo hacía, enlazando
+    // cada parte del pasado del personaje con la próxima: la campaña entera
+    // quedaba escrita desde su biografía. Las partidas guardadas con una
+    // principal la conservan y la pueden cumplir; después, lo que venga lo
+    // decide el juego.
 
     return { aplicada: true, motivo: null };
   }

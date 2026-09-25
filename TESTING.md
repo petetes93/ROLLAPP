@@ -1,9 +1,23 @@
 # Pruebas
 
-ARCANVEIL no tiene pruebas automáticas. Es una decisión deliberada: montar un
-entorno de pruebas exigiría una dependencia de desarrollo, y el proyecto se
-define por no tener ninguna. A cambio, aquí está el guion de lo que hay que
-comprobar a mano, con el orden que encuentra los fallos antes.
+ARCANVEIL no usa ningún marco de pruebas: exigiría una dependencia de
+desarrollo, y el proyecto se define por no tener ninguna. Las comprobaciones
+automáticas son guiones de Node sin dependencias, y se pasan antes de cada
+commit:
+
+```bash
+node tools/regresion-app.mjs            # la PWA en Chrome, a 390x844
+node tools/regresion-app.mjs --desktop  # lo mismo a 1440x900
+node tools/regresion-app.mjs --sin-ia   # sin servicio de imágenes: el respaldo
+for f in tools/auditar-*.mjs; do node "$f" || echo "FALLA $f"; done
+```
+
+Las auditorías prueban piezas sueltas con casos que salieron de partidas
+reales (persona gramatical, combate, creación, misiones, retratos…). La
+regresión juega una partida entera en un Chrome sin ventana.
+
+Lo que no se automatiza se comprueba a mano con este guion, en el orden que
+encuentra los fallos antes.
 
 Cada bloque tiene un **criterio de fallo**: qué significa que algo esté mal, no
 solo qué hacer. Sin eso, un guion de pruebas se convierte en una lista de clics.
@@ -35,7 +49,7 @@ La consola expone `window.ARCANVEIL` con los atajos que se usan más abajo.
 | «Cargar» lista las ranuras (hasta 8) con nombre, nivel y lugar | Ranuras vacías que parecen llenas |
 
 ```js
-ARCANVEIL.ver('meta.fase')     // 'menu'
+ARCANVEIL.ver('meta.fase')     // 'vacia' en la portada, sin partida cargada
 ARCANVEIL.inspeccionar()       // todos los sistemas 'arrancado'
 ```
 
@@ -59,15 +73,48 @@ personaje»; al elegir uno solo queda «Comenzar partida».
 | Pulsar el nombre o el linaje no abre la ilustración a pantalla completa | Salta la ilustración |
 | «Crear personaje» enseña la ficha revelada con «Crear otro» y «Comenzar partida» | Entra en partida sin revelar |
 | El lugar de partida corresponde al linaje | Un ferrano que empieza en el pantano |
+| Se elige la intensidad (Pacífica, Equilibrada, Dura, Implacable) y sale en la ficha | Se queda siempre en la misma |
+| El personaje empieza sin cargar de más: «Ligero», o «Cargado» como mucho con armadura pesada | «Sobrecargado» en el turno 1 con su propio equipo |
+
+### La creación conversacional
+
+La ficha revelada la resume el narrador y pregunta «¿Te gusta así o quieres
+cambiar algo?». Se corrige escribiendo en la caja de debajo:
+
+1. `mejor que sea hombre`
+2. `que lleve una capa roja y que se llame Brun`
+3. `vale, empezamos`
+
+| Comprobar | Criterio de fallo |
+|---|---|
+| Cada corrección responde qué ha cambiado («Ahora es un hombre.», «Añadido: una capa roja.») | «No te he entendido» ante una de estas frases |
+| El nombre, el retrato y la historia se conservan salvo lo que se pidió cambiar | Se pierde el nombre o sale otro personaje en el plantel |
+| El retrato se repinta con lo nuevo (un hombre, la capa) | Sigue con la cara de antes |
+| Si la descripción nombra una especie («enana») distinta del linaje, lo avisa y ofrece cambiarlo | Mezcla rasgos de los dos (cuernos en una enana) |
+| «vale, empezamos» arranca la partida sin buscar el botón | Hay que pulsar «Comenzar partida» |
+| En móvil, el ejemplo de la caja se lee entero y en letra normal | Sale en versalitas grandes y cortado |
 
 ```js
-ARCANVEIL.ver('player')        // nombre, raza, clase, lore y retrato
+ARCANVEIL.ver('player')        // nombre, raza, clase, lore, retrato, genero, semillaRetrato
 ARCANVEIL.ver('world.ubicacion')
 ```
 
 ---
 
 ## 3 · Turno libre
+
+**El turno 1 deja claro qué hacer.** La apertura termina presentando una
+misión principal sacada de la historia del personaje, con un lugar del mapa,
+una persona con nombre y una pista («Dicen que en Saucedo, Dadar, el herrero,
+compró hierro con una marca que conoces»). Sale en el panel de encargos.
+
+| Comprobar | Criterio de fallo |
+|---|---|
+| La apertura nombra lugar, persona y pista de la misión | Solo atmósfera, sin nada que hacer |
+| Cada turno del narrador acaba con una pregunta en su propia línea | Termina en una descripción y no se sabe si el turno ha acabado |
+| La pregunta solo nombra a alguien si le has hablado en ese turno | «Ulket te mira, esperando» cuando hablaste con otra persona |
+| Preguntar a la persona de la pista («busco a Dadar y le pregunto por el hierro») cumple «Hablar con Dadar» | El objetivo no avanza |
+| Al cumplir la misión, el director propone la siguiente enlazada con la historia | Silencio tras cumplirla |
 
 La partida no tiene botones de acción fijos: solo la caja de texto. Tras 5-10
 segundos sin escribir aparece una ventana con tres sugerencias que nombran lo
@@ -167,6 +214,61 @@ ARCANVEIL.pelear('tejedora_de_umbral')
 
 El veneno debe hacer daño **al inicio** de tu turno, antes de que actúes. Si
 hace daño al final, el orden está invertido.
+
+**La jugada escrita cuenta.** En combate la caja de abajo es la de combate
+(«Describe tu jugada…») y no hay otra. Escribe:
+
+1. `le lanzo arena a los ojos y le golpeo`
+2. `salto sobre la roca y descargo el hacha sobre su cabeza` (sin llevar hacha)
+3. `vendo la herida`
+
+| Comprobar | Criterio de fallo |
+|---|---|
+| La arena da +1 en el parte («d20 N, +1 por la jugada: T contra U») y deja al rival cegado | Un «Atacar» normal, sin bono ni estado |
+| Nombrar un arma que no llevas lo dice y resta («No llevas hacha: atacas con tu hoz», −2) | Ataca con un hacha inexistente |
+| Curarse con palabras usa la poción si la hay, o tira primeros auxilios | No hace nada |
+| Atacar primero con «ataco al primer bandido que vea» te da la iniciativa y un solo grupo asequible | El enemigo pega antes, o salen tres |
+| El enemigo enseña su ficha: retrato, dos o tres habilidades y vida en números | Solo un nombre y una barra |
+| Al ganar, el botín se cuenta en la historia («Entre sus cosas encuentras…») | Solo aparece en el inventario |
+
+**Caer.** Fuerza una caída con
+`ARCANVEIL.store.dispatch('player/danar', { cantidad: 999 })`:
+
+| Comprobar | Criterio de fallo |
+|---|---|
+| Sale «Has caído» con «Volver en ti» (salvo en Implacable), «Cargar partida» y «Nueva crónica» | La partida sigue con 0 de vida |
+| La caja queda bloqueada y Escape no cierra la pantalla | Se puede escribir o salir sin elegir |
+| «Volver en ti» deja 1 de vida, cobra oro y avanza el reloj | Revive gratis |
+| **Una segunda caída** en la misma sesión vuelve a sacar la pantalla | La segunda vez no pasa nada |
+
+---
+
+## 5b · Compañeros
+
+Habla con alguien presente y pídele que venga: `Fenwena, ¿vienes conmigo?`,
+o `te pago para que me acompañes`.
+
+| Comprobar | Criterio de fallo |
+|---|---|
+| Hay tirada social visible y con alguien neutral se consigue a menudo | Solo con un 20 natural |
+| Quien no puede ir a veces ofrece a otro («pregúntale a mi mozo»), y ese sí se deja convencer fácil | El recomendado es igual de imposible |
+| El compañero sale bajo el personaje (en móvil, en la pestaña Grupo) con vida, ataque y rasgo | No se ve en ningún sitio |
+| Viaja contigo («Emprendes el camino hacia… con Ulmir») y «vamos hacia Saucedo» te mueve | Se queda atrás, o el plural no se entiende |
+| En combate pelea en tu bando, sale con su cara y no se le puede apuntar | El botón dice «Atacar a Ulmir» |
+| Si cae, queda herido y se recupera descansando (en Implacable, muere) | Muere en cualquier intensidad |
+| `vete a casa, Ulmir` lo despide y vuelve a su sitio | Sigue en el grupo |
+
+---
+
+## 5c · Escenas ilustradas
+
+| Comprobar | Criterio de fallo |
+|---|---|
+| Llegar a un sitio, entrar en un interior, empezar o acabar un combate trae ilustración nueva | Cambia en cada turno, o nunca |
+| La ilustración de la cabecera enseña horizonte y suelo, sin marco de papel ni nada moderno | Solo cielo; una carretera asfaltada |
+| Cada ilustración queda en la bitácora como miniatura y se abre en grande al pulsarla | Desaparece al cambiar de escena |
+| El botón ▴ pliega la cabecera a una franja y la preferencia se recuerda | Hay que plegarla en cada turno |
+| Sin red, se queda el paisaje de siempre y la consola no se llena de errores | Hueco vacío o decenas de peticiones fallidas |
 
 ---
 

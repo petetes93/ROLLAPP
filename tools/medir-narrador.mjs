@@ -34,6 +34,7 @@ import { join } from 'node:path';
 import { crearMotor } from './motor-sin-ventana.mjs';
 import { obtenerEncuentro } from '../src/world/EncounterTables.js';
 import { modeloAdversario, conectar, MARCAS } from './narrador-simulado.mjs';
+import { atiende, pideRespuesta } from './atencion.mjs';
 
 const simulada = process.argv.includes('--ia-simulada');
 const conGroq = process.argv.includes('--groq');
@@ -192,7 +193,9 @@ async function jugarPartida(m, personaje, estilo, guion) {
     const entrada = rellenar(plantilla);
     if (pausaMs) await new Promise((r) => setTimeout(r, pausaMs));
     const texto = await m.jugar(entrada);
-    turnos.push({ entrada, texto, pregunta: PREGUNTA.test(entrada) && /\bpor\b|qué|quién|si ha visto/i.test(entrada) });
+    // Quién había, para saber si contesta a quien se le preguntó.
+    const presentes = (m.ver('npcs.presentes', []) ?? []).map((id) => m.ver(`npcs.conocidos.porId.${id}.nombre`)).filter(Boolean);
+    turnos.push({ entrada, texto, presentes, pregunta: pideRespuesta(entrada), preguntaLaxa: PREGUNTA.test(entrada) && /\bpor\b|qué|quién|si ha visto/i.test(entrada) });
   }
   return { personaje: personaje.ficha.nombre, estilo, lugar, comodin, turnos };
 }
@@ -244,8 +247,14 @@ function medir(partida) {
   const texto = partida.turnos.map((t) => t.texto).join('\n');
   const coletillas = COLETILLAS.reduce((a, re) => a + (texto.match(new RegExp(re.source, 'gi'))?.length ?? 0), 0);
   const genericos = porTurno.flat().filter((f) => GENERICOS.some((re) => re.test(f))).length;
-  const preguntas = partida.turnos.filter((t) => t.pregunta);
-  const contestadas = preguntas.filter((t) => contesta(t, partida.comodin));
+  // Estricto: atiende tema y destinatario (ver `atencion.mjs`). El criterio
+  // anterior (laxo) se sigue calculando para comparar: daba por contestada
+  // una pregunta sin tema reconocido y cualquier «pregunta a otro».
+  const juicio = new Map(partida.turnos.filter((t) => t.pregunta).map((t) => [t, atiende(t)]));
+  const preguntas = [...juicio.keys()].filter((t) => juicio.get(t).aplica);
+  const contestadas = preguntas.filter((t) => juicio.get(t).atiende);
+  const laxas = partida.turnos.filter((t) => t.preguntaLaxa);
+  const contestadasLaxo = laxas.filter((t) => contesta(t, partida.comodin));
   const palabras = partida.turnos.filter((t) => t.texto && !t.combate).map((t) => t.texto.split(/\s+/).length);
 
   return {
@@ -258,9 +267,14 @@ function medir(partida) {
     genericos,
     preguntas: preguntas.length,
     contestadas: contestadas.length,
+    informadas: preguntas.filter((t) => juicio.get(t).informa).length,
+    preguntasLaxo: laxas.length,
+    contestadasLaxo: contestadasLaxo.length,
+    noAtendidas: preguntas.filter((t) => !juicio.get(t).atiende).map((t) => ({ entrada: t.entrada, motivo: juicio.get(t).motivo })),
     palabrasMedia: media(palabras),
     palabrasDesviacion: desviacion(palabras),
     contestadasEntradas: new Set(contestadas.map((t) => t.entrada)),
+    motivos: new Map([...juicio].map(([t, j]) => [t.entrada, j.motivo])),
   };
 }
 
@@ -268,7 +282,7 @@ function transcripcion(partida, metrica) {
   const repetidas = new Set(metrica.repetidas.map(([f]) => f));
   const lineas = [`# ${partida.personaje} · ${partida.estilo}`, '', `Comodines: ${JSON.stringify(partida.comodin)}`, ''];
   for (const [i, t] of partida.turnos.entries()) {
-    lineas.push(`### ${i === 0 ? 'Apertura' : `Turno ${i}`}${t.pregunta ? (metrica.contestadasEntradas.has(t.entrada) ? ' · ✅ contesta a lo preguntado' : ' · ❌ no contesta a lo preguntado') : ''}`, '');
+    lineas.push(`### ${i === 0 ? 'Apertura' : `Turno ${i}`}${t.pregunta ? (metrica.contestadasEntradas.has(t.entrada) ? ' · ✅ atiende tema y destinatario' : ` · ❌ no atiende: ${metrica.motivos.get(t.entrada)}`) : ''}`, '');
     lineas.push(`» ${t.entrada}`);
     for (const l of String(t.texto).split('\n').filter((x) => x && !x.startsWith('»'))) {
       const marca = frases(l).some((f) => repetidas.has(f)) ? ' ⟲' : '';
@@ -281,24 +295,29 @@ function transcripcion(partida, metrica) {
 
 const partidas = [];
 let saltadas = 0;
+const trazasTodas = [];
 for (const p of PERSONAJES) {
-  const m = await crearMotor({ semilla: p.semilla });
-  if (simulada && !modelo) { modelo = modeloAdversario(); trazasIA = await conectar(m, modelo); }
-  if (conGroq && !modelo) {
-    // El puente exige el Origin de la app: se pone aquí como lo pondría el
-    // navegador. La clave sigue sin salir del puente.
-    modelo = { stats: { peticiones: 0, reparaciones: 0, inyectadas: {}, tokens: [], caracteres: [] } };
-    m.sistema('dungeonmaster').proveedor('groq').configurar({ url: 'http://127.0.0.1:11436' });
-    trazasIA = await conectar(m, { fetch: (url, op = {}) => fetch(url, { ...op, headers: { ...(op.headers ?? {}), Origin: 'http://localhost:8080' } }) });
-    if (!m.sistema('dungeonmaster').proveedor('groq').inspeccionar().verificado) throw new Error('El puente no contesta en http://127.0.0.1:11436: arráncalo con node tools/iniciar-groq.mjs');
-  }
-  for (const [estilo, guion] of [['contemplativo', CONTEMPLATIVO], ['impulsivo', IMPULSIVO]]) {
+  for (const [k, [estilo, guion]] of [['contemplativo', CONTEMPLATIVO], ['impulsivo', IMPULSIVO]].entries()) {
     const indice = partidas.length + saltadas + 1;
     if (soloPartida && indice !== soloPartida) { saltadas += 1; continue; }
+    // Cada partida en un motor nuevo con su semilla (ver `crearMotor`).
+    const m = await crearMotor({ semilla: p.semilla + k });
+    if (simulada) { modelo ??= modeloAdversario(); trazasIA = await conectar(m, modelo); }
+    if (conGroq) {
+      // El puente exige el Origin de la app: se pone aquí como lo pondría el
+      // navegador. La clave sigue sin salir del puente.
+      modelo ??= { stats: { peticiones: 0, reparaciones: 0, inyectadas: {}, tokens: [], caracteres: [] } };
+      m.sistema('dungeonmaster').proveedor('groq').configurar({ url: 'http://127.0.0.1:11436' });
+      trazasIA = await conectar(m, { fetch: (url, op = {}) => fetch(url, { ...op, headers: { ...(op.headers ?? {}), Origin: 'http://localhost:8080' } }) });
+      if (!m.sistema('dungeonmaster').proveedor('groq').inspeccionar().verificado) throw new Error('El puente no contesta en http://127.0.0.1:11436: arráncalo con node tools/iniciar-groq.mjs');
+    }
     const partida = await jugarPartida(m, p, estilo, guion);
     partidas.push({ partida, metrica: medir(partida) });
+    trazasTodas.push(...trazasIA);
   }
 }
+
+trazasIA = trazasTodas;
 
 const carpeta = argumento('--transcripciones');
 if (carpeta) {
@@ -319,6 +338,9 @@ const resumen = {
   genericos: suma('genericos'),
   preguntas: suma('preguntas'),
   contestadas: suma('contestadas'),
+  informadas: suma('informadas'),
+  preguntasLaxo: suma('preguntasLaxo'),
+  contestadasLaxo: suma('contestadasLaxo'),
   palabrasMedia: media(partidas.map((x) => x.metrica.palabrasMedia)),
   palabrasDesviacion: media(partidas.map((x) => x.metrica.palabrasDesviacion)),
 };
@@ -327,7 +349,8 @@ console.log('partida                      frases  repet  colet  genér  preg  co
 for (const { partida, metrica } of partidas) {
   console.log(`${`${partida.personaje} · ${partida.estilo}`.padEnd(28)} ${String(metrica.frases).padStart(6)} ${String(metrica.repeticiones).padStart(6)} ${String(metrica.coletillas).padStart(6)} ${String(metrica.genericos).padStart(6)} ${String(metrica.preguntas).padStart(5)} ${String(metrica.contestadas).padStart(8)}  ${metrica.palabrasMedia.toFixed(0)}±${metrica.palabrasDesviacion.toFixed(0)}`);
 }
-console.log(`\nTOTAL: ${resumen.turnos} turnos · ${(resumen.tasaRepeticion * 100).toFixed(1)} % de frases repetidas · ${suma('casiRepetidas')} casi repetidas · ${resumen.coletillas} coletillas · ${resumen.genericos} resultados genéricos · ${resumen.contestadas}/${resumen.preguntas} preguntas contestadas`);
+console.log(`\nTOTAL: ${resumen.turnos} turnos · ${(resumen.tasaRepeticion * 100).toFixed(1)} % de frases repetidas · ${suma('casiRepetidas')} casi repetidas · ${resumen.coletillas} coletillas · ${resumen.genericos} resultados genéricos · ${resumen.contestadas}/${resumen.preguntas} preguntas atendidas (tema y destinatario), ${resumen.informadas}/${resumen.preguntas} con dato o a quién preguntar (con el criterio laxo anterior: ${resumen.contestadasLaxo}/${resumen.preguntasLaxo})`);
+for (const { partida, metrica } of partidas) for (const x of metrica.noAtendidas) console.log(`  ❌ ${partida.personaje}: «${x.entrada}» — ${x.motivo}`);
 console.log('\nLo que más se repite:');
 const todas = new Map();
 for (const { metrica } of partidas) for (const [f, n] of metrica.repetidas) todas.set(f, (todas.get(f) ?? 0) + n);
@@ -355,4 +378,4 @@ if (simulada) {
 }
 
 const salida = argumento('--json');
-if (salida) writeFileSync(salida, JSON.stringify({ resumen, partidas: partidas.map(({ partida, metrica }) => ({ personaje: partida.personaje, estilo: partida.estilo, ...metrica, contestadasEntradas: [...metrica.contestadasEntradas] })) }, null, 2));
+if (salida) writeFileSync(salida, JSON.stringify({ resumen, partidas: partidas.map(({ partida, metrica }) => ({ personaje: partida.personaje, estilo: partida.estilo, ...metrica, contestadasEntradas: [...metrica.contestadasEntradas], motivos: Object.fromEntries(metrica.motivos) })) }, null, 2));

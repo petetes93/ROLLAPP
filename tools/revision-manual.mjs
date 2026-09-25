@@ -23,6 +23,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { crearMotor } from './motor-sin-ventana.mjs';
 import { modeloAdversario, conectar } from './narrador-simulado.mjs';
+import { atiende, pideRespuesta } from './atencion.mjs';
 
 const arg = (n) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : null; };
 const modo = arg('--modo') ?? 'procedural';
@@ -205,20 +206,25 @@ const PARTIDAS = [
 const COSA = { carro_atascado: 'el carro', colgante_en_el_pozo: 'el pozo', encapuchado_vigila: 'el tejado', balanza_trucada: 'la balanza', cabra_escapada: 'la cabra', buhonero_herido: 'el fardo del buhonero', peaje_abusivo: 'la garita del peaje' };
 
 let modelo = null;
+let preguntas = 0;
+let atendidas = 0;
+let informadas = 0;
+const noAtendidas = [];
 let trazas = [];
 mkdirSync(salida, { recursive: true });
 
 for (const [i, p] of PARTIDAS.entries()) {
   if (soloPartida && i + 1 !== soloPartida) continue;
+  // Un motor nuevo por partida, con su semilla (ver `crearMotor`): el
+  // modelo se vuelve a conectar a cada uno.
   const m = await crearMotor({ semilla: p.semilla });
-  if (modo === 'simulada' && !modelo) { modelo = modeloAdversario(); trazas = await conectar(m, modelo); }
-  if (modo === 'groq' && !modelo) {
+  if (modo === 'simulada') { modelo ??= modeloAdversario(); trazas = await conectar(m, modelo); }
+  if (modo === 'groq') {
     modelo = { groq: true };
     m.sistema('dungeonmaster').proveedor('groq').configurar({ url: 'http://127.0.0.1:11436' });
     trazas = await conectar(m, { fetch: (url, op = {}) => fetch(url, { ...op, headers: { ...(op.headers ?? {}), Origin: 'http://localhost:8080' } }) });
     if (!m.sistema('dungeonmaster').proveedor('groq').inspeccionar().verificado) throw new Error('El puente no contesta: arráncalo con node tools/iniciar-groq.mjs');
   }
-  m.store.reiniciar();
   const desde = trazas.length;
   const apertura = await m.empezar(p.ficha);
   const sit = m.sistema('situations').aqui()[0] ?? null;
@@ -233,15 +239,23 @@ for (const [i, p] of PARTIDAS.entries()) {
   const lineas = [`# ${p.titulo} · semilla ${p.semilla} · modo ${modo}`, '', `Comodines: ${JSON.stringify(c)}`, '', '### Apertura', '', ...apertura.split('\n'), ''];
   let n = 0;
   for (const plantilla of p.turnos) {
-    if (plantilla === '@patrulla') { m.sistema('exploration')._presentar((await import('../src/world/EncounterTables.js')).obtenerEncuentro('patrulla_hostil')); lineas.push('> (llega una patrulla)', ''); continue; }
-    if (plantilla === '@combate') {
+    if (plantilla === '@patrulla') {
       const antes = m.entradas().length;
+      m.sistema('exploration')._presentar((await import('../src/world/EncounterTables.js')).obtenerEncuentro('patrulla_hostil'));
+      lineas.push('> (el arnés trae una patrulla)', ...m.entradas().slice(antes).map((e) => e.texto).filter(Boolean), '');
+      continue;
+    }
+    if (plantilla === '@combate') {
+      if (!m.ver('combat.activo', false)) { lineas.push('> (el arnés iba a jugar un combate, pero el turno anterior no lo abrió)', ''); continue; }
+      lineas.push('### (combate)', '');
       for (let k = 0; k < 10 && m.ver('combat.activo', false); k += 1) {
         for (let w = 0; w < 60 && m.ver('combat.activo', false) && !m.sistema('combat').esperandoJugador; w += 1) await new Promise((r) => setTimeout(r, 25));
         if (!m.ver('combat.activo', false)) break;
-        await m.sistema('combat').jugadaLibre(k < 2 ? 'golpeo al que tengo delante' : 'huyo');
+        const jugada = k < 2 ? 'golpeo al que tengo delante' : 'huyo';
+        const antes = m.entradas().length;
+        await m.sistema('combat').jugadaLibre(jugada);
+        lineas.push(`» (arnés) ${jugada}`, ...m.entradas().slice(antes).map((e) => e.texto).filter(Boolean), '');
       }
-      lineas.push('### (combate)', '', ...m.entradas().slice(antes).map((e) => e.texto).filter(Boolean), '');
       // En la app, mientras hay pelea se escribe en el panel de combate, no
       // en el turno normal. Si no se ha podido huir, el arnés la corta (y lo
       // dice) para que el guion siga siendo de turnos normales.
@@ -255,10 +269,19 @@ for (const [i, p] of PARTIDAS.entries()) {
     const entrada = rellenar(plantilla);
     if (pausaMs) await new Promise((r) => setTimeout(r, pausaMs));
     const t0 = trazas.length;
+    const presentes = (m.ver('npcs.presentes', []) ?? []).map((id) => m.ver(`npcs.conocidos.porId.${id}.nombre`)).filter(Boolean);
     const texto = await m.jugar(entrada);
     const tr = trazas.slice(t0).at(-1);
+    // Una respuesta cuenta como atendida solo si atiende tema y destinatario.
+    const juicio = pideRespuesta(entrada) ? atiende({ entrada, texto, presentes }) : null;
+    if (juicio?.aplica) {
+      preguntas += 1;
+      if (juicio.atiende) atendidas += 1; else noAtendidas.push(`${p.ficha.nombre}: «${entrada}» — ${juicio.motivo}`);
+      if (juicio.informa) informadas += 1;
+    }
     const quien = m.ver('meta.narrador')?.narra ?? 'procedural';
-    lineas.push(`### Turno ${n} · narra: ${tr?.final ?? (modo === 'procedural' ? 'procedural' : `${quien} (sin modelo: resuelto por el motor)`)}`, '', `» ${entrada}`);
+    const marca = !juicio ? '' : !juicio.aplica ? ` · (${juicio.motivo})` : juicio.atiende ? ` · ✅ ${juicio.informa ? 'atiende tema y destinatario, con dato' : 'atiende tema y destinatario, sin dato'}` : ` · ❌ no atiende: ${juicio.motivo}`;
+    lineas.push(`### Turno ${n} · narra: ${tr?.final ?? (modo === 'procedural' ? 'procedural' : `${quien} (sin modelo: resuelto por el motor)`)}${marca}`, '', `» ${entrada}`);
     lineas.push(...texto.split('\n').filter((l) => l && !l.startsWith('»')));
     if (tr) {
       if (tr.problemas?.length) lineas.push(`> filtro: ${tr.problemas.join(', ')} · reparado: ${tr.reparado}`);
@@ -271,3 +294,5 @@ for (const [i, p] of PARTIDAS.entries()) {
   writeFileSync(join(salida, `${String(i + 1).padStart(2, '0')}-${p.ficha.nombre}.md`), lineas.join('\n'));
   console.log(`${p.titulo}: ${n} turnos`);
 }
+console.log(`\nPreguntas atendidas (tema y destinatario): ${atendidas}/${preguntas} · con dato o a quién preguntar: ${informadas}/${preguntas}`);
+for (const x of noAtendidas) console.log(`  ❌ ${x}`);

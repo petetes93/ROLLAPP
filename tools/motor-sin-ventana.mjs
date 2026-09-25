@@ -66,15 +66,27 @@ const SISTEMAS = await Promise.all([
 let motor = null;
 
 /**
- * Arranca el motor. Uno por proceso: `store` y `bus` son únicos.
+ * Arranca un motor con SU semilla. `store` y `bus` son únicos por proceso,
+ * así que si ya había uno se detiene (sus sistemas se dan de baja del bus) y
+ * el estado se vacía antes de arrancar el nuevo.
+ *
+ * Antes devolvía siempre el primero: una segunda partida en el mismo proceso
+ * ignoraba su semilla y heredaba lo que los sistemas guardan por dentro (un
+ * encuentro en curso, lo que el narrador ya había descrito). Las
+ * herramientas que juegan varias partidas seguidas no medían partidas
+ * independientes.
  *
  * @param {Object} [opciones]
  * @param {number} [opciones.semilla=20260925]
  * @param {boolean} [opciones.silencio=true] Sin el registro del motor en consola.
  */
 export async function crearMotor({ semilla = 20260925, silencio = true } = {}) {
-  if (motor) return motor;
   if (silencio) Logger.nivel(NIVEL.SILENCIO);
+  if (motor) {
+    await motor.registry.detener();
+    store.reiniciar();
+    motor = null;
+  }
 
   const rng = new GestorRNG(semilla);
   store.fijar('meta.semilla', rng.semillaMaestra);

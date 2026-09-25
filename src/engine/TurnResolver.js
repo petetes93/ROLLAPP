@@ -240,7 +240,7 @@ export class TurnResolver extends SystemBase {
     const previo = this.leer('meta.narrador', null);
     this.store.fijar('meta.narrador', actual);
     if (actual.respaldo && !previo?.respaldo) {
-      this.emitir('ui:notice', { mensaje: 'La IA no ha podido narrar este turno' + (actual.motivo ? ' (' + String(actual.motivo).replace(/^el director externo falló: /, '') + ')' : '') + '. Narra el procedural hasta que vuelva.', tipo: 'aviso' });
+      this.emitir('ui:notice', { mensaje: 'La IA no ha podido narrar este turno' + (actual.motivo ? ' (' + String(actual.motivo).replace(/^el director externo falló: /, '').replace(/[.\s]+$/, '') + ')' : '') + '. Narra el procedural hasta que vuelva.', tipo: 'aviso' });
     } else if (!actual.respaldo && previo?.respaldo && elegido !== PROVEEDORES.PROCEDURAL) {
       this.emitir('ui:notice', { mensaje: 'La IA vuelve a narrar, con el estado de ahora.', tipo: 'exito' });
     }

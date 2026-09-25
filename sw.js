@@ -1,6 +1,6 @@
 // Generado por tools/generar-sw.mjs. No editar a mano.
 // La lista se recorre del disco: un archivo nuevo entra solo al regenerar.
-const CACHE = 'arcanveil-cgu7jn';
+const CACHE = 'arcanveil-1i6hmmr';
 const SHELL = [
   './manifest.webmanifest',
   './app/app.js',
@@ -13,16 +13,20 @@ const SHELL = [
   './src/ai/DungeonMaster.js',
   './src/ai/Importar.js',
   './src/ai/MemoryStore.js',
+  './src/ai/narrador/Autorizacion.js',
   './src/ai/narrador/Conocimiento.js',
+  './src/ai/narrador/FiltroModelo.js',
+  './src/ai/narrador/Instantanea.js',
+  './src/ai/narrador/Verificador.js',
   './src/ai/Persona.js',
   './src/ai/Pregunta.js',
   './src/ai/PromptBuilder.js',
   './src/ai/providers/BridgeProvider.js',
+  './src/ai/providers/GroqProvider.js',
   './src/ai/providers/IDMProvider.js',
   './src/ai/providers/index.js',
   './src/ai/providers/LocalLLMProvider.js',
   './src/ai/providers/ProceduralProvider.js',
-  './src/ai/providers/RemoteAPIProvider.js',
   './src/ai/ResponseParser.js',
   './src/ai/ResponseSchema.js',
   './src/ai/Trasfondo.js',
@@ -90,7 +94,7 @@ const SHELL = [
   './src/engine/DifficultyDirector.js',
   './src/engine/EffectApplier.js',
   './src/engine/IntentParser.js',
-  './src/engine/Presentes.js',
+  './src/engine/Interpretacion.js',
   './src/engine/RulesEngine.js',
   './src/engine/Segmentos.js',
   './src/engine/TurnResolver.js',

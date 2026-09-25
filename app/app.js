@@ -1038,9 +1038,91 @@ function abrirAjustes() {
 
 function abrirNarrador() {
   pintarDirectores();
-  $('#ia-url').value = ver('settings.urlLocal', 'http://127.0.0.1:11435');
-  $('#ia-modelo').value = ver('settings.modeloLocal', 'gemini-3.5-flash');
+  $('#ia-url').value = ver('settings.urlLocal', '') || 'http://127.0.0.1:11434';
+  $('#ia-modelo').value = ver('settings.modeloLocal', '') || '';
+  $('#groq-url').value = ver('settings.urlGroq', '') || 'http://127.0.0.1:11436';
+  $('#groq-consiento').checked = ver('settings.groqConsentido', false) === true;
+  $('#groq-activar').disabled = true;
+  $('#groq-estado').textContent = '';
+  mostrarPanelNarrador(null);
   $('#director-modal').hidden = false;
+}
+
+/** Enseña el panel de configuración de un narrador (o ninguno). */
+function mostrarPanelNarrador(id) {
+  $('#ia-groq').hidden = id !== PROVEEDORES.GROQ;
+  $('#ia-local').hidden = id !== PROVEEDORES.LOCAL;
+}
+
+/**
+ * Probar Groq: pide al puente la lista de modelos. No genera nada ni envía
+ * la partida. Sin el consentimiento marcado no se prueba.
+ */
+async function probarGroq() {
+  const estado = $('#groq-estado');
+  const activar = $('#groq-activar');
+  activar.disabled = true;
+  if (!$('#groq-consiento').checked) { estado.textContent = 'Marca antes que entiendes qué se envía a Groq.'; return; }
+  const groq = sistema('dungeonmaster')?.proveedor(PROVEEDORES.GROQ);
+  groq?.configurar({ url: ($('#groq-url').value ?? '').trim() });
+  estado.textContent = 'Comprobando el puente…';
+  const r = await groq.probar();
+  if (!r.ok) {
+    estado.textContent = r.motivo + (/Origen/.test(r.motivo ?? '') ? ' Abre el juego en http://localhost:8080.' : '');
+    return;
+  }
+  const uso = r.estado?.usoHoy;
+  estado.textContent = 'Conectado a openai/gpt-oss-120b.' + (uso ? ' Hoy: ' + uso.peticiones + ' peticiones y ' + uso.tokens + ' tokens de este puente.' : '')
+    + (r.estado?.pausa ? ' En pausa: ' + r.estado.pausa.motivo + '.' : '');
+  activar.disabled = false;
+}
+
+function activarGroq() {
+  if (!$('#groq-consiento').checked) return;
+  const dm = sistema('dungeonmaster');
+  const url = ($('#groq-url').value ?? '').trim();
+  dm?.proveedor(PROVEEDORES.GROQ)?.configurar({ url, consentido: true });
+  store.fijar('settings.urlGroq', url);
+  store.fijar('settings.groqConsentido', true);
+  const r = dm?.cambiar(PROVEEDORES.GROQ);
+  if (!r?.exito || r.motivo) { avisar(r?.motivo ?? 'No se pudo activar Groq', 'aviso'); return; }
+  store.fijar('settings.proveedor', PROVEEDORES.GROQ);
+  avisar('Narra la IA Groq. Si falla o se agota la cuota, sigue el procedural.', 'exito');
+  $('#director-modal').hidden = true;
+  pintarNarrador();
+}
+
+/** Retirar el consentimiento: deja de enviarse nada desde ya. */
+function retirarConsentimientoGroq() {
+  if ($('#groq-consiento').checked) return;
+  const dm = sistema('dungeonmaster');
+  dm?.proveedor(PROVEEDORES.GROQ)?.configurar({ consentido: false });
+  store.fijar('settings.groqConsentido', false);
+  $('#groq-activar').disabled = true;
+  if (dm?.inspeccionar?.()?.elegido === PROVEEDORES.GROQ) {
+    dm.cambiar(PROVEEDORES.PROCEDURAL);
+    store.fijar('settings.proveedor', PROVEEDORES.PROCEDURAL);
+    avisar('Groq desactivado: no se envía nada más. Narra el procedural.', 'info');
+    pintarDirectores();
+    pintarNarrador();
+  }
+}
+
+/**
+ * Quién narra ahora, siempre a la vista: en el botón del narrador. Si la IA
+ * elegida ha fallado y narra el respaldo, se ve.
+ */
+function pintarNarrador() {
+  const boton = $('#director');
+  if (!boton) return;
+  const dm = sistema('dungeonmaster');
+  const elegido = dm?.inspeccionar?.()?.elegido ?? PROVEEDORES.PROCEDURAL;
+  const meta = ver('meta.narrador', null);
+  const respaldo = Boolean(meta?.respaldo) || (elegido !== PROVEEDORES.PROCEDURAL && dm?.proveedorId === PROVEEDORES.PROCEDURAL);
+  const corto = { [PROVEEDORES.GROQ]: 'IA Groq', [PROVEEDORES.LOCAL]: 'IA local', [PROVEEDORES.PUENTE]: 'Puente', [PROVEEDORES.PROCEDURAL]: 'Procedural' };
+  boton.textContent = respaldo ? 'Narrador: respaldo' : 'Narrador: ' + (corto[elegido] ?? 'Procedural');
+  boton.title = respaldo ? 'La IA elegida no responde; narra el procedural hasta que vuelva.' : 'Quién narra la aventura';
+  boton.classList.toggle('es-respaldo', respaldo);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1898,6 +1980,7 @@ function fichaTirada(t, { animar = false } = {}) {
 /* ── cabecera ─────────────────────────────────────────────────────────── */
 
 function pintarCabecera() {
+  pintarNarrador();
   const caja = $('#cabecera-info');
   if (!caja) return;
 
@@ -2693,7 +2776,8 @@ function activarIALocal() {
   const r = dm?.cambiar(PROVEEDORES.LOCAL);
   if (!r?.exito || r.motivo) { avisar(r?.motivo ?? 'No se pudo activar la IA local', 'aviso'); return; }
   store.fijar('settings.urlLocal', url); store.fijar('settings.modeloLocal', modelo); store.fijar('settings.proveedor', PROVEEDORES.LOCAL);
-  avisar('IA local activa: cada acción pasará por el modelo', 'exito'); $('#director-modal').hidden = true;
+  avisar('Narra el modelo instalado en este PC. Si falla, sigue el procedural.', 'exito'); $('#director-modal').hidden = true;
+  pintarNarrador();
 }
 
 function pintarDirectores() {
@@ -2706,10 +2790,14 @@ function pintarDirectores() {
     caja.append(el('button', {
       class: 'director-opcion' + (dm.inspeccionar().elegido === id ? ' es-activo' : ''),
       onClick: protegido('cambiar narrador', () => {
+        // Groq y el modelo local se configuran antes: Groq, además, no manda
+        // nada hasta que el jugador acepta qué se envía.
+        if (id === PROVEEDORES.GROQ || id === PROVEEDORES.LOCAL) { mostrarPanelNarrador(id); return; }
         const r = dm.cambiar(id);
         store.fijar('settings.proveedor', id);
         avisar(r.motivo ?? `Narrador: ${opcion.nombre}`, r.motivo ? 'aviso' : 'exito');
         pintarDirectores();
+        pintarNarrador();
         $('#director-modal').hidden = true;
       }),
     // El catálogo trae `descripcion`; se leía `resumen`, que no existe, y
@@ -2743,6 +2831,12 @@ function conectarEventos() {
   $('#director')?.addEventListener('click', () => abrirNarrador());
   $('#ia-probar')?.addEventListener('click', protegido('probar IA local', probarIALocal));
   $('#ia-activar')?.addEventListener('click', protegido('activar IA local', activarIALocal));
+  $('#groq-probar')?.addEventListener('click', protegido('probar Groq', probarGroq));
+  $('#groq-activar')?.addEventListener('click', protegido('activar Groq', activarGroq));
+  $('#groq-consiento')?.addEventListener('change', protegido('consentimiento Groq', retirarConsentimientoGroq));
+  bus.on('turn:end', () => pintarNarrador());
+  bus.on('dm:degraded', () => pintarNarrador());
+  bus.on('dm:recovered', () => pintarNarrador());
   $('#director-cerrar')?.addEventListener('click', () => { $('#director-modal').hidden = true; });
   $('#puente-copiar')?.addEventListener('click', async () => { await navigator.clipboard.writeText($('#puente-prompt').value); avisar('Encargo copiado', 'exito'); });
   $('#puente-aplicar')?.addEventListener('click', protegido('respuesta del puente', aplicarPuente));

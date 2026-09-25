@@ -610,7 +610,7 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
 .modal[hidden]{display:none}
 .modal__panel{width:min(38rem,100%);max-height:92dvh;overflow:auto;background:var(--fondo-2);border:1px solid var(--linea);border-radius:14px;padding:1rem;box-shadow:0 22px 80px rgba(0,0,0,.55)}
 .modal__cab{display:flex;justify-content:space-between;align-items:center;gap:1rem}.modal__cab h2{font-family:var(--display);margin:0;color:var(--titulo)}
-.modal__nota{color:var(--texto-2);font-size:.85rem}.director-opcion{width:100%;text-align:left;margin:.35rem 0;padding:.8rem;border:1px solid var(--linea);border-radius:8px;background:var(--fondo-3);color:var(--texto)}
+.modal__nota{color:var(--texto-2);font-size:.85rem}#director.es-respaldo{border-color:#C98A3A;color:#F2C27A}.director-opcion{width:100%;text-align:left;margin:.35rem 0;padding:.8rem;border:1px solid var(--linea);border-radius:8px;background:var(--fondo-3);color:var(--texto)}
 .director-opcion.es-activo{border-color:var(--bronce);box-shadow:inset 3px 0 var(--bronce)}.director-opcion strong,.director-opcion span{display:block}.director-opcion span{color:var(--texto-2);font-size:.78rem;margin-top:.2rem}.director-opcion__limite{display:block;margin-top:.4rem;padding-top:.35rem;border-top:1px dashed rgba(150,120,70,.35);color:var(--texto-2);font-size:.72rem;font-style:italic;line-height:1.35}
 .modal__texto{width:100%;min-height:9rem;resize:vertical;margin:.4rem 0 1rem;padding:.75rem;background:var(--fondo);color:var(--texto);border:1px solid var(--linea);border-radius:6px;font:13px/1.5 var(--mono)}
 .modal__acciones{display:flex;justify-content:flex-end;gap:.5rem;flex-wrap:wrap}.modal__error{color:#ff9aae;font-size:.8rem}
@@ -618,7 +618,7 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
 .comercio__seccion{margin:1rem 0}.comercio__seccion h3{font:600 .72rem var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--bronce-2)}
 .comercio__fila{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:.5rem;align-items:center;padding:.55rem 0;border-bottom:1px solid var(--linea)}
 .comercio__nombre{font-size:.84rem}.comercio__precio{font:.72rem var(--mono);color:var(--oro)}
-.ia-local{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--linea)}.ia-local h3{margin:.2rem 0;color:var(--titulo)}.ia-local p{font-size:.78rem;color:var(--texto-2)}.ia-local .entrada{width:100%;margin:.3rem 0 .8rem}
+.ia-local[hidden]{display:none}.ia-consiento{display:flex;gap:.5rem;align-items:flex-start;margin:.6rem 0;font-size:.85rem;color:var(--texto)}.ia-consiento input{margin-top:.2rem;min-width:1.1rem;min-height:1.1rem}.ia-local code{font-size:.75rem;overflow-wrap:anywhere}.ia-local{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--linea)}.ia-local h3{margin:.2rem 0;color:var(--titulo)}.ia-local p{font-size:.78rem;color:var(--texto-2)}.ia-local .entrada{width:100%;margin:.3rem 0 .8rem}
 @media(max-width:420px){.comercio__fila{grid-template-columns:minmax(0,1fr) auto}.comercio__fila .btn{grid-column:2}.modal__panel{padding:.8rem}}
 
 /* ═══ movimiento narrativo ═══════════════════════════════════════════
@@ -1220,13 +1220,23 @@ textarea.entrada{resize:none;overflow-y:auto;line-height:1.45;max-height:180px;d
     <header class="modal__cab"><h2 id="director-titulo">Narrador</h2><button class="btn btn--pequeno" id="director-cerrar">Cerrar</button></header>
     <p class="modal__nota">Elige cómo se narra la aventura. El motor siempre conserva las reglas y las tiradas.</p>
     <div id="director-opciones"></div>
-    <section class="ia-local" id="ia-local">
-      <h3>Gemini desde tu PC · gratis</h3>
-      <p>ARCANVEIL habla con el proxy local. La clave se queda en el proceso de tu PC y nunca entra en el navegador ni en la partida.</p>
-      <label class="sub-eti" for="ia-url">Proxy local</label><input class="entrada" id="ia-url" value="http://127.0.0.1:11435">
-      <label class="sub-eti" for="ia-modelo">Modelo</label><input class="entrada" id="ia-modelo" value="gemini-3.5-flash" placeholder="gemini-3.5-flash">
-      <div class="modal__acciones"><button class="btn" id="ia-probar">Probar conexión</button><button class="btn btn--grande" id="ia-activar" disabled>Usar IA local</button></div>
-      <p class="modal__error" id="ia-estado"></p>
+    <section class="ia-local" id="ia-groq" hidden>
+      <h3>IA Groq · capa Free</h3>
+      <p>Narra <strong>openai/gpt-oss-120b</strong> en la nube de Groq. El juego habla con el puente que arrancas en tu PC (<code>node tools/iniciar-groq.mjs</code>); la clave vive solo ahí, nunca en el navegador ni en la partida.</p>
+      <p><strong>Qué sale de tu equipo en cada turno:</strong> el lugar, quién está, lo que ha pasado y lo que escribes. No tus partidas guardadas ni datos de tu equipo. Groq no entrena con ello; puede guardarlo hasta 30 días por fiabilidad salvo que actives <em>Zero Data Retention</em> en tu cuenta. No escribas en la historia nada personal que no quieras enviar.</p>
+      <p>Cuota gratuita limitada: si falla o se agota, el turno lo narra el procedural y se avisa. No es ChatGPT: es otro modelo.</p>
+      <label class="ia-consiento"><input type="checkbox" id="groq-consiento"> Entiendo qué se envía a Groq y quiero usarlo</label>
+      <label class="sub-eti" for="groq-url">Puente local</label><input class="entrada" id="groq-url" value="http://127.0.0.1:11436">
+      <div class="modal__acciones"><button class="btn" id="groq-probar">Probar conexión (no genera nada)</button><button class="btn btn--grande" id="groq-activar" disabled>Usar IA Groq</button></div>
+      <p class="modal__error" id="groq-estado" aria-live="polite"></p>
+    </section>
+    <section class="ia-local" id="ia-local" hidden>
+      <h3>Modelo instalado en este PC</h3>
+      <p>Un servidor de modelos que corre en tu equipo (Ollama, LM Studio o llama.cpp). Nada sale de tu equipo. La calidad y la velocidad dependen de tu hardware y del modelo que instales.</p>
+      <label class="sub-eti" for="ia-url">Dirección del servidor</label><input class="entrada" id="ia-url" value="http://127.0.0.1:11434" placeholder="http://127.0.0.1:11434">
+      <label class="sub-eti" for="ia-modelo">Modelo</label><input class="entrada" id="ia-modelo" value="" placeholder="el nombre que muestra «ollama list»">
+      <div class="modal__acciones"><button class="btn" id="ia-probar">Probar conexión</button><button class="btn btn--grande" id="ia-activar" disabled>Usar este modelo</button></div>
+      <p class="modal__error" id="ia-estado" aria-live="polite"></p>
     </section>
   </section>
 </div>

@@ -29,6 +29,7 @@
  */
 
 import { segmentar, ordenar, TIPO_SEGMENTO } from './Segmentos.js';
+import { actoDeHabla } from './ActoDeHabla.js';
 import { rasgosDe } from '../data/rasgos.data.js';
 import { sinAcentos } from '../utils/text.js';
 
@@ -386,6 +387,8 @@ export function interpretarTurno(entrada, escena) {
       hipotesis,
       destinatario,
       referentes,
+      // Qué hace al hablar: preguntar, ofrecer ayuda, dar las gracias…
+      acto: actoDeHabla(s.texto),
     };
   });
 
@@ -412,7 +415,8 @@ export function interpretarTurno(entrada, escena) {
     }
   }
 
-  return { original, texto, segmentos, plan, destinatario: foco?.destinatario ?? null, bloqueo, aclaraciones };
+  const acto = foco?.acto ?? actoDeHabla(texto);
+  return { original, texto, segmentos, plan, destinatario: foco?.destinatario ?? null, acto, bloqueo, aclaraciones };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

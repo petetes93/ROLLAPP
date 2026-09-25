@@ -178,6 +178,8 @@ export class CombatManager extends SystemBase {
       texto: Registro.apertura(flujo, enemigos, {
         emboscadaEnemiga: peticion.ambush,
         emboscadaJugador: peticion.playerAmbush,
+        teVen: peticion.teVen,
+        contra: peticion.contra,
       }),
       voz: 'system',
     });

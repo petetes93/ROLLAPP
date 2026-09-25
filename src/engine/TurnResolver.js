@@ -47,6 +47,7 @@ import { idEntidad, TIPO } from '../utils/id.js';
 import { evaluar } from '../core/Dice.js';
 import { sinAcentos } from '../utils/text.js';
 import { interpretarTurno, escenaDesde } from './Interpretacion.js';
+import { separarVocativo } from './Segmentos.js';
 
 /** Una huella corta y estable de un texto (FNV-1a), para identificar peticiones. */
 function huellaCorta(texto) {
@@ -73,8 +74,18 @@ const META = /^(?:me propongo|mi objetivo es|me marco como objetivo|he decidido|
 function unirHechos(hechos) {
   // Lo que dijo sin comillas se cita tal cual: son sus palabras, no algo que
   // haga. Y lo que nombra algo que aquí no hay no se cuenta como hecho.
+  // Con vocativo («Corvane, si ves al encapuchado, avísame»), a quien se
+  // nombra es el destinatario, no parte de la cita.
+  const citar = (texto) => {
+    const limpio = texto.replace(/[.;,]+$/u, '').trim();
+    // «¿Corvane, has oído…?», «¿Te echo una mano, Corvane?»: a Corvane.
+    const voc = separarVocativo(limpio);
+    if (!voc) return `le digo: «${limpio}»`;
+    const verbo = /\?\s*$/u.test(voc.dicho) ? 'pregunto' : 'digo';
+    return `le ${verbo} a ${voc.nombre}: «${voc.dicho}»`;
+  };
   const t = hechos.filter((x) => !x.sinReferente)
-    .map((x) => (x.citaImplicita ? `le digo: «${x.texto.replace(/[.;,]+$/u, '').trim()}»` : x.texto.replace(/[.;,]+$/u, '').trim()))
+    .map((x) => (x.citaImplicita ? citar(x.texto) : x.texto.replace(/[.;,]+$/u, '').trim()))
     .filter(Boolean)
     // «… y Espero»: lo que sigue va en minúscula, salvo que empiece por nombre.
     .map((x, i) => (i && /^\p{Lu}\p{Ll}+[oé]\b/u.test(x) ? x[0].toLowerCase() + x.slice(1) : x));
@@ -90,12 +101,14 @@ function resumirInterpretacion(ir) {
   const quien = (d) => (d ? { estado: d.estado, nombre: d.quien?.nombre ?? null, refId: d.quien?.id ?? null, implicito: Boolean(d.implicito) } : null);
   return {
     texto: ir.texto,
+    acto: ir.acto ?? null,
     segmentos: ir.segmentos.map((s) => ({
       tipo: s.tipo,
       texto: s.texto,
       polaridad: s.polaridad,
       pregunta: Boolean(s.pregunta),
       hipotesis: Boolean(s.hipotesis),
+      acto: s.acto ?? null,
       citaLiteral: Boolean(s.citaImplicita) || /[«"“]/.test(s.texto),
       condicion: s.condicion ?? null,
       consecuencia: s.consecuencia ?? null,
@@ -451,7 +464,11 @@ export class TurnResolver extends SystemBase {
     // puente»), este turno no se hace nada: se espera a ver. Se interpretaba
     // el texto entero, y el «me voy» movía al personaje.
     const soloCondicion = !plan.foco && plan.pendientes.length > 0;
-    const intencion = interpretar(soloCondicion ? 'espero' : textoFoco, contextoIntencion);
+    // Lo dicho sin verbo de habla («Corvane, si ves al encapuchado, avísame»)
+    // se interpreta como lo que es, hablarle a alguien; si no, no puntuaba
+    // como nada y se narraba sin que contestara nadie.
+    const paraIntencion = plan.foco?.citaImplicita ? unirHechos([plan.foco]) : textoFoco;
+    const intencion = interpretar(soloCondicion ? 'espero' : paraIntencion, contextoIntencion);
 
     // Negarse no se tira: es una decisión, no un intento que pueda fallar.
     if (plan.foco?.negativa) Object.assign(intencion, { requiereTirada: false, negativa: true });
@@ -521,9 +538,18 @@ export class TurnResolver extends SystemBase {
       // carro atascado, la niña del pozo), la vía que elige se tira y es la
       // acción del turno. Si la deja de lado a propósito, se apunta y sigue:
       // el turno es lo demás que haya escrito.
+      // Vale con dados o sin ellos: un soborno que sale bien no se tira, y
+      // se contaba como si no hubiera pasado (contestaba un vecino).
+      const porEncuentro = encuentro?.narracion && (encuentro.tirada || encuentro.resuelto) ? encuentro : null;
+
+      // Si el encuentro ya ha recogido lo que hace (le habla a la patrulla
+      // que le corta el paso), eso es el turno. La situación de al lado no lo
+      // reinterpreta: «le digo a la patrulla que no busco pelea» salía
+      // contestado por el cobrador de la garita, y lo que había hecho la
+      // patrulla no se contaba.
       const situaciones = this.sistema('situations');
       for (const o of plan.omisiones) situaciones?.intervenir(o.texto);
-      const situacion = plan.delegacion ? null : (situaciones?.intervenir(textoFoco) ?? null);
+      const situacion = plan.delegacion || porEncuentro ? null : (situaciones?.intervenir(textoFoco) ?? null);
 
       // «Que mi compañera negocie; yo observo»: actúa ella, él mira.
       const delegacion = plan.delegacion ? this._delegar(plan.delegacion) : null;
@@ -531,9 +557,6 @@ export class TurnResolver extends SystemBase {
         return this._turnoLocal(numeroTurno, `No va nadie contigo que pueda hacerlo por ti.`);
       }
 
-      // Vale con dados o sin ellos: un soborno que sale bien no se tira, y
-      // se contaba como si no hubiera pasado (contestaba un vecino).
-      const porEncuentro = encuentro?.narracion && (encuentro.tirada || encuentro.resuelto) ? encuentro : null;
       const intervino = Boolean(situacion?.via) || Boolean(delegacion) || Boolean(porEncuentro);
       const resuelto = delegacion ?? (situacion?.via ? situacion : porEncuentro);
 

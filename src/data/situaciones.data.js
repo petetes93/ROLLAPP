@@ -29,6 +29,9 @@
  *   · secuela — lo que pasa después, causado por cómo terminó: otra
  *     situación, con los mismos implicados si `hereda` lo dice.
  *   · lugares — solo en estos sitios (el peaje necesita un puente).
+ *   · sitio — dónde están sus implicados, dicho como se diría («en la garita
+ *     del puente»). Sirve para decir quién hay y dónde sin inventar posiciones
+ *     que el motor no tiene.
  *   · soloSecuela — no aparece por azar: solo como consecuencia de otra.
  *
  * Todo en castellano de España. El texto de las vías va en segunda persona.
@@ -52,6 +55,7 @@ export const SITUACIONES = Object.freeze({
 
   carro_atascado: {
     refId: 'carro_atascado',
+    sitio: 'junto al carro atascado, en mitad de la calle',
     donde: ['asentamiento'],
     actores: [
       { clave: 'carretero', rol: 'carretero', genero: 'm' },
@@ -99,6 +103,7 @@ export const SITUACIONES = Object.freeze({
 
   colgante_en_el_pozo: {
     refId: 'colgante_en_el_pozo',
+    sitio: 'junto al pozo',
     donde: ['asentamiento'],
     actores: [
       { clave: 'nina', rol: 'niña', genero: 'f' },
@@ -149,6 +154,7 @@ export const SITUACIONES = Object.freeze({
 
   encapuchado_vigila: {
     refId: 'encapuchado_vigila',
+    sitio: 'en su puesto de la calle',
     donde: ['asentamiento'],
     actores: [
       { clave: 'vigia', rol: 'encapuchado', genero: 'm' },
@@ -199,6 +205,7 @@ export const SITUACIONES = Object.freeze({
 
   balanza_trucada: {
     refId: 'balanza_trucada',
+    sitio: 'en el puesto de harina',
     donde: ['asentamiento'],
     actores: [
       { clave: 'tendero', rol: 'tendero', genero: 'm' },
@@ -238,6 +245,7 @@ export const SITUACIONES = Object.freeze({
 
   cabra_escapada: {
     refId: 'cabra_escapada',
+    sitio: 'detrás de la cabra, camino del huerto',
     donde: ['asentamiento'],
     actores: [
       { clave: 'pastor', rol: 'pastor', genero: 'm' },
@@ -276,6 +284,7 @@ export const SITUACIONES = Object.freeze({
 
   buhonero_herido: {
     refId: 'buhonero_herido',
+    sitio: 'a un lado del camino, sobre su fardo',
     donde: ['punto', 'natural'],
     actores: [
       { clave: 'buhonero', rol: 'buhonero', genero: 'm' },
@@ -316,6 +325,7 @@ export const SITUACIONES = Object.freeze({
 
   peaje_abusivo: {
     refId: 'peaje_abusivo',
+    sitio: 'en la garita del puente',
     donde: ['asentamiento'],
     lugares: ['vado_yunque'],
     actores: [
@@ -381,6 +391,7 @@ export const SITUACIONES = Object.freeze({
 
   guardia_pregunta: {
     refId: 'guardia_pregunta',
+    sitio: 'yendo de puesto en puesto',
     donde: ['asentamiento'],
     soloSecuela: true,
     actores: [
@@ -417,6 +428,7 @@ export const SITUACIONES = Object.freeze({
 
   madre_agradece: {
     refId: 'madre_agradece',
+    sitio: 'delante de ti',
     donde: ['asentamiento'],
     soloSecuela: true,
     actores: [

@@ -444,8 +444,15 @@ export class Exploration extends SystemBase {
 
       if (encuentro.combate) {
         // Si ataca él, golpea primero: la emboscada es suya, salvo que la
-        // del encuentro ya fuera de ellos.
-        this.emitir('combat:request', { ...encuentro.combate, playerAmbush: !encuentro.combate.ambush });
+        // del encuentro ya fuera de ellos. Pero ya estaban cara a cara: se
+        // dice contra quién, no que no le han visto.
+        const nombre = String(encuentro.nombre ?? '').toLowerCase();
+        this.emitir('combat:request', {
+          ...encuentro.combate,
+          playerAmbush: !encuentro.combate.ambush,
+          teVen: true,
+          contra: nombre ? `${/a$/.test(nombre) ? 'la' : 'el'} ${nombre} que tenías delante` : null,
+        });
         return { resuelto: true, resultado: 'combate' };
       }
 

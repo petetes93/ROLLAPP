@@ -122,14 +122,26 @@ export function segmentar(texto) {
   //   · un «y si…» sin consecuencia detrás de una pregunta es parte de la
   //     pregunta («le pregunto por el camino y si hay trabajo allí»), no una
   //     condición del jugador: salía «Queda en el aire lo que harás si hay».
+  //   · un vocativo suelto («Corvane, si ves al encapuchado, avísame») es a
+  //     quien va lo que sigue: salía un segmento «Corvane» y una condición
+  //     del jugador («Queda en el aire lo que harás si ves…»).
   const unidos = [];
   let conector = null;
+  let vocativo = null;
   for (const t0 of limpios) {
     if (/^(?:mientras(?: tanto)?|entretanto|entre tanto|de momento|por ahora|por el momento)$/iu.test(t0.trim())) { conector = t0.trim(); continue; }
-    const t = conector ? `${conector} ${t0}` : t0;
+    if (!unidos.length && !vocativo && esVocativo(t0.trim())) { vocativo = t0.trim().replace(/^¡\s*|\s*!$/gu, ''); continue; }
+    const t = vocativo ? `${vocativo}, ${t0}` : conector ? `${conector} ${t0}` : t0;
+    if (vocativo) { vocativo = null; unidos.push(t); continue; }
     conector = null;
     const previo = unidos.at(-1);
     const primera = llano(t).split(/\s+/)[0];
+    // «¿Te echo una mano, Ianvio?»: el nombre del final es a quien se habla,
+    // no otra cosa que hace («… y ianvio»).
+    if (previo && esVocativo(t.replace(/[?!.]+$/u, '').trim())) {
+      unidos[unidos.length - 1] = `${previo}, ${t}`;
+      continue;
+    }
     if (previo && /^si\s/i.test(t) && !t.includes(',') && /\bpregunt\w*|\?/.test(llano(previo))
       && !CONSECUENCIA.test(llano(t.replace(/^si\s+\S+/i, '')))) {
       unidos[unidos.length - 1] = `${previo} y ${t}`;
@@ -146,8 +158,52 @@ export function segmentar(texto) {
       unidos.push(t);
     }
   }
+  if (vocativo) unidos.push(vocativo);
   return unidos.map(clasificar);
 }
+
+/** Palabras que abren frase con coma y no son a quién se habla. */
+const NO_VOCATIVO = new Set(['luego', 'entonces', 'bueno', 'vale', 'ahora', 'despues', 'primero', 'pues', 'oye', 'mira', 'venga', 'claro',
+  'bien', 'vamos', 'tranquilo', 'tranquila', 'perfecto', 'rapido', 'despacio', 'sin', 'con', 'mientras', 'al', 'total', 'aun', 'ademas', 'finalmente']);
+
+/** «Corvane» o «¡Corvane!», solo: a quien se habla. @private */
+function esVocativo(t) {
+  const nombre = t.replace(/^¡\s*|\s*!$/gu, '');
+  return /^\p{Lu}\p{Ll}{2,}$/u.test(nombre) && !NO_VOCATIVO.has(llano(nombre));
+}
+
+/**
+ * A quién se habla por su nombre, esté donde esté el vocativo, y lo que se le
+ * dice sin él:
+ *
+ *   «Corvane, ¿has oído…?», «Oye, Corvane, ¿has oído…?», «¡Corvane! ¿Has
+ *   oído…?» y «¿Te echo una mano, Corvane?».
+ *
+ * @param {string} texto
+ * @returns {{nombre: string, dicho: string}|null}
+ */
+export function separarVocativo(texto) {
+  const t = String(texto ?? '').trim();
+  const delante = t.match(/^([¿¡]?)\s*(?:(?:oye|eh|perdona|perdone|disculpa|disculpe|mira|hola|buenas)\s*,?\s*)?(\p{Lu}\p{Ll}{2,})\s*(,|!)\s*(.+)$/iu);
+  if (delante && !NO_VOCATIVO.has(llano(delante[2])) && /^\p{Lu}/u.test(delante[2])) {
+    let dicho = delante[4].trim();
+    // «¿Corvane, has oído…?»: la pregunta abre con el nombre y se cierra al final.
+    if (delante[1] === '¿' && !/^¿/u.test(dicho)) dicho = `¿${dicho}`;
+    if (delante[1] === '¡' && delante[3] === ',' && !/^¡/u.test(dicho)) dicho = `¡${dicho}`;
+    return { nombre: delante[2], dicho: `${dicho.replace(/^([¿¡]?)(\p{Ll})/u, (_, s, l) => `${s}${l.toUpperCase()}`)}` };
+  }
+  const detras = t.match(/^(.+?),\s*(\p{Lu}\p{Ll}{2,})\s*([?!.]?)\s*$/u);
+  if (detras && !NO_VOCATIVO.has(llano(detras[2])) && /[?!]$|^[¿¡]/u.test(t)) {
+    return { nombre: detras[2], dicho: `${detras[1].trim()}${detras[3]}` };
+  }
+  return null;
+}
+
+/**
+ * Una orden a otro: «avísame», «dímelo», «ven». Con ella detrás, «si ves al
+ * lobo, avísame» es algo que se le pide a alguien, no un plan del jugador.
+ */
+const ORDEN_A_OTRO = /^(?:no\s+)?(?:\p{L}{2,}(?:ame|eme|ime|amelo|emelo|imelo|anos|enos)|dime|dimelo|dile|ven|venid|avisa|avisad|decidme)\b/u;
 
 /** @private */
 function clasificar(texto) {
@@ -159,6 +215,12 @@ function clasificar(texto) {
     pregunta: /\?/.test(texto) || /^(?:le |les )?pregunto\b/.test(n),
   };
 
+  // Hablado a alguien por su nombre: «Corvane, si ves al encapuchado,
+  // avísame». Sus palabras, tal cual.
+  if (!/^(?:le |les )?pregunto\b/.test(n) && separarVocativo(texto)) {
+    return { ...base, tipo: TIPO_SEGMENTO.DIALOGO, citaImplicita: true };
+  }
+
   if (/^si\s+/.test(n)) {
     const resto = texto.replace(/^si\s+/i, '');
     const coma = resto.indexOf(',');
@@ -167,6 +229,7 @@ function clasificar(texto) {
       : resto.search(new RegExp(`\\s(?=(?:me|le|lo|la|les|los|las|nos|os|te)\\s+${PRIMERA}|(?!se\\b)\\p{L}{3,}[oé]\\b|(?:voy|doy|estoy|soy)\\b)`, 'iu'));
     const condicion = corte > 0 ? resto.slice(0, corte).trim() : resto.trim();
     const consecuencia = corte > 0 ? resto.slice(corte + 1).trim() : '';
+    if (ORDEN_A_OTRO.test(llano(consecuencia))) return { ...base, tipo: TIPO_SEGMENTO.DIALOGO, citaImplicita: true };
     return { ...base, tipo: TIPO_SEGMENTO.CONDICIONAL, condicion, consecuencia };
   }
 

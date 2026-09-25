@@ -27,6 +27,7 @@
 import { HABILIDADES, deducirHabilidad } from '../data/skills.data.js';
 import { DIRECTOR } from '../config/ai.config.js';
 import { sinAcentos, limpiar } from '../utils/text.js';
+import { actoDeHabla, ACTO } from './ActoDeHabla.js';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    VOCABULARIO DE INTENCIONES
@@ -518,6 +519,22 @@ export function interpretar(texto, contexto = {}) {
   const gesto = leerGesto(original);
   if (gesto) {
     return { ...base, tipo: 'custom', gesto, requiereTirada: false, objetivo: gesto.arma, confianza: 0.9 };
+  }
+
+  // ─── 2c'. Lanzarse contra alguien es atacar ─────────────────────────────
+  // «Me lanzo contra el primero que vea» se narraba como un gesto: «lanzo»
+  // suelto puede ser tirar una piedra, pero lanzarse CONTRA alguien no.
+  if (/\bme (?:lanzo|abalanzo|tiro|echo) (?:contra|sobre|encima de)\b|\b(?:cargo|arremeto) contra\b/.test(sinAcentos(original.toLowerCase()))) {
+    return { ...base, ...INTENCIONES.attack, objetivo: extraerObjetivo(original), confianza: 0.8 };
+  }
+
+  // ─── 2c. Un regalo no es un regateo ─────────────────────────────────────
+  // «Le ofrezco un poco de mi agua» puntuaba como negociar por «ofrezco» y se
+  // tiraba: salía «No cuela», como si hubiera algo que ceder. Se habla, sin
+  // dado; lo que siente quien lo recibe lo pone quien narra.
+  const acto = actoDeHabla(original);
+  if (acto?.acto === ACTO.OFRECER) {
+    return { ...base, tipo: 'talk', habilidad: 'trato_social', requiereTirada: false, acto, objetivo: extraerObjetivo(original), confianza: 0.8 };
   }
 
   // ─── 3. Análisis léxico ─────────────────────────────────────────────────

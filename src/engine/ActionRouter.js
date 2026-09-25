@@ -37,6 +37,7 @@ import { aSegundaPersona } from '../ai/Persona.js';
 import { articulo, capitalizar, sinAcentos } from '../utils/text.js';
 import { VOCES } from '../config/ui.config.js';
 import { curarConTexto, PIDE_CURAR } from '../player/Curacion.js';
+import { SITUACIONES } from '../data/situaciones.data.js';
 
 /**
  * Cómo llama la gente a los enemigos cuando escribe libremente.
@@ -55,6 +56,24 @@ const APODOS = Object.freeze({
   carronero: ['carronero', 'carroneros', 'carrona'],
   bruto_griscuerno: ['bruto', 'brutos', 'gigante'],
 });
+
+/**
+ * Atacar sin decir a quién: «al que tenga más cerca», «al primero», «a
+ * cualquiera». Sin posiciones en el motor, eso no señala a nadie.
+ */
+const ATAQUE_INDEFINIDO = /\b(?:al|a la|a los|a las|el|la|contra el|contra la) (?:que|quien(?:es)?) (?:tenga|tengo|este|esten|haya|pille|vea)\b|\b(?:al|a la|el|la) mas cercan[oa]\b|\b(?:al|a la|el|la) primer[oa]?(?= que\b| de ellos\b|$|[,.])|\b(?:a|contra) (?:cualquiera|alguien|uno de ellos|una de ellas|todos)\b|\bal de (?:delante|al lado)\b/;
+
+/** «A unos pasos: Garnis (herrera). En la garita del puente: Román (guardia) y Mardo (arriero).» */
+function describirGente(gente) {
+  const grupos = new Map();
+  for (const g of gente) {
+    const k = g.sitio ?? 'a unos pasos';
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push(g.rol ? `${g.nombre} (${g.rol})` : g.nombre);
+  }
+  const lista = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} y ${xs.at(-1)}` : xs[0]);
+  return [...grupos].map(([sitio, xs]) => `${capitalizar(sitio)}: ${lista(xs)}.`).join(' ');
+}
 
 /** Destinos posibles. */
 export const RUTA = Object.freeze({
@@ -192,6 +211,23 @@ export class ActionRouter extends SystemBase {
     }
 
     return null;
+  }
+
+  /**
+   * Quién hay en la escena y, si está metido en algo, dónde.
+   * @returns {Array<{nombre: string, rol: string|null, sitio: string|null}>}
+   * @private
+   */
+  _gentePresente() {
+    const conocidos = this.leer('npcs.conocidos.porId', {}) ?? {};
+    const donde = new Map();
+    for (const s of this.sistema('situations')?.aqui?.() ?? []) {
+      for (const a of Object.values(s.actores ?? {})) if (a.refId) donde.set(a.refId, SITUACIONES[s.refId]?.sitio ?? null);
+    }
+    return (this.leer('npcs.presentes', []) ?? [])
+      .map((id) => conocidos[id])
+      .filter((n) => n?.nombre && n.vivo !== false && !n.hostil)
+      .map((n) => ({ nombre: n.nombre, rol: n.rol ?? null, sitio: donde.get(n.refId) ?? null }));
   }
 
   /** @private */
@@ -533,7 +569,7 @@ export class ActionRouter extends SystemBase {
       //
       // `playerAmbush` ya existía en el motor y da +100 de iniciativa a los
       // aliados: es exactamente esto y no lo usaba nadie por esta vía.
-      this.emitir('combat:request', { enemies: [{ refId: hostil.refId, count: 1 }], playerAmbush: true });
+      this.emitir('combat:request', { enemies: [{ refId: hostil.refId, count: 1 }], playerAmbush: true, teVen: true, contra: hostil.nombre });
 
       return {
         ruta: RUTA.LOCAL,
@@ -541,6 +577,32 @@ export class ActionRouter extends SystemBase {
         narracion: null,
         pistaDirector: null,
         resultado: { tipo: 'combate', origen: 'npc_presente' },
+      };
+    }
+
+    // Con gente delante, no se saca a nadie de las tablas.
+    //
+    // «Ataco al que tenga más cerca» justo después de hablar con la patrulla
+    // abría pelea contra un guardia corrupto sacado de la tabla del camino,
+    // «que no te ha visto»: alguien que no estaba en la escena. El motor no
+    // tiene posiciones, así que no sabe quién está más cerca, y ninguno de los
+    // que hay ha buscado pelea: se dice quién hay y dónde, y se pregunta. Si
+    // nombra a uno que no es enemigo, se narra la agresión sin abrir combate
+    // contra otro.
+    const gente = this._gentePresente();
+    const dicho = sinAcentos(String(intencion.texto ?? '').toLowerCase());
+    if (gente.length && ATAQUE_INDEFINIDO.test(dicho)) {
+      return this._rechazar(`Nadie de los que hay te ha buscado pelea, y no está claro contra quién vas. ${describirGente(gente)} Si vas a por alguien, di a por quién.`);
+    }
+    const agredido = gente.find((g) => new RegExp(`\\b${sinAcentos(g.nombre.toLowerCase())}\\b`).test(dicho));
+    if (agredido) {
+      return {
+        ruta: RUTA.DIRECTOR,
+        motivo: null,
+        narracion: null,
+        pistaDirector: `El personaje ataca a ${agredido.nombre}, que no es un enemigo ni había buscado pelea. `
+          + `Narra el golpe o el amago y cómo reaccionan ${agredido.nombre} y quien lo vea. No abras un combate ni saques a nadie que no esté en la escena.`,
+        resultado: { tipo: 'agresion', objetivo: agredido.nombre },
       };
     }
 

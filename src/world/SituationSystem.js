@@ -23,6 +23,7 @@ import { situacionesPara, obtenerSituacion } from '../data/situaciones.data.js';
 import { obtenerLugar } from '../data/locations.data.js';
 import { nombreAleatorio } from '../player/CharacterRandom.js';
 import { sinAcentos } from '../utils/text.js';
+import { actoDeHabla, ACTO } from '../engine/ActoDeHabla.js';
 
 /**
  * Frases que apuntan a «lo que está pasando» sin nombrarlo: «me acerco a ver
@@ -258,7 +259,11 @@ export class SituationSystem extends SystemBase {
     // «examino el suelo buscando rastros de lobo» sacaba el colgante del pozo
     // porque «rastr» casaba con la vía de pescarlo.
     const deEsta = nombrados || plantilla.claves.test(n) || sigue;
-    const via = deEsta ? plantilla.vias.find((v) => v.patron.test(n)) : null;
+    // Ofrecerle algo o ayuda a alguien no es intervenir todavía: «le ofrezco
+    // a Berdar un poco de mi agua» casaba con la vía de atraer a la cabra con
+    // comida, y la cabra se llevaba lo que era para el pastor.
+    const soloOfrece = [ACTO.OFRECER, ACTO.OFRECER_AYUDA].includes(actoDeHabla(texto)?.acto);
+    const via = deEsta && !soloOfrece ? plantilla.vias.find((v) => v.patron.test(n)) : null;
 
     if (!via) {
       // Mirar de cerca también cuenta, y se ve algo que no se veía de lejos.
@@ -277,7 +282,8 @@ export class SituationSystem extends SystemBase {
       // La pelea no se pide aquí: la pide el turno cuando ya ha contado por
       // qué empieza. Pedida desde aquí, «Todo se decide ahora» salía antes
       // que lo que había hecho el jugador.
-      return { situacion: sit, via: via.clave, tirada: null, narracion, resuelta: true, combate: { ...via.combate, playerAmbush: true } };
+      // Están cara a cara con él: golpea primero, pero le han visto venir.
+      return { situacion: sit, via: via.clave, tirada: null, narracion, resuelta: true, combate: { ...via.combate, playerAmbush: true, teVen: true } };
     }
 
     // Pagar no es una prueba: se tiene o no se tiene.
@@ -434,6 +440,7 @@ export class SituationSystem extends SystemBase {
       agenda: this.rellenar(plantilla.agenda, sit),
       actores: Object.values(sit.actores).map((a) => ({ refId: a.refId, nombre: a.nombre, rol: a.rol })),
       refId: sit.refId,
+      sitio: plantilla.sitio ?? null,
       tension: sit.tension ?? 0,
       sinAtender: this.leer('meta.turno', 0) - sit.ultimaAtencion,
       ignoradaAProposito: Boolean(sit.ignoradaAProposito),

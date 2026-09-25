@@ -31,6 +31,7 @@ import { LUGARES, obtenerLugar } from '../../data/locations.data.js';
 import { buscarRasgo } from '../../data/rasgos.data.js';
 import * as Mapa from '../../world/MapGraph.js';
 import { seguirFrase } from '../../utils/text.js';
+import { actoDeHabla } from '../../engine/ActoDeHabla.js';
 
 const llano = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -69,7 +70,18 @@ const A_QUIEN = [
   [/forastero|viajero|alguien|hombre|mujer|hermano|hermana|padre|madre/, 'en la posada: quien pasa por aquí duerme allí o come allí'],
   [/robo|ladron|bolsa|guardia|ley/, 'a la guardia del peaje'],
   [/hierro|metal|forja|mina/, 'al herrero'],
+  [/lobo|bestia|animal|huella|rastro|perro|caza/, 'a quien baje del monte: cazadores, pastores; paran en la posada'],
 ];
+
+/** Servicios de un pueblo, con cómo se nombran. */
+const SERVICIO = Object.freeze({
+  curandero: { nombre: 'un curandero' },
+  herrero: { nombre: 'un herrero' },
+  posada: { nombre: 'una posada' },
+  templo: { nombre: 'un templo' },
+  mercado: { nombre: 'un mercado' },
+  establo: { nombre: 'un establo' },
+});
 
 function oficioDe(rol) {
   const r = llano(rol);
@@ -102,6 +114,17 @@ export function resolverTema(texto, { lugar, conocidos = [], interlocutor = null
 
   if (/\bque se cuenta\b|\bque se dice\b|\brumor|\bnovedad|\bque hay de nuevo\b|\bnoticias\b|\bque pasa por aqui\b/.test(n)) return { tipo: 'rumores' };
 
+  // «¿Hay un curandero?»: un servicio, que el pueblo tiene o no.
+  const servicio = actoDeHabla(texto)?.servicio;
+  if (servicio) return { tipo: 'servicio', servicio, nombre: SERVICIO[servicio]?.nombre ?? servicio };
+
+  // El sitio donde se está: «cómo se llama esto», «quién vive aquí».
+  if (/\b(?:como se llama (?:esto|este|el sitio|el pueblo|el lugar)|que (?:sitio|lugar|pueblo) es (?:este|esto)|donde estamos|quien vive aqui)\b/.test(n)) return { tipo: 'aqui', nombre: 'este sitio' };
+  // Cómo está él: «¿qué tal sigues?».
+  if (/\bque tal (?:sigue|sigues|esta|estas|va|vas|anda|andas)\b|\bcomo (?:sigue|sigues|esta usted|estas|te va|le va|anda|andas)\b/.test(n)) return { tipo: 'estado' };
+  // Trabajo: «si alguien necesita un recado».
+  if (/\b(?:trabajo|recado|encargo|faena|jornal)\b|\balguien necesita\b|\bnecesita alguien\b/.test(n)) return { tipo: 'trabajo', nombre: 'trabajo' };
+
   // Alguien con nombre, que no sea a quien se le pregunta.
   const persona =conocidos.find((p) => p?.nombre && p.refId !== interlocutor && new RegExp(`\\b${llano(p.nombre)}\\b`).test(n));
   if (persona) return { tipo: 'persona', ref: persona.refId, nombre: persona.nombre };
@@ -118,9 +141,23 @@ export function resolverTema(texto, { lugar, conocidos = [], interlocutor = null
   // Solo lo que de verdad nombra («por el paso», «hablar de un incendio»,
   // «conoce a los Cuervos Rojos»); si no nombra nada, no hay tema que
   // repetir. Salía «De necesita no sé nada» con la primera palabra suelta.
-  const explicito = String(texto).match(/\b(?:por|sobre|acerca de)\s+([^,.;:!?¿¡«»"]+)/iu)?.[1]
+  // «Si han visto un lobo enorme por aquí»: el tema es el lobo, no «aquí».
+  // Igual con «si han desaparecido perros», «si hay alguien enfermo», «si ha
+  // soñado con una campana», «quién es el más rico del pueblo».
+  const OBJETO = String.raw`((?:el |la |los |las |un |una |unos |unas |algún |algun |alguna |alguien )?\p{L}+(?:\s+(?!por\b|en\b|aquí\b|aqui\b|esta\b|este\b|alguna\b)\p{L}+){0,4})`;
+  const visto = String(texto).match(new RegExp(String.raw`\bsi (?:ha|han|has|habéis|habeis) (?:\p{L}+(?:ado|ido|isto|echo|icho|uesto))\s+(?:por (?:aquí|aqui|allí|alli)\s+)?(?:alguna vez\s+)?(?:a |con |de |en )?${OBJETO}`, 'iu'))?.[1]
+    ?? String(texto).match(new RegExp(String.raw`\bsi (?:hay|queda|quedan|existe|existen)\s+${OBJETO}`, 'iu'))?.[1]
+    ?? String(texto).match(new RegExp(String.raw`\bquién (?:es|era|tiene)\s+${OBJETO}`, 'iu'))?.[1]
+    // En directo: «¿Has visto a un hombre con capa roja?», «¿Sabes algo de un incendio?».
+    ?? String(texto).match(new RegExp(String.raw`\b(?:has|ha|habéis|habeis) (?:visto|oído|oido)(?: hablar de)?\s+(?:a\s+)?${OBJETO}`, 'iu'))?.[1]
+    ?? String(texto).match(new RegExp(String.raw`\b(?:sabes|sabe|sabéis|sabeis) (?:algo |nada )?(?:de|del|sobre)\s+${OBJETO}`, 'iu'))?.[1];
+  const explicito = visto
+    ?? String(texto).match(/\b(?:por|sobre|acerca de)\s+(?!aquí\b|aqui\b|allí\b|alli\b)([^,.;:!?¿¡«»"]+)/iu)?.[1]
     ?? String(texto).match(/\b(?:hablar de|oído hablar de|oido hablar de|sabes de|sabe de|conoce a|conoces a|conoce al|conoces al)\s+((?:el |la |los |las |un |una |unos |unas |mi |mis )?\p{L}+(?:\s+(?:de\s+)?\p{L}+){0,3})/iu)?.[1];
-  const dicho = explicito ? explicito.trim().replace(/[?¿!¡.]+$/u, '').split(/\s+/).slice(0, 5).join(' ') : null;
+  const dicho = explicito ? explicito.trim().replace(/[?¿!¡.]+$/u, '').split(/\s+/).slice(0, 8).join(' ') : null;
+  // «¿Quién es el más rico del pueblo?» pregunta por alguien, no por el
+  // pueblo: sin esto se contestaba describiendo las calles.
+  if (/\bquien (?:es|era|tiene)\b/.test(n) && dicho) return { tipo: 'otro', nombre: dicho };
   let mejor = null;
   for (const l of Object.values(LUGARES)) {
     if (!l?.refId || !l.nombre) continue;
@@ -212,7 +249,7 @@ function deQue(nombre) {
   const t = String(nombre ?? '').trim();
   const n = llano(t);
   const roto = !t || t.length < 3 || /\b(?:aqui|alli|eso|esto|un|una|unos|unas|que|si|con)$/.test(n) || /^(?:aqui|que|si|donde|como|quien)\b/.test(n)
-    || n.split(/\s+/).length > 6;
+    || n.split(/\s+/).length > 8;
   if (roto) return 'De eso';
   return `De ${t.replace(/^mi\b/i, 'tu').replace(/^mis\b/i, 'tus')}`.replace(/^De el /, 'Del ');
 }
@@ -272,9 +309,50 @@ export function queSabe({ npc, texto, lugar, conocidos = [], situacion = null, h
     case 'rasgo':
       datos = [tema.rasgo.ve];
       break;
+    case 'aqui':
+      if (aqui) datos.push(`Esto es ${aqui.nombre}. ${aqui.descripcion ?? ''}`.trim(), ...String(aqui.promptLore ?? '').split(/(?<=\.)\s+/).filter(Boolean).slice(0, 1));
+      break;
+    case 'estado': {
+      // Si está metido en algo, se le nota; si no, lo de siempre.
+      const metido = (situacion?.actores ?? []).some((a) => a.refId && a.refId === npc?.refId);
+      datos.push(metido ? 'Ya ves cómo ando. Mejor no preguntes.' : 'Tirando, que no es poco.');
+      break;
+    }
+    case 'trabajo': {
+      // Lo que se necesita aquí de verdad: las noticias del lugar que piden
+      // manos y lo que está pasando delante.
+      for (const g of (aqui?.ganchos ?? []).filter((x) => /necesit|busca|falta|quiere|pide/.test(llano(x)))) datos.push(`Lo que sé es que ${g}.`);
+      if (situacion?.texto) datos.push(`Y ahí tienes lo que está pasando: ${seguirFrase(String(situacion.texto).split(/(?<=\.)\s+/)[0])}`);
+      break;
+    }
+    case 'servicio': {
+      // De la ficha del lugar: lo que hay aquí, y si no, el sitio más cerca
+      // que lo tiene. Nada que el mapa no diga.
+      const s = tema.servicio;
+      const sitio = aqui?.sublugares?.find((x) => x.tipo === s);
+      if (aqui?.servicios?.includes(s)) {
+        datos.push(sitio ? `${sitio.nombre}. Pregunta por ella a cualquiera y te la señalan.` : `Sí, aquí hay ${SERVICIO[s]?.nombre ?? s}.`);
+        break;
+      }
+      datos.push(s === 'curandero' && aqui?.servicios?.includes('templo')
+        ? 'Curandero como tal no hay. Prueba en el templo: allí saben de heridas más que nadie aquí.'
+        : `Aquí no hay ${SERVICIO[s]?.nombre ?? s}.`);
+      const cerca = (aqui?.conexiones ?? [])
+        .map((c) => ({ l: obtenerLugar(c.hasta), r: Mapa.ruta(lugar, c.hasta) }))
+        .filter((x) => x.l?.servicios?.includes(s) && x.r?.encontrada)
+        .sort((a, b) => a.r.tiempoTotal - b.r.tiempoTotal)[0];
+      if (cerca) datos.push(`En ${enFrase(cerca.l.nombre)} sí, a ${horasDichas(cerca.r.tiempoTotal)} de aquí.`);
+      break;
+    }
     case 'autoridad': {
+      // Primero quién manda, dicho; luego lo que la ficha cuenta de ello.
+      // Salía solo «Tres mil almas y una guardia de doce»: un dato, pero no
+      // la respuesta a quién manda.
       const f = fraseDelLore(aqui, /manda|decide|guardia|clan|circulo|gremio|autoridad|ley/);
-      if (f) datos.push(f);
+      const quien = [['alcalde', 'el alcalde'], ['consejo', 'el consejo'], ['circulo', 'el círculo'], ['clan', 'el clan'], ['gremio', 'el gremio'], ['guardia', 'la guardia']]
+        .find(([k]) => llano(f ?? '').includes(k))?.[1];
+      if (quien) datos.push(`Aquí manda ${quien}.${f ? ` ${f}` : ''}`);
+      else if (f) datos.push(f);
       if (aqui?.servicios?.includes('templo')) datos.push('Para lo demás, el templo; para las peleas, la guardia.');
       break;
     }
@@ -348,7 +426,9 @@ export function queSabe({ npc, texto, lugar, conocidos = [], situacion = null, h
   const actitud = typeof npc?.actitud === 'number' ? npc.actitud : 0;
   const claveTema = llano(`${texto} ${tema.nombre ?? ''}`);
   const COMUNES = new Set(['algo', 'pero', 'para', 'como', 'esta', 'este', 'todo', 'nada', 'hace', 'donde', 'quien', 'desde', 'hasta']);
-  const tocaSecreto = (npc?.conocimiento?.secretos ?? []).some((s) => llano(s).split(/[^a-zñ]+/u)
+  // Dónde está la fragua lo sabe y lo dice cualquiera: preguntar por un
+  // servicio no roza ningún secreto aunque comparta palabra con él.
+  const tocaSecreto = tema.tipo !== 'servicio' && (npc?.conocimiento?.secretos ?? []).some((s) => llano(s).split(/[^a-zñ]+/u)
     .some((p) => p.length >= 4 && !COMUNES.has(p) && new RegExp(`\\b${p}\\b`).test(claveTema)));
   const motivoEvasion = actitud <= -30 ? 'desconfianza'
     : tocaSecreto && actitud < 50 ? 'secreto'
@@ -356,7 +436,11 @@ export function queSabe({ npc, texto, lugar, conocidos = [], situacion = null, h
 
   // Si no sabe: a quién preguntar.
   const clave = llano(`${texto} ${tema.nombre ?? ''}`);
-  const remite = A_QUIEN.find(([re]) => re.test(clave))?.[1] ?? 'a otro; de eso yo no entiendo';
+  // Por alguien con nombre («Varenne», «los Cuervos Rojos») se pregunta
+  // donde para la gente que viaja, si aquí hay posada.
+  const conNombre = /^\p{Lu}/u.test(String(tema.nombre ?? '').replace(/^(?:el|la|los|las|a|al)\s+/iu, ''));
+  const remite = A_QUIEN.find(([re]) => re.test(clave))?.[1]
+    ?? (conNombre && aqui?.servicios?.includes('posada') ? 'en la posada: por allí pasa todo el que viaja' : 'a otro; de eso yo no entiendo');
 
   // Su propia historia (la del jugador) no la conoce nadie de aquí.
   const suPasado = Boolean(lore) && tema.tipo === 'otro' && palabrasComunes(clave, lore);
@@ -441,9 +525,13 @@ export function responder(saber, npc, { elegir = (l) => l[0], seco = false, reco
   // El tema por delante, como se contesta de verdad: «¿Saucedo? Aldea
   // pequeña…». Sin él, la ficha del lugar dicha tal cual sonaba a enciclopedia.
   // Solo la primera vez: al volver a preguntar ya se sabe de qué se habla.
-  const eco = ['lugar', 'rasgo', 'persona'].includes(saber.tema.tipo) && saber.tema.nombre && !dato.includes('?') && !saber.yaDicho.length
-    ? `¿${saber.tema.nombre}? ` : '';
-  const primera = `${eco}${dato}`;
+  const conTema = ['lugar', 'rasgo', 'persona'].includes(saber.tema.tipo) && saber.tema.nombre && !dato.includes('?');
+  const eco = conTema && !saber.yaDicho.length ? `¿${saber.tema.nombre}? ` : '';
+  // Al volver a preguntar, lo nuevo va atado al tema: «Transitado de día»
+  // suelto no decía de qué hablaba.
+  const sobre = String(saber.tema.nombre ?? '').replace(/^(El|La|Los|Las)\s/, (a) => a.toLowerCase());
+  const ancla = conTema && saber.yaDicho.length ? `${/^el\s/.test(sobre) ? `Del ${sobre.slice(3)}` : `De ${sobre}`}, además: ` : '';
+  const primera = ancla ? `${ancla}${minus(dato)}.` : `${eco}${dato}`;
   // Quien contesta sin ganas no «lo dice sin pensarlo»: lo suelta y ya.
   const entrada = seco ? `${comillas(sinPunto(primera))}, suelta ${nombre}.` : elegir([
     `${comillas(sinPunto(primera))}, te dice ${nombre}.`,

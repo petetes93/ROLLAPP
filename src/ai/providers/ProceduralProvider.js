@@ -36,6 +36,8 @@ import { rasgosDe, buscarRasgo, rasgoGeneral } from '../../data/rasgos.data.js';
 import { LUGARES } from '../../data/locations.data.js';
 import { ruta as rutaMapa } from '../../world/MapGraph.js';
 import { horasDichas } from '../narrador/Conocimiento.js';
+import { actoDeHabla, ACTO } from '../../engine/ActoDeHabla.js';
+import { separarVocativo } from '../../engine/Segmentos.js';
 
 const minuscula = (t) => seguirFrase(t);
 
@@ -67,8 +69,8 @@ const ACTIVIDAD = Object.freeze({
 /** Notas de escena que se pueden narrar tal cual: están escritas para el jugador. */
 const PARA_EL_JUGADOR = /^(?:EN ESCENA|HA CAMBIADO DESDE LA ÚLTIMA VISITA):/;
 
-/** Preguntar a alguien qué le ha pasado, en llano. */
-const QUE_PASO = /\bque (?:te |le |os |les )?(?:ha |han )?(?:pasado|ocurrido|sucedido|hecho)\b|\bque (?:te |le )?paso\b|\bque ha sido\b|\bestas bien\b/;
+/** Preguntar a alguien qué le ha pasado o cómo sigue, en llano. */
+const QUE_PASO = /\bque (?:te |le |os |les )?(?:ha |han )?(?:pasado|ocurrido|sucedido|hecho)\b|\bque (?:te |le )?paso\b|\bque ha sido\b|\bestas bien\b|\bque tal (?:sigue|sigues|esta|estas)\b|\bcomo (?:sigue|sigues|estas)\b/;
 
 export class ProceduralProvider extends IDMProvider {
   static id = 'procedural';
@@ -182,7 +184,7 @@ export class ProceduralProvider extends IDMProvider {
     const accion = String(peticion.accion ?? '').trim();
 
     if (accion) {
-      let frase = capitalizar(aSegundaPersona(accion)).replace(/[.!?…]*$/u, '.');
+      let frase = this._ecoDirecto(accion, ctx) ?? capitalizar(aSegundaPersona(accion)).replace(/[.!?…]*$/u, '.');
       // Lo desmedido se narra como intento, con el límite dentro de la historia.
       if (peticion.ambicion === 'desmedida') {
         frase = `${frase.replace(/\.$/, '')}: esa es tu intención, y la empuñas con todo lo que tienes.`;
@@ -216,6 +218,17 @@ export class ProceduralProvider extends IDMProvider {
 
     // Lo que nombró y aquí no hay: se dice, justo detrás de lo que sí hizo.
     for (const a of [...(ctx.aclaraciones ?? [])].reverse()) parrafos.splice(1, 0, a);
+
+    // Las gracias o la despedida de paso («doy las gracias a Kordan y sigo mi
+    // camino») tienen respuesta aunque el turno sea otra cosa: salían al aire.
+    if (peticion.tipo !== 'dialogo') {
+      const cortesia = (ctx.interpretacion?.segmentos ?? []).find((s) => [ACTO.AGRADECER, ACTO.DESPEDIRSE].includes(s.acto?.acto));
+      const quien = cortesia && (ctx.npcsPresentes ?? []).find((p) => p?.nombre && sinAcentos(cortesia.texto.toLowerCase()).includes(sinAcentos(p.nombre.toLowerCase())));
+      if (quien && !String(r.story ?? '').includes(quien.nombre)) {
+        const aprecio = typeof quien.actitud === 'number' ? quien.actitud : 0;
+        parrafos.push(aprecio <= -20 ? `${quien.nombre} ni levanta la vista.` : this._unico([`${quien.nombre} levanta la mano mientras te alejas.`, `«Buen camino», te dice ${quien.nombre}.`]));
+      }
+    }
 
     // Quien está en escena no se queda de piedra... pero tampoco comenta que
     // bebas agua.
@@ -560,7 +573,10 @@ export class ProceduralProvider extends IDMProvider {
     const foco = `${ctx.foco ?? ''} ${peticion.accion ?? ''}`.trim();
     const n = sinAcentos(foco.toLowerCase());
     const tipo = peticion.intencion?.tipo;
-    const escucha = /\b(?:escucho|oigo|presto oido|pego la oreja|atiendo a lo que)/.test(n);
+    // «Me siento a escuchar lo que se habla» no casaba con «escucho» y
+    // describía el río: el acto se clasifica una vez, para todos.
+    const escucha = ctx.interpretacion?.acto?.acto === ACTO.ESCUCHAR || actoDeHabla(foco)?.acto === ACTO.ESCUCHAR
+      || /\b(?:escucho|oigo|presto oido|pego la oreja|atiendo a lo que)/.test(n);
     const mira = escucha || tipo === 'observe' || tipo === 'search'
       || /\b(?:miro|observo|examino|me fijo|inspecciono|estudio|contemplo|echo un vistazo|reviso|registro)\b/.test(n);
     if (!mira) return null;
@@ -581,7 +597,8 @@ export class ProceduralProvider extends IDMProvider {
         lineas.push(`Entre precios y quejas del tiempo, una conversación se repite en dos corrillos distintos: ${nuevo}.`);
         memoria.push(oido(nuevo));
       } else if (ctx.situacion?.actores?.length) {
-        lineas.push(`De lo que más se habla es de lo que tienes delante: ${ctx.situacion.actores.map((a) => a.nombre).join(' y ')}.`);
+        const donde = ctx.situacion.sitio ? `, ${ctx.situacion.sitio}` : '';
+        lineas.push(`De lo que más se habla es de lo que tienes delante: ${ctx.situacion.actores.map((a) => a.nombre).join(' y ')}${donde}.`);
       } else {
         lineas.push('Precios, el tiempo, quién debe a quién. Nada que no se oiga en cualquier plaza.');
       }
@@ -1238,9 +1255,15 @@ export class ProceduralProvider extends IDMProvider {
     const testimonio = this._testimonio(npc, ctx.foco ?? peticion.accion);
     if (testimonio) partes.push(testimonio);
 
+    // Lo que HACE al hablar manda sobre la forma de la frase (ver
+    // `engine/ActoDeHabla.js`): «le pregunto si necesita ayuda» ofrece ayuda
+    // y se contestaba «De eso no sé nada»; un «gracias» no tenía respuesta.
+    const acto = ctx.interpretacion?.acto ?? actoDeHabla(ctx.foco ?? peticion.accion);
+    const porActo = ctx.negativa || testimonio ? null : this._responderActo(acto, npc, ctx);
+
     // Una negativa no se contesta con un saludo ni se tira: la reacción de
     // quien la oye la pone `_enriquecer`, desde lo que siente por él.
-    const respuesta = ctx.negativa || testimonio ? null : this._responderPregunta(peticion, ctx, npc, recuerdo);
+    const respuesta = porActo ?? (ctx.negativa || testimonio ? null : this._responderPregunta(peticion, ctx, npc, recuerdo));
 
     if (respuesta) {
       partes.push(respuesta.texto);
@@ -1301,6 +1324,102 @@ export class ProceduralProvider extends IDMProvider {
    * @returns {string}
    * @private
    */
+  /**
+   * El eco de lo que el jugador dice en estilo directo: sus palabras, entre
+   * comillas y a quien se las dice.
+   *
+   * «¿Corvane, has oído hablar de un incendio de libros?» se devolvía como
+   * «¿Corvane, has oído hablar de un incendio de libros.»: la pregunta
+   * perdía su cierre y no quedaba claro a quién iba. Ahora sale «Le
+   * preguntas a Corvane: «¿Has oído hablar de un incendio de libros?»». Lo
+   * que va entre comillas son sus palabras exactas: no se pasan a segunda
+   * persona.
+   *
+   * @param {string} accion
+   * @param {Object} ctx
+   * @returns {string|null} null si no es estilo directo.
+   * @private
+   */
+  _ecoDirecto(accion, ctx) {
+    const t = String(accion ?? '').trim();
+    const vocativo = separarVocativo(t);
+    const presentes = (ctx.npcsPresentes ?? []).map((p) => p?.nombre).filter(Boolean);
+    const nombreVoc = vocativo && presentes.some((p) => p.split(/\s+/)[0] === vocativo.nombre) ? vocativo.nombre : null;
+    // Pregunta o exclamación en directo, o hablado a alguien por su nombre
+    // («Corvane, si ves al encapuchado, avísame»).
+    const directo = /^[¿¡]/u.test(t) || Boolean(nombreVoc)
+      || (/[?!]$/u.test(t) && !/^\s*(?:y\s+)?(?:le |les )?(?:pregunto|digo|grito|susurro|contesto|respondo|pido|cuento)\b/iu.test(t));
+    if (!directo) return null;
+
+    const segmento = (ctx.interpretacion?.segmentos ?? []).find((s) => s.destinatario?.nombre && s.destinatario.estado === 'presente');
+    const quien = segmento?.destinatario?.nombre ?? nombreVoc;
+
+    // Sin el vocativo dentro de la cita: ya va delante («a Corvane»).
+    let dicho = nombreVoc ? vocativo.dicho : t;
+    dicho = dicho.replace(/^([¿¡]?)(\p{Ll})/u, (_, s, l) => `${s}${l.toUpperCase()}`);
+    if (/^¿/u.test(dicho) && !/\?$/u.test(dicho)) dicho = `${dicho.replace(/[.!…]+$/u, '')}?`;
+    if (/^¡/u.test(dicho) && !/!$/u.test(dicho)) dicho = `${dicho.replace(/[.?…]+$/u, '')}!`;
+    const verbo = /\?$/u.test(dicho) ? 'preguntas' : 'dices';
+    return quien ? `Le ${verbo} a ${quien}: «${dicho}».` : `${capitalizar(verbo)} en voz alta: «${dicho}».`;
+  }
+
+  /**
+   * La respuesta a un acto de habla que no es pedir un dato: ofrecer ayuda,
+   * regalar algo, dar las gracias, pedir que le avisen, despedirse. Sale de
+   * lo que siente quien lo oye y de lo que tiene entre manos; sin dados.
+   *
+   * @param {{acto: string, cosa?: string}|null} acto
+   * @param {Object} npc
+   * @param {Object} ctx
+   * @returns {{texto: string, npcMemory?: Object[], memory?: string[]}|null} null si el acto se contesta como pregunta.
+   * @private
+   */
+  _responderActo(acto, npc, ctx) {
+    if (!acto || !npc?.nombre) return null;
+    const n = npc.nombre;
+    const aprecio = typeof npc.actitud === 'number' ? npc.actitud : 0;
+    const recuerdo = (texto) => (npc.refId ? [{ refId: npc.refId, texto, tipo: 'compartido' }] : []);
+
+    switch (acto.acto) {
+      case ACTO.AGRADECER:
+        return {
+          texto: aprecio <= -20 ? `${n} se encoge de hombros y no dice nada.`
+            : aprecio >= 30 ? this._unico([`${n} sonríe. «A ti.»`, `A ${n} se le nota que le ha gustado oírlo. «Cuando quieras.»`])
+              : this._unico([`${n} asiente. «No hay de qué.»`, `${n} le quita importancia con la mano. «Nada, nada.»`]),
+        };
+      case ACTO.DESPEDIRSE:
+        return { texto: aprecio <= -20 ? `${n} ni levanta la vista.` : this._unico([`${n} levanta la mano. «Buen camino.»`, `«Que te vaya bien», dice ${n}.`]) };
+      case ACTO.PEDIR_AVISO:
+        return {
+          texto: aprecio <= -20 ? `«Ya veremos», dice ${n}, sin ningún interés.` : this._unico([`«Si lo veo, te aviso», dice ${n}.`, `${n} asiente. «Descuida: si sé algo, te enteras.»`]),
+          npcMemory: recuerdo('Le pidió que le avisara si veía algo.'),
+        };
+      case ACTO.OFRECER: {
+        if (aprecio <= -20) return { texto: `${n} mira lo que le ofreces y no lo coge. «Guárdatelo.»` };
+        return {
+          texto: this._unico([`${n} lo acepta con un gesto. «Se agradece.»`, `${n} duda un momento y lo acepta. «Gracias. No hacía falta.»`]),
+          npcMemory: recuerdo(`Le ofreció ${acto.cosa ?? 'algo'} sin pedir nada a cambio.`),
+        };
+      }
+      case ACTO.OFRECER_AYUDA: {
+        // Si está metido en algo que se ve, eso es lo que necesita.
+        const sit = ctx.situacion;
+        const suyo = sit?.actores?.some((a) => a.refId && a.refId === npc.refId);
+        if (suyo && aprecio > -20) {
+          const primera = String(sit.texto ?? '').split(/(?<=\.)\s+/)[0];
+          return { texto: `«Pues no me vendría mal», dice ${n}. ${primera}`.trim() };
+        }
+        return {
+          texto: aprecio <= -20 ? `«De ti no necesito nada», dice ${n}.`
+            : aprecio >= 30 ? `«Te lo agradezco, de verdad», dice ${n}. «Pero esto lo saco yo.»`
+              : this._unico([`«Se agradece, pero me apaño», dice ${n}.`, `${n} niega con la cabeza. «Estoy bien, gracias.»`]),
+        };
+      }
+      default:
+        return null;
+    }
+  }
+
   _testimonio(npc, texto) {
     const t = [...(npc?.memoria ?? [])].reverse().find((m) => m.tipo === 'testimonio');
     if (!t) return '';

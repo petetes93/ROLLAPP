@@ -416,6 +416,8 @@ export function resumir(registro, contexto) {
  * @param {import('../core/RNG.js').Flujo} flujo
  * @param {Array<Object>} enemigos
  * @param {Object} [opciones]
+ * @param {boolean} [opciones.teVen] Ya estaban cara a cara: golpea primero, pero no es una emboscada.
+ * @param {string} [opciones.contra] Contra quién, tal como se le ve en la escena («la patrulla que tenías delante»).
  * @returns {string}
  */
 export function apertura(flujo, enemigos, opciones = {}) {
@@ -428,6 +430,12 @@ export function apertura(flujo, enemigos, opciones = {}) {
 
   if (opciones.emboscadaEnemiga) {
     return `Te caen encima sin aviso: ${descripcion}.`;
+  }
+  // Quien ya estaba hablando contigo te ha visto. «No te han visto» justo
+  // después de hablar con la patrulla dejaba sin saber contra quién iba el
+  // golpe ni de dónde salía.
+  if (opciones.emboscadaJugador && opciones.teVen) {
+    return `Te lanzas tú primero${opciones.contra ? ` contra ${opciones.contra}` : ''}: ${descripcion}.`;
   }
   if (opciones.emboscadaJugador) {
     return `Los tienes a tiro y no te han visto: ${descripcion}.`;

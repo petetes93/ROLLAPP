@@ -93,11 +93,16 @@ export class SituationSystem extends SystemBase {
    * @param {string} lugar
    * @returns {string[]}
    */
-  textosDe(lugar, { soloAbiertas = false, soloCerradas = false } = {}) {
+  textosDe(lugar, { soloAbiertas = false, soloCerradas = false, recientes = 0 } = {}) {
     const textos = [];
+    const turno = this.leer('meta.turno', 0);
     for (const sit of this.todas()) {
       if (sit.lugar !== lugar) continue;
-      const abierta = sit.estado === ESTADO_SITUACION.ABIERTA;
+      // Lo que acaba de terminar sigue a la vista unos turnos: la cabra no
+      // se esfuma en cuanto el pastor la saca del huerto.
+      const reciente = recientes > 0 && sit.estado !== ESTADO_SITUACION.ABIERTA
+        && turno - (sit.turnoDesenlace ?? sit.ultimaAtencion ?? sit.turnoInicio ?? 0) <= recientes;
+      const abierta = sit.estado === ESTADO_SITUACION.ABIERTA || reciente;
       if ((soloAbiertas && !abierta) || (soloCerradas && abierta)) continue;
       const p = obtenerSituacion(sit.refId);
       if (!p) continue;
@@ -232,7 +237,10 @@ export class SituationSystem extends SystemBase {
       .map((id) => this.leer(`npcs.conocidos.porId.${id}.nombre`))
       .some((nombre) => nombre && new RegExp(`\\b${llano(nombre)}\\b`).test(n));
     const turnoActual = this.leer('meta.turno', 0);
-    const sigue = !aOtraPersona && turnoActual - (sit.ultimaAtencion ?? -99) <= 1 && plantilla.vias.some((v) => v.patron.test(n));
+    // «Sigue con ello» exige que el jugador ya estuviera con ello: acabar de
+    // abrirse delante de él no cuenta como haberlo atendido.
+    const yaTrato = (sit.intentos ?? 0) > 0 || Boolean(sit.detalleVisto) || (sit.ultimaAtencion ?? -99) > (sit.turnoInicio ?? -99);
+    const sigue = !aOtraPersona && yaTrato && turnoActual - (sit.ultimaAtencion ?? -99) <= 1 && plantilla.vias.some((v) => v.patron.test(n));
     const menciona = nombrados || plantilla.claves.test(n) || (ATIENDE.test(n) && !aOtro) || sigue;
     if (!menciona) return null;
 
@@ -245,7 +253,12 @@ export class SituationSystem extends SystemBase {
 
     this._atendida = sit.id;
     const turno = this.leer('meta.turno', 0);
-    const via = plantilla.vias.find((v) => v.patron.test(n));
+    // Solo se resuelve por una vía si lo escrito es de ESTA situación (nombra
+    // a los suyos, sus claves, o sigue con ella). Mirar a secas es atención:
+    // «examino el suelo buscando rastros de lobo» sacaba el colgante del pozo
+    // porque «rastr» casaba con la vía de pescarlo.
+    const deEsta = nombrados || plantilla.claves.test(n) || sigue;
+    const via = deEsta ? plantilla.vias.find((v) => v.patron.test(n)) : null;
 
     if (!via) {
       // Mirar de cerca también cuenta, y se ve algo que no se veía de lejos.

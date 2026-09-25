@@ -289,11 +289,14 @@ export class TurnResolver extends SystemBase {
     // Lo que está pasando cuenta como aquí; lo que ya acabó, aunque fuera en
     // este sitio, como antes: el carretero se fue con su carro.
     const todas = sits?.todas?.() ?? [];
-    const abiertas = todas.filter((s) => s.lugar === aqui && s.estado === 'abierta');
+    // Los papeles de lo que pasa aquí, también de lo que acaba de terminar:
+    // «el carretero» sigue siendo Elrén aunque se haya ido.
+    const turno = this.leer('meta.turno', 0);
+    const abiertas = todas.filter((s) => s.lugar === aqui && (s.estado === 'abierta' || turno - (s.turnoDesenlace ?? s.ultimaAtencion ?? s.turnoInicio ?? 0) <= 6));
     const lugares = new Set(todas.map((s) => s.lugar).filter(Boolean));
     return {
-      textos: [...(this.memoria.contextoDeEscena?.() ?? []), ...(sits?.textosDe?.(aqui, { soloAbiertas: true }) ?? [])],
-      antes: [...lugares].flatMap((lugar) => (sits.textosDe(lugar, { soloCerradas: lugar === aqui }) ?? []).map((texto) => ({ lugar, texto }))),
+      textos: [...(this.memoria.contextoDeEscena?.() ?? []), ...(sits?.textosDe?.(aqui, { soloAbiertas: true, recientes: 6 }) ?? [])],
+      antes: [...lugares].flatMap((lugar) => (sits.textosDe(lugar, lugar === aqui ? { soloCerradas: true, recientes: 6 } : {}) ?? []).map((texto) => ({ lugar, texto }))),
       papeles: abiertas.flatMap((s) => Object.entries(s.actores ?? {}).map(([papel, a]) => ({ papel, quien: { id: a.refId, nombre: a.nombre } }))),
     };
   }
@@ -438,7 +441,8 @@ export class TurnResolver extends SystemBase {
     // Antes de partirlo se resuelve contra la escena a quién habla y qué
     // nombra (ver `Interpretacion.js`): el que narre, sea el procedural o un
     // modelo, recibe lo mismo, y lo que no existe no se narra como hecho.
-    const escena = escenaDesde((r, d) => this.leer(r, d), this._textosDeEscena());
+    const textosEscena = this._textosDeEscena();
+    const escena = escenaDesde((r, d) => this.leer(r, d), textosEscena);
     const ir = interpretarTurno(limpio, escena);
     const plan = ir.plan;
     const textoFoco = plan.foco?.texto ?? ir.texto;
@@ -605,6 +609,9 @@ export class TurnResolver extends SystemBase {
       // La interpretación viaja entera: a quién habla, qué nombra y en qué
       // estado está cada cosa. Nadie narra sobre un referente sin resolver.
       peticion.contexto.interpretacion = resumirInterpretacion(ir);
+      // Lo que hay (y acaba de pasar) aquí, para que mirar algo de ello
+      // cuente cómo está, no un rasgo al azar.
+      peticion.contexto.escenaTextos = textosEscena.textos;
       if (ir.destinatario?.quien && ir.destinatario.estado === 'presente') peticion.contexto.destinatario = ir.destinatario.quien;
       if (ir.aclaraciones.length) peticion.contexto.aclaraciones = ir.aclaraciones;
 
@@ -654,7 +661,9 @@ export class TurnResolver extends SystemBase {
         // Si además tira por lo suyo (trepar al tejado desde el que se ve),
         // primero cómo le sale y después lo que ve. Lo que veía tapaba el
         // resultado, y no se sabía si había subido.
-        if (peticion.tirada) peticion.contexto.detalleEscena = situacion.narracion;
+        // Hablar con alguien de la situación también: lo que se ve es
+        // contexto, y el turno es lo que te contesta.
+        if (peticion.tirada || intencion.tipo === 'talk') peticion.contexto.detalleEscena = situacion.narracion;
         else peticion.contexto.situacionResultado = situacion.narracion;
         pistas.push(`El jugador se fija en lo que está pasando. Lo que ve de cerca: ${situacion.narracion}`);
       } else if (situacion?.omitida) {

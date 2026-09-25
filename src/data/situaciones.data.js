@@ -117,7 +117,7 @@ export const SITUACIONES = Object.freeze({
         recuerdo: { nina: 'Le sacó el colgante de su madre del pozo.' },
       },
       {
-        clave: 'pescar', patron: /cubo|gancho|pesc|anzuelo|palo|rastr|ingeni/,
+        clave: 'pescar', patron: /cubo|gancho|pesc|anzuelo|palo|rastrill|rastreo el fondo|ingeni/,
         habilidad: 'artesania', umbral: 'moderada', resuelveSiExito: true,
         exito: 'Con el cubo lastrado y un poco de paciencia, el colgante sube enganchado en el asa. {nina} da un grito que oye medio pueblo.',
         fracaso: 'El cubo baja y sube tres veces, siempre con agua turbia y nada más.',

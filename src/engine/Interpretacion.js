@@ -56,6 +56,8 @@ const llano = (t) => sinAcentos(String(t ?? '').toLowerCase());
 
 /** Personas por oficio o papel, en masculino singular. */
 const PERSONAS = [
+  // Gente sin oficio, nombrada por cómo es: «la anciana del pueblo».
+  'anciano', 'viejo', 'mujer', 'hombre', 'chico', 'muchacho', 'crio', 'joven', 'forastero', 'desconocido',
   'tabernero', 'posadero', 'mesonero', 'herrero', 'carretero', 'guardia', 'barquero', 'mercader',
   'sacerdote', 'cazador', 'pastor', 'buhonero', 'alcalde', 'soldado', 'capitan', 'cobrador',
   'boticario', 'curandero', 'panadero', 'pescador', 'minero', 'tendero', 'mozo', 'arriero',
@@ -209,6 +211,15 @@ function aparece(texto, palabras, { plural = false } = {}) {
   return false;
 }
 
+/**
+ * La palabra tal y como la escribió el jugador (con sus tildes): el aviso
+ * dice «ningún capitán», no «ningún capitan».
+ * @private
+ */
+function superficie(texto, palabra) {
+  return (String(texto ?? '').toLowerCase().match(/\p{L}+/gu) ?? []).find((w) => llano(w) === palabra) ?? palabra;
+}
+
 /** Referentes que nombra un trozo de texto. @private */
 function extraerReferentes(texto) {
   const n = llano(texto).replace(/«[^»]*»|"[^"]*"|“[^”]*”/g, ' ');
@@ -221,7 +232,7 @@ function extraerReferentes(texto) {
     if (!e || vistos.has(e.base)) continue;
     // «su carro», «mi caballo»: con posesivo de primera persona es suyo.
     const propio = /^(?:mi|mis)\s/.test(m[0]);
-    vistos.set(e.base, { palabra, base: e.base, clase: e.clase, plural: esPlural(palabra, e.base), propio });
+    vistos.set(e.base, { palabra, superficie: superficie(texto, palabra), base: e.base, clase: e.clase, plural: esPlural(palabra, e.base), propio });
   }
   return [...vistos.values()];
 }
@@ -240,8 +251,13 @@ export function resolverReferente(ref, escena) {
   if (ref.clase === 'persona') {
     // El papel que tiene en lo que está pasando cuenta como su oficio: en el
     // peaje, «el cobrador» es Lumán aunque de oficio sea guardia.
-    const papel = (escena.papeles ?? []).find((p) => variantes.includes(p.papel) && escena.presentes.some((x) => x.id === p.quien?.id));
-    if (papel) return { ...ref, estado: ESTADO_REF.PRESENTE, quien: escena.presentes.find((x) => x.id === papel.quien.id) };
+    const papel = (escena.papeles ?? []).find((p) => variantes.includes(p.papel));
+    if (papel) {
+      const aqui = escena.presentes.find((x) => x.id === papel.quien?.id);
+      if (aqui) return { ...ref, estado: ESTADO_REF.PRESENTE, quien: aqui };
+      const fuera = escena.conocidos.find((x) => x.id === papel.quien?.id) ?? { id: papel.quien?.id, nombre: papel.quien?.nombre, lugar: null };
+      return { ...ref, estado: ESTADO_REF.AUSENTE, quien: fuera, lugar: fuera.lugar ?? null };
+    }
     const aqui = conRol(escena.presentes);
     if (aqui.length === 1 || (aqui.length > 1 && ref.plural)) return { ...ref, estado: ESTADO_REF.PRESENTE, quien: aqui[0] };
     if (aqui.length > 1) return { ...ref, estado: ESTADO_REF.AMBIGUO, candidatos: aqui.map((p) => p.nombre) };
@@ -291,7 +307,7 @@ export function resolverDestinatario(texto, escena) {
 
   if (palabra && !PRONOMBRES.has(palabra)) {
     const e = INDICE.get(palabra);
-    if (e?.clase === 'persona') return { ...resolverReferente({ palabra, base: e.base, clase: 'persona', plural: esPlural(palabra, e.base), propio: false }, escena), palabra };
+    if (e?.clase === 'persona') return { ...resolverReferente({ palabra, superficie: superficie(texto, palabra), base: e.base, clase: 'persona', plural: esPlural(palabra, e.base), propio: false }, escena), palabra };
     // Un nombre que el juego no conoce: no se sabe quién es.
     if (/^[a-zñ]{3,}$/.test(palabra) && !INDICE.has(palabra) && /[A-ZÁÉÍÓÚÑ]/.test(texto.match(new RegExp(`\\b${palabra}`, 'iu'))?.[0]?.[0] ?? '')) {
       return { estado: ESTADO_REF.INEXISTENTE, palabra, nombrePropio: true };
@@ -404,7 +420,7 @@ export function interpretarTurno(entrada, escena) {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /** Artículo indefinido negativo: «ningún carro», «ninguna disputa». */
-const femenina = (palabra) => /a$|ion$|dad$|red$/.test(palabra) && !/^(?:guardia|centinela|vigia|dia|mapa)$/.test(palabra);
+const femenina = (palabra) => { const p = llano(palabra); return /a$|ion$|dad$|red$/.test(p) && !/^(?:guardia|centinela|vigia|dia|mapa)$/.test(p); };
 function ninguno(palabra) {
   return `${femenina(palabra) ? 'ninguna' : 'ningún'} ${palabra}`;
 }
@@ -429,17 +445,18 @@ function frasePersona(ref, escena) {
     return `${quien} no está aquí.${donde ? ` La última vez estaba en ${donde}.` : ''} ${quienHay(escena)}`;
   }
   if (ref.nombrePropio) return `No conoces a nadie con ese nombre por aquí. ${quienHay(escena)}`;
-  const palabra = sinAcentos(ref.palabra ?? '').replace(/s$/, '');
+  const palabra = String(ref.superficie ?? ref.palabra ?? '').replace(/s$/, '');
   return `No has visto a ${ninguno(palabra)} por aquí. ${quienHay(escena)}`;
 }
 
 /** @private */
 function fraseCosa(ref, escena) {
-  const palabra = ref.palabra.replace(/s$/, '');
+  const palabra = String(ref.superficie ?? ref.palabra).replace(/s$/, '');
   if (ref.estado === ESTADO_REF.OTRA_ESCENA) {
     const donde = escena.nombreLugar?.(ref.lugar);
     const art = femenina(palabra) ? (ref.plural ? 'Las' : 'La') : (ref.plural ? 'Los' : 'El');
-    if (ref.yaNo) return `${art} ${ref.palabra} ya no ${ref.plural ? 'están' : 'está'} aquí.`;
+    // Se sabe que estuvo; que siga, no. Se dice lo que se sabe.
+    if (ref.yaNo) return `Lo de ${art.toLowerCase()} ${ref.superficie ?? ref.palabra} ya pasó, y ahora no ${ref.plural ? 'los' : 'lo'} ves por aquí.`.replace(/de el /, 'del ');
     return `${art} ${ref.palabra} que ${ref.plural ? 'viste estaban' : 'viste estaba'} ${donde ? `en ${donde}` : 'en otro sitio'}; aquí no ${ref.plural ? 'están' : 'está'}.`;
   }
   if (ref.clase === 'suceso') return `No hay ${ninguno(palabra)} a la vista.`;

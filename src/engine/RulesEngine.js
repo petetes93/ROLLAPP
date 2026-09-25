@@ -334,7 +334,10 @@ export class RulesEngine extends SystemBase {
    * @returns {Object|null} null si la acción no requiere tirada.
    */
   resolverIntencion(intencion, contexto = {}) {
-    if (!intencion?.requiereTirada && !intencion?.habilidad) return null;
+    // Solo se tira lo que pide tirada. Hablar trae habilidad (trato social)
+    // pero no se tira: se tiraba igual, y «le digo que busco trabajo» salía
+    // con «Te escuchan y ceden» o «No cuela» debajo, sin nada que ceder.
+    if (!intencion?.requiereTirada) return null;
 
     // Una intención dudosa se resuelve con una dificultad algo mayor: el motor
     // no está seguro de qué pretendía el jugador, y eso tiene un coste.

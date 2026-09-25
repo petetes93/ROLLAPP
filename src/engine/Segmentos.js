@@ -78,7 +78,10 @@ const DELEGA = /^(?:que|dejo que|deja que)\s+(mi compañer[oa]|mi amig[oa]|[A-Z�
  */
 const A_TI = /(?:^|\s)(?:te|os)\s+\p{L}+|\p{L}+(?:ar|er|ir|ando|iendo)(?:te|os)(?:lo|la|los|las)?\b|\b(?:dame|dadme|vete|largate|apartate|escuchame|mirame)\b/u;
 
-const CONECTOR_INICIAL = /^(?:y|luego|despu[eé]s|entonces|pero)\s+/iu;
+/** Algo que haría el jugador si pasa lo de la condición: «me voy», «lo ataco». */
+const CONSECUENCIA = /(?:^|\s)(?:me|le|lo|la|les|los|las|te|os|nos)\s+\p{L}+(?:o|e)\b|\b(?:voy|huyo|ataco|corro|salgo|grito|disparo|pago|pego|golpeo|sigo|espero|vuelvo)\b/u;
+
+const CONECTOR_INICIAL =/^(?:y|luego|despu[eé]s|entonces|pero)\s+/iu;
 
 /**
  * Parte el texto del jugador en segmentos ordenados.
@@ -114,11 +117,23 @@ export function segmentar(texto) {
   //     sigilo») era parte del anterior;
   //   · una condición sin consecuencia («si el guardia se niega») se lleva
   //     el trozo siguiente («lo empujo al río»).
+  //   · un conector suelto («mientras», «de momento») va con lo que sigue:
+  //     salía «Mientras y esperas»;
+  //   · un «y si…» sin consecuencia detrás de una pregunta es parte de la
+  //     pregunta («le pregunto por el camino y si hay trabajo allí»), no una
+  //     condición del jugador: salía «Queda en el aire lo que harás si hay».
   const unidos = [];
-  for (const t of limpios) {
+  let conector = null;
+  for (const t0 of limpios) {
+    if (/^(?:mientras(?: tanto)?|entretanto|entre tanto|de momento|por ahora|por el momento)$/iu.test(t0.trim())) { conector = t0.trim(); continue; }
+    const t = conector ? `${conector} ${t0}` : t0;
+    conector = null;
     const previo = unidos.at(-1);
     const primera = llano(t).split(/\s+/)[0];
-    if (previo && NO_VERBO.has(primera)) {
+    if (previo && /^si\s/i.test(t) && !t.includes(',') && /\bpregunt\w*|\?/.test(llano(previo))
+      && !CONSECUENCIA.test(llano(t.replace(/^si\s+\S+/i, '')))) {
+      unidos[unidos.length - 1] = `${previo} y ${t}`;
+    } else if (previo && NO_VERBO.has(primera)) {
       unidos[unidos.length - 1] = `${previo} y ${t}`;
     } else if (previo && /^si\s/i.test(previo) && !previo.includes(',')
       && (original.includes(`${previo},`) || !HACE_EL.test(previo.replace(/^si\s+\S+/i, '')))) {

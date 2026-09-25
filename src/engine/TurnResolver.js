@@ -37,7 +37,7 @@ import { preguntaDeMesa, cerrarConPregunta, terminaEnPregunta } from '../ai/Preg
 import { ContextComposer } from '../ai/ContextComposer.js';
 import { construirInstantanea } from '../ai/narrador/Instantanea.js';
 import { filtrarModelo, aplicarNarrativos } from '../ai/narrador/FiltroModelo.js';
-import { anotar, muertosSegunCanon } from '../ai/narrador/Canon.js';
+import { anotar, muertosSegunCanon, mensajeDeEdicion } from '../ai/narrador/Canon.js';
 import { ProceduralProvider } from '../ai/providers/ProceduralProvider.js';
 import { PROVEEDORES } from '../config/ai.config.js';
 import { LIMITES, TIEMPOS } from '../config/app.config.js';
@@ -1283,12 +1283,14 @@ export class TurnResolver extends SystemBase {
   /**
    * Anota un cambio de canon que el jugador hace fuera de la historia.
    *
-   * Queda con su procedencia (el jugador) y su turno, y viaja en el canon
-   * de la instantánea; si choca con algo anterior, vale lo más reciente. No
-   * es un turno: el mundo no avanza.
+   * La edición se guarda entera, con su procedencia (el jugador) y su
+   * turno, y se divide en hechos (ver `ai/narrador/Canon.js`): una
+   * corrección revisa solo el hecho que corrige. Si no está claro de quién
+   * habla o qué corrige, no se adivina: se pregunta, o se guardan las dos
+   * versiones marcadas en conflicto. No es un turno: el mundo no avanza.
    *
    * @param {string} texto
-   * @returns {{canon: string}}
+   * @returns {{canon: string, revisada: boolean, resultado: string}}
    * @private
    */
   _editarCanon(texto) {
@@ -1296,11 +1298,8 @@ export class TurnResolver extends SystemBase {
     const r = anotar(this.memoria.registroCanon, texto, { turno: this.leer('meta.turno', 0), fuente: 'jugador' });
     this.memoria.registroCanon = r.registro;
     this.store.fijar('ai.memoria', this.memoria.serializar());
-    const limpio = r.entrada.texto;
-    this._anadirEntrada(VOCES.SISTEMA, r.revisada
-      ? `Canon revisado (fuera de la historia): «${limpio}». Sustituye a «${r.anterior}», que queda en su historial.`
-      : `Canon anotado (fuera de la historia): «${limpio}». A partir de ahora cuenta así.`);
-    return { canon: limpio, revisada: r.revisada };
+    this._anadirEntrada(VOCES.SISTEMA, mensajeDeEdicion(r));
+    return { canon: r.edicion.texto, revisada: r.revisados.length > 0, resultado: r.edicion.resultado };
   }
 
   /**

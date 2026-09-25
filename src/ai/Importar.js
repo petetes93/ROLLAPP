@@ -35,6 +35,8 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
+import { motivoAjeno } from './narrador/Canon.js';
+
 /* ═══════════════════════════════════════════════════════════════════════════
    RUIDO
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -88,10 +90,18 @@ const NO_PERSONAJE = new Set([
 
 const sinTildes = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-/** Quita del texto lo que es del contenedor y no de la historia. */
+/**
+ * Quita del texto lo que es del contenedor y no de la historia.
+ *
+ * Eso incluye las instrucciones que se le dieron a la otra IA (un MASTER
+ * PROMPT pegado al principio del hilo, «Eres el narrador…», «4 · MEMORIA»):
+ * son reglas de narración, no gente ni hechos del mundo, y sin quitarlas
+ * acababan como notas del canon.
+ */
 function limpiarVolcado(texto) {
   let t = String(texto ?? '').replace(/\r\n/g, '\n');
   for (const r of RUIDO) t = t.replace(r, '');
+  t = t.split('\n').filter((linea) => motivoAjeno(linea) !== 'instruccion').join('\n');
   return t.replace(/\n{3,}/g, '\n\n').trim();
 }
 

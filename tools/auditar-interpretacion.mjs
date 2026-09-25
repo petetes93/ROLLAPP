@@ -17,6 +17,7 @@
  */
 
 import { crearMotor } from './motor-sin-ventana.mjs';
+import { vigentes } from '../src/ai/narrador/Canon.js';
 
 let fallos = 0;
 let casos = 0;
@@ -235,7 +236,7 @@ console.log('\n── Conjunto aparte (paráfrasis, erratas, nombres parecidos) 
 
 console.log('\n── Canon: se cambia a propósito, no por una frase de la historia ──');
 {
-  const canonJugador = () => (m.sistema('turns').memoria.registroCanon?.entradas ?? []).filter((e) => e.vigente).map((e) => e.texto);
+  const canonJugador = () => vigentes(m.sistema('turns').memoria.registroCanon).map((h) => h.texto);
   const turno0 = m.ver('meta.turno', 0);
   let t = await m.jugar('canon: mi hermano Aldo murió en el paso del norte hace dos inviernos');
   comprobar(/Canon anotado/.test(t) && canonJugador().some((c) => /Aldo murió/.test(c)), 'una edición fuera de la historia se anota como canon del jugador', t);
@@ -243,7 +244,8 @@ console.log('\n── Canon: se cambia a propósito, no por una frase de la hist
 
   await m.jugar('le digo a Marla: «Mi hermano sigue vivo, lo sé»');
   await m.jugar('si mi hermano estuviera vivo, iría a buscarlo');
-  comprobar(canonJugador().length === 1, 'lo que dice el personaje o una hipótesis no reescribe el canon', JSON.stringify(canonJugador()));
+  comprobar(m.sistema('turns').memoria.registroCanon.ediciones.length === 1 && canonJugador().some((c) => /Aldo murió/.test(c)) && !canonJugador().some((c) => /vivo/.test(c)),
+    'lo que dice el personaje o una hipótesis no reescribe el canon', JSON.stringify(canonJugador()));
 
   m.guardarYCargar();
   const turnos = m.sistema('turns');

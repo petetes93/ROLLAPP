@@ -30,7 +30,7 @@ import { COTAS_IA } from '../config/balance.config.js';
 import { crearCanal } from '../core/Logger.js';
 import { limpiar, truncar } from '../utils/text.js';
 import { idEstable, TIPO } from '../utils/id.js';
-import { crearRegistro, anotar } from './narrador/Canon.js';
+import { crearRegistro, anotar, migrarRegistro } from './narrador/Canon.js';
 
 const log = crearCanal('ai');
 
@@ -130,11 +130,13 @@ export class MemoryStore {
     this.canon = inicial.canon ?? [];
 
     /**
-     * Las ediciones deliberadas de canon del jugador, íntegras y con sus
-     * revisiones (ver `ai/narrador/Canon.js`). No se podan ni se recortan.
-     * @type {{version: number, entradas: Array<Object>}}
+     * Las ediciones deliberadas de canon del jugador, íntegras, y los hechos
+     * atómicos que salen de ellas, con su versión y procedencia (ver
+     * `ai/narrador/Canon.js`). No se podan ni se recortan. Un registro de
+     * la versión 1 se migra aquí, al cargar, sin perder ninguna edición.
+     * @type {{version: number, ediciones: Array<Object>, hechos: Array<Object>}}
      */
-    this.registroCanon = inicial.registroCanon ?? crearRegistro();
+    this.registroCanon = migrarRegistro(inicial.registroCanon ?? null);
 
     /**
      * Lo que un modelo quiso recordar. NO son hechos del mundo: van aparte,
@@ -149,13 +151,24 @@ export class MemoryStore {
     }
 
     // Partidas de antes: las ediciones vivían entre los hechos, recortadas a
-    // 200 caracteres y podables. Se pasan al registro (lo recortado ya no se
-    // puede recuperar) y se quitan de los hechos.
+    // 200 caracteres y podables. Se pasan al registro y se quitan de los
+    // hechos. Lo recortado o podado entonces no está en el guardado: no se
+    // puede recuperar, pero se dice cuáles llegan cortadas.
     const viejas = this.hechos.filter((h) => h.categoria === 'canon_jugador');
-    if (viejas.length && !this.registroCanon.entradas.length) {
+    if (viejas.length && !this.registroCanon.ediciones.length) {
+      const cortadas = [];
       for (const h of viejas.sort((a, b) => (a.turno ?? 0) - (b.turno ?? 0))) {
         this.registroCanon = anotar(this.registroCanon, h.texto, { turno: h.turno ?? 0, fuente: 'jugador (migrado)' }).registro;
+        if (/…$/u.test(h.texto) || h.texto.length >= 199) cortadas.push(h.texto);
       }
+      this.registroCanon.migracion = {
+        desde: 0,
+        ediciones: viejas.length,
+        avisos: [
+          ...cortadas.map((t) => `Llegó recortada a 200 caracteres y el resto no está en el guardado: «${t}».`),
+          'Las ediciones que la memoria podó antes de esta versión no están en el guardado y no se pueden recuperar.',
+        ],
+      };
     }
     if (viejas.length) this.hechos = this.hechos.filter((h) => h.categoria !== 'canon_jugador');
   }

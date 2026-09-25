@@ -251,6 +251,31 @@ export function repartoBase() {
   return Object.fromEntries(ATRIBUTOS.orden.map((c) => [c, ATRIBUTOS.base]));
 }
 
+/** Los valores que se reparten, de mayor a menor. Cuestan justo 27 puntos. */
+const VALORES_RECOMENDADOS = [15, 14, 13, 12, 10, 8];
+
+/**
+ * Reparto de partida con los puntos gastados según el oficio.
+ *
+ * La creación de la app es por texto: nadie reparte puntos a mano. Se usaba
+ * `repartoBase`, todo a 8, y los 27 puntos se quedaban sin gastar: todos los
+ * personajes empezaban con Vigor 8, poca vida, poco acierto y sobrecargados
+ * desde el turno 1 con su propio equipo.
+ *
+ * El atributo principal del oficio va a 15; el Vigor, que da vida y carga, a
+ * 14 (o la Destreza, si el principal ya es el Vigor), y el resto en el orden
+ * de la hoja.
+ *
+ * @param {string} [principal] `atributoPrincipal` del oficio.
+ * @returns {Record<string, number>}
+ */
+export function repartoRecomendado(principal) {
+  const valido = ATRIBUTOS.orden.includes(principal) ? principal : 'vigor';
+  const segundo = valido === 'vigor' ? 'destreza' : 'vigor';
+  const orden = [valido, segundo, ...ATRIBUTOS.orden.filter((c) => c !== valido && c !== segundo)];
+  return Object.fromEntries(orden.map((c, i) => [c, VALORES_RECOMENDADOS[i]]));
+}
+
 /**
  * Valida un reparto completo.
  *
@@ -408,6 +433,7 @@ export default {
   subir,
   bajar,
   repartoBase,
+  repartoRecomendado,
   validarReparto,
   aplicarLinaje,
   parcheTemporal,

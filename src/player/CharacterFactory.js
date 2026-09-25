@@ -29,7 +29,7 @@ import { crearJugador } from '../core/GameState.js';
 import { idEntidad, TIPO } from '../utils/id.js';
 import { crearCanal } from '../core/Logger.js';
 
-import { aplicarLinaje, validarReparto, repartoBase, describirFortalezas, describirDebilidad } from './Attributes.js';
+import { aplicarLinaje, validarReparto, repartoRecomendado, describirFortalezas, describirDebilidad } from './Attributes.js';
 import { vidaMaxima, manaMaximo } from './Vitals.js';
 import { concederVarias } from './SkillSystem.js';
 import { deducirInicial, describir as describirAlineamiento } from './Alignment.js';
@@ -80,7 +80,7 @@ export function crearPersonaje(borrador) {
   // El orden es deliberado. El jugador reparte sus 27 puntos con libertad y el
   // linaje suma encima, de modo que un ferrano puede llegar a 19 de Vigor en la
   // creación sin haber gastado puntos por encima del tope de compra.
-  const reparto = borrador.atributos ?? repartoBase();
+  const reparto = borrador.atributos ?? repartoRecomendado(clase?.atributoPrincipal);
   const validacion = validarReparto(reparto);
   if (!validacion.valido) {
     avisos.push(...validacion.errores);
@@ -326,7 +326,7 @@ export function previsualizar(borrador) {
   const clase = obtenerClase(borrador.clase);
   const trasfondo = obtenerTrasfondo(borrador.trasfondo);
 
-  const reparto = borrador.atributos ?? repartoBase();
+  const reparto = borrador.atributos ?? repartoRecomendado(clase?.atributoPrincipal);
   const atributos = aplicarLinaje(reparto, atributosDe(borrador.raza, borrador.subraza));
 
   const provisional = { atributos, atributosTemporales: {}, nivel: 1 };

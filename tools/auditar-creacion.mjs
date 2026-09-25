@@ -16,6 +16,14 @@
 
 import { aplicarCorreccion, cambiarSexo, resumenPersonaje, sexoDescrito } from '../src/player/Correccion.js';
 import { encargoRetrato, urlRetrato } from '../src/art/retrato-ia.js';
+import { crearPersonaje, construirInventarioInicial } from '../src/player/CharacterFactory.js';
+import { repartoRecomendado, validarReparto } from '../src/player/Attributes.js';
+import { capacidad } from '../src/inventory/Encumbrance.js';
+import { obtenerPlantilla } from '../src/data/items.data.js';
+import { RAZAS } from '../src/data/races.data.js';
+import { CLASES } from '../src/data/classes.data.js';
+import { TRASFONDOS } from '../src/data/backgrounds.data.js';
+import { Logger, NIVEL } from '../src/core/Logger.js';
 
 let fallos = 0;
 
@@ -111,6 +119,36 @@ comprobar(/^Brunhilda, rastreadora de linaje ferrano\./.test(resumen),
   'el resumen concuerda oficio con la persona y linaje con «linaje»', resumen);
 comprobar(resumen.includes('«Perdí la forja de mi padre en un incendio»'),
   'la historia se cita con sus palabras, sin cambiarle la persona', resumen);
+
+/* ── El personaje nuevo gasta sus puntos y no empieza cargado ────────────── */
+
+// La creación es por texto y nadie reparte puntos a mano. Se usaba el reparto
+// base, todo a 8: los 27 puntos se quedaban sin gastar y uno de cada cinco
+// personajes empezaba sobrecargado (−3 a todo) con su propio equipo.
+{
+  for (const [id, clase] of Object.entries(CLASES)) {
+    const v = validarReparto(repartoRecomendado(clase.atributoPrincipal));
+    comprobar(v.valido && v.restantes === 0, `el reparto de ${id} es válido y gasta los 27 puntos`,
+      `${v.errores.join('; ')} (quedan ${v.restantes})`);
+  }
+
+  Logger.nivel(NIVEL.AVISO);
+  const sobrecargados = [];
+  let cuantos = 0;
+  for (const raza of Object.keys(RAZAS)) {
+    for (const [claseId, clase] of Object.entries(CLASES)) {
+      for (const [tfId, tf] of Object.entries(TRASFONDOS)) {
+        const { jugador } = crearPersonaje({ nombre: 'Prueba', raza, clase: claseId, trasfondo: tfId });
+        const peso = construirInventarioInicial(clase, tf)
+          .reduce((s, { refId, cantidad }) => s + (obtenerPlantilla(refId)?.peso ?? 0) * cantidad, 0);
+        cuantos += 1;
+        if (peso >= 0.9 * capacidad(jugador)) sobrecargados.push(`${raza}/${claseId}/${tfId}`);
+      }
+    }
+  }
+  comprobar(!sobrecargados.length, `ninguna de las ${cuantos} combinaciones empieza sobrecargada`,
+    sobrecargados.slice(0, 5).join(' | '));
+}
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);
 process.exit(fallos ? 1 : 0);

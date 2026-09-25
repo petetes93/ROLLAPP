@@ -178,7 +178,11 @@ export class SituationSystem extends SystemBase {
 
     const n = llano(texto);
     const nombrados = Object.values(sit.actores).some((a) => a.nombre && n.includes(llano(a.nombre)));
-    const menciona = nombrados || plantilla.claves.test(n) || ATIENDE.test(n);
+    // «Me acerco» a secas es ir a ver qué pasa; «me acerco al herrero» es ir
+    // a otra cosa, y contaba como atender la situación que acababa de
+    // ignorar.
+    const aOtro = /\b(?:me acerco|acercarme)\s+(?:a|al|hacia|junto)\s+(?!ver\b|mirar\b|curiosear\b)/.test(n);
+    const menciona = nombrados || plantilla.claves.test(n) || (ATIENDE.test(n) && !aOtro);
     if (!menciona) return null;
 
     // Dejarla de lado a propósito: sigue ahí, con su reloj en marcha. No es

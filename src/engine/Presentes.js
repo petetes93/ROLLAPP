@@ -44,6 +44,9 @@ export function oficioAusente(texto, presentes = []) {
     const r = raiz(sinAcentos(oficio));
     const m = n.match(new RegExp(`\\b(?:al?|el|la|los|las|del|un|una)\\s+(${r}(?:o|a|os|as|e|es)?)\\b`));
     if (!m) continue;
+    // «trepo al tejado donde estaba el encapuchado» habla de un sitio, no
+    // de alguien que tenga que estar delante.
+    if (/\b(?:donde|que|cuando)\s+(?:estaba|estuvo|estaban|habia|vi|vimos|se escondia|se fue)\s+$/.test(n.slice(0, m.index))) continue;
     const hay = roles.some((rol) => new RegExp(`\\b${r}`).test(rol));
     if (!hay) return m[1];
   }

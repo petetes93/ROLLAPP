@@ -54,6 +54,37 @@ const TERRENO = Object.freeze({
   rio: 'a shallow river ford',
 });
 
+/**
+ * Cada lugar, como se ve. Sale de su ficha (`locations.data.js`) y de sus
+ * rasgos (`rasgos.data.js`).
+ *
+ * El encargo usaba solo el terreno, y el Vado del Yunque —«un puente de
+ * piedra sobre el río y un pueblo que creció alrededor del peaje»— salía
+ * como «a rutted dirt cart track through open country»: colinas y un
+ * sendero, sin puente ni río. Lo que distingue al sitio va primero.
+ */
+const LUGAR = Object.freeze({
+  vado_yunque: 'a small village of stone and adobe houses with slate roofs built around a three-arched grey stone bridge over a wide brown river, a wooden toll booth at the bridge entrance',
+  camino_norte: 'a packed dirt road between tall wheat fields, a carved stone milestone at the roadside',
+  saucedo: 'a hamlet of twenty whitewashed adobe houses around a huge willow tree in the square',
+  tumbas_bajas: 'a grassy burial mound with a half-open stone door blackened by old torch smoke',
+  linde_cenizo: 'the edge of a forest of straight grey-barked trees rising from open fields',
+  arboleda_madre: 'a village of round-doored houses built among the roots of one gigantic ancient tree',
+  claro_quemado: 'a perfect circle of dead grey ash in the middle of a forest, nothing growing inside',
+  senda_raices: 'a tunnel of intertwined tree roots spiralling down underground',
+  paso_yunque: 'a windswept mountain pass between high rock walls, the trail marked with stone cairns',
+  forja_alta: 'a village carved into a mountainside, dozens of chimneys letting out grey smoke',
+  galerias_hondas: 'old mine galleries shored with blackened timber beams, lamps fading into the dark',
+  mina_abandonada: 'a mine entrance hastily walled up with rough stones, rusted tools scattered around',
+  pilotes_brumal: 'a village of houses on black wooden stilts over dark water, linked by creaking walkways',
+  espejo_negro: 'a perfectly still black lagoon that mirrors the sky, dead trees on the shore',
+  puerto_lodo: 'a muddy port of rotten wooden piers and flat-bottomed boats at the edge of a swamp',
+  umbral_albar: 'a lone thirty-metre arch of white stone standing on its own with no walls, a camp of tents nearby',
+  sala_sellada: 'a descending stone corridor with faintly glowing inscriptions ending at a pale sealed door',
+  oasis_sal: 'palm trees around a clear pool in the desert, a bazaar of cloth awnings',
+  pozos_hondos: 'a wide shaft with steps carved in a spiral going down into the dark, walls glittering with red salt',
+});
+
 /** Los interiores, por su tipo. */
 const INTERIOR = Object.freeze({
   taberna: 'inside a crowded tavern with a hearth',
@@ -107,7 +138,7 @@ const llano = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').to
  * @returns {string}
  */
 export function encargoEscena(escena = {}) {
-  const sitio = INTERIOR[escena.interior] ?? TERRENO[escena.terreno] ?? 'a quiet village';
+  const sitio = INTERIOR[escena.interior] ?? LUGAR[escena.lugar] ?? TERRENO[escena.terreno] ?? 'a quiet village';
 
   const gente = (escena.npcs ?? [])
     .map((n) => OFICIO.find(([re]) => re.test(llano(n.rol)))?.[1] ?? 'a villager')

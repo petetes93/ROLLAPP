@@ -410,7 +410,19 @@ button{font-family:inherit;cursor:pointer}
 /* La cabecera es una franja muy apaisada y `cover` deja una banda horizontal
    de la imagen: arriba del todo solo había cielo. Un poco por debajo del
    centro caen el horizonte y el suelo, que es donde está la escena. */
-.escena__lienzo>.arte--escena-ia{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 62%}
+.escena__lienzo>.arte--escena-ia{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 62%;transform:scale(1.08)}
+/* Como los retratos, la escena generada trae a veces un marco pintado y la
+   marca del servicio abajo: un 8 % más grande y el marco del lienzo recorta. */
+.linea--escena img{transform:scale(1.08)}.escena-miniatura{overflow:hidden}
+.escena__ampliar+.escena__plegar{margin-left:.35rem}
+/* En combate la silueta vectorial de una criatura tiene que reconocerse, no
+   medirse: en el lienzo un enemigo mediano ocupa el 62 % y es una sombra a
+   contraluz, y en el marco de combate se veía una figura diminuta sobre
+   fondo oscuro. Se amplía según su tamaño y se le sube la luz, solo aquí. */
+.combate__criatura[data-familia-arte="criaturas"]>svg.arte,.luchador__cara[data-familia-arte="criaturas"]>svg.arte{transform-origin:50% 84%;filter:brightness(1.8) contrast(1.15)}
+[data-familia-arte="criaturas"][data-tamano-arte="pequeno"]>svg.arte{transform:scale(2)}
+[data-familia-arte="criaturas"][data-tamano-arte="mediano"]>svg.arte{transform:scale(1.5)}
+[data-familia-arte="criaturas"][data-tamano-arte="grande"]>svg.arte{transform:scale(1.2)}
 .linea--escena{margin:.8rem 0;display:flex;flex-direction:column;align-items:flex-start;gap:.3rem}
 .escena-miniatura{padding:0;border:1px solid var(--linea);border-radius:var(--r);overflow:hidden;cursor:zoom-in;background:none;max-width:min(320px,100%)}
 .escena-miniatura img{display:block;width:100%;height:auto;aspect-ratio:1024/560;object-fit:cover;object-position:center top}
@@ -701,7 +713,7 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
 .lateral{padding:.8rem}.pestanas{border-color:#6B4E25}.pestana{min-height:34px;font:600 .7rem var(--mono);color:#A9925D;background:linear-gradient(#2B1E15,#100C0B);border:1px solid #513B1F;border-radius:2px 8px 2px 8px}.pestana.es-activa{color:#F0D58A;background:linear-gradient(#4A321B,#17100E);border-color:#A27A36;box-shadow:0 0 12px rgba(197,150,61,.14)}
 .pie{position:relative;background:var(--madera);border-top:2px solid #795727;box-shadow:inset 0 3px rgba(10,6,5,.7),0 -8px 24px rgba(0,0,0,.46);padding-top:.9rem}.pie::before{content:'ELIGE TU DESTINO';position:absolute;left:50%;top:-15px;transform:translateX(-50%);padding:3px 18px;white-space:nowrap;font:600 .62rem/1 var(--mono);letter-spacing:.2em;color:#BDA566;background:#120D0B;border:1px solid #6F5125;border-radius:10px 10px 0 0}.entrada-fila{padding:4px;background:rgba(4,3,4,.48);border:1px solid rgba(151,112,50,.5);border-radius:4px 13px 4px 13px}.entrada{min-height:48px;font-family:var(--sans);font-size:1rem;color:#E8DDC6;background:radial-gradient(circle at 15% 0,rgba(204,157,81,.08),transparent 40%),#0B0909;border:1px solid #664A24;border-radius:3px 10px 3px 10px;box-shadow:inset 0 3px 10px rgba(0,0,0,.65)}
 .linea--dm{font-family:var(--sans);font-size:1.04rem;line-height:1.68;color:#E4D9C1;text-shadow:0 1px #000}.linea--dm::first-letter{font-family:var(--display);font-size:2.1em;line-height:.75;color:#D8AD50;text-shadow:0 1px #000,0 0 7px rgba(218,171,70,.3)}
-.escena{border:2px solid #6E5127;border-radius:2px 15px 2px 15px;box-shadow:inset 0 0 0 1px rgba(235,196,101,.13),0 9px 25px rgba(0,0,0,.52)}.escena__rotulo{background:linear-gradient(transparent,rgba(20,12,8,.96));border-top:1px solid rgba(128,96,45,.55)}.escena__lugar{font-family:var(--display);color:#F0D58A;text-shadow:0 2px #000}
+.escena__rotulo{background:linear-gradient(transparent,rgba(20,12,8,.96))}.escena__lugar{font-family:var(--display);color:#F0D58A;text-shadow:0 2px #000}
 .modal{background:radial-gradient(circle at center,rgba(46,29,18,.24),rgba(0,0,0,.9));backdrop-filter:blur(7px) saturate(.75)}.modal .modal__panel{background:var(--pergamino);border:2px solid #89662F;border-radius:3px 18px 3px 18px;box-shadow:inset 0 0 0 3px #17100E,inset 0 0 0 4px rgba(215,177,83,.2),inset 0 0 35px rgba(0,0,0,.58),0 22px 60px rgba(0,0,0,.75)}.modal .modal__cab{margin:-1rem -1rem .8rem;padding:.8rem 1rem;font-family:var(--display);letter-spacing:.08em;color:#EDD58C;background:linear-gradient(90deg,#1B110C,#493119 50%,#1B110C);border-bottom:1px solid #80602D}.modal__cab h2::before{content:'❖';margin-right:.5rem;color:#C09A48}.director-opcion{position:relative;font-family:var(--mono);color:#E4D6B0;background:linear-gradient(145deg,#342418,#100C0B);border:1px solid #654A23;border-radius:2px 10px 2px 10px}.director-opcion.es-activo{border-color:#D2AA53;box-shadow:inset 3px 0 #D2AA53,0 0 15px rgba(198,149,57,.14)}
 @media(max-width:560px){.fichas{grid-template-columns:1fr}.inicio{padding:.7rem}.creacion{width:calc(100% - .7rem);margin:.35rem;padding:1.2rem .75rem 6rem}.tablero{padding:3px;gap:3px}.pie{padding:.75rem .5rem max(.65rem,env(safe-area-inset-bottom))}.opcion{min-width:min(74vw,18rem)}.lateral{max-height:11.5rem}.modal .modal__panel{padding:.8rem}.modal .modal__cab{margin:-.8rem -.8rem .7rem}}
 

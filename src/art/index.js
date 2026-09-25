@@ -172,6 +172,10 @@ export function pintarArte(nodo, peticion) {
   if (nodo.dataset.firmaArte === firma) return;
 
   nodo.dataset.firmaArte = firma;
+  // Qué es y de qué tamaño: los marcos de combate encuadran la silueta de
+  // una criatura distinto que un paisaje (ver index.html, «criaturas»).
+  nodo.dataset.familiaArte = familia;
+  if (opciones.tamano) nodo.dataset.tamanoArte = opciones.tamano;
   nodo.innerHTML = generar(familia, opciones);
 
   /* ── Mejora a imagen, si la hay ───────────────────────────────────────── */

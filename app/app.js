@@ -1114,6 +1114,14 @@ function pintarEscena() {
     el('span', { class: 'escena__dato', text: FRANJAS_TEXTO[t.franja] ?? '' }),
     el('span', { class: 'escena__sep', text: '·' }),
     el('span', { class: 'escena__dato', text: clima }),
+    // La ilustración de la cabecera se amplía desde aquí. Antes solo se
+    // podía ampliar desde su miniatura en la bitácora, y por eso la misma
+    // imagen salía dos veces, una encima de otra.
+    escenaIA ? el('button', {
+      class: 'escena__plegar escena__ampliar', id: 'escena-ampliar', type: 'button',
+      'aria-label': 'Ver la ilustración en grande', title: 'Ver en grande',
+      onClick: protegido('ampliar escena', () => abrirVisor(escenaIA.url, escenaIA.pie ?? lugar.nombre)),
+    }, '⤢') : '',
     el('button', {
       class: 'escena__plegar', id: 'escena-plegar', type: 'button',
       'aria-expanded': String(!plegada),
@@ -1174,7 +1182,7 @@ function pedirIlustracion(escena) {
     img.addEventListener('load', () => {
       if (!aqui()) return;
 
-      escenaIA = { lugar: escena.lugar, sublugar: escena.sublugar, url };
+      escenaIA = { lugar: escena.lugar, sublugar: escena.sublugar, url, pie: pieDeEscena(escena) };
       const lienzo = $('#escena-lienzo');
       if (lienzo) {
         lienzo.replaceChildren(img);
@@ -1781,6 +1789,11 @@ function pintarBitacora() {
     // Una ilustración de escena: miniatura entre las líneas, y en grande al
     // pulsarla.
     if (e.voz === 'escena' && e.meta?.imagen) {
+      // Mientras esa misma ilustración está arriba, en la cabecera, aquí no
+      // se repite: en el móvil salían las dos una bajo otra y no quedaba
+      // sitio para leer. Cuando cambia la escena, la anterior aparece aquí,
+      // en su sitio de la historia.
+      if (escenaIA?.url === e.meta.imagen) continue;
       caja.append(el('figure', { class: 'linea linea--escena' },
         el('button', {
           class: 'escena-miniatura', type: 'button',

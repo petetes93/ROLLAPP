@@ -23,6 +23,7 @@ import { encargoRetrato, urlRetrato, especieNombrada } from '../src/art/retrato-
 import { RAZAS } from '../src/data/races.data.js';
 import { encargoEscena, urlEscena } from '../src/art/escena-ia.js';
 import { PALETA } from '../src/art/retrato-ia.js';
+import { cargarEnFila } from '../src/art/cola-imagenes.js';
 
 let fallos = 0;
 
@@ -141,6 +142,41 @@ comprobar(urlRetrato({ raza: 'albar', descripcion: sinEsp }) !== urlRetrato({ ra
     'la misma escena en el mismo momento da la misma imagen');
   comprobar(urlEscena(escena) !== urlEscena({ ...escena, franja: 'noche' }),
     'la misma escena de noche es otra imagen');
+}
+
+/* ── Las imágenes nuevas se piden de una en una ──────────────────────────── */
+
+// El servicio descarta peticiones en paralelo y responde 429 si se le piden
+// varias seguidas: en las capturas de entrega, el retrato del compañero y la
+// escena no llegaban. Se prueba la fila con imágenes de mentira que tardan
+// 50 ms en «cargar».
+{
+  let enVuelo = 0;
+  let maxEnVuelo = 0;
+  const inicios = [];
+  const pedidas = [];
+  class ImagenFalsa extends EventTarget {
+    set src(url) {
+      pedidas.push(url);
+      inicios.push(Date.now());
+      enVuelo += 1;
+      maxEnVuelo = Math.max(maxEnVuelo, enVuelo);
+      setTimeout(() => { enVuelo -= 1; this.dispatchEvent(new Event('load')); }, 50);
+    }
+  }
+
+  const a = cargarEnFila(new ImagenFalsa(), 'a');
+  const b = cargarEnFila(new ImagenFalsa(), 'b');
+  const a2 = cargarEnFila(new ImagenFalsa(), 'a');
+  const c = cargarEnFila(new ImagenFalsa(), 'c', { vigente: () => false });
+  await Promise.all([a, b, a2, c]);
+
+  comprobar(maxEnVuelo === 1, 'nunca hay dos imágenes nuevas pidiéndose a la vez', `llegó a haber ${maxEnVuelo}`);
+  const entreAyB = inicios[pedidas.indexOf('b')] - inicios[pedidas.indexOf('a')];
+  comprobar(entreAyB >= 1900, 'entre dos imágenes distintas hay un respiro', `${entreAyB} ms`);
+  comprobar(pedidas.filter((u) => u === 'a').length === 2 && pedidas.indexOf('b') > pedidas.indexOf('a'),
+    'la misma imagen pedida dos veces espera a la primera y no pasa por delante', pedidas.join(','));
+  comprobar(!pedidas.includes('c'), 'lo que ya no hace falta al llegar su turno no se pide', pedidas.join(','));
 }
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);

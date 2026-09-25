@@ -57,6 +57,7 @@ import { obtenerEnemigo } from '../src/data/enemies.data.js';
 import { fichaAleatoria } from '../src/player/CharacterRandom.js';
 import { aplicarCorreccion, resumenPersonaje, sexoDescrito, PREGUNTA_CREACION } from '../src/player/Correccion.js';
 import { urlEscena } from '../src/art/escena-ia.js';
+import { cargarEnFila } from '../src/art/cola-imagenes.js';
 import {
   listarPersonajes, obtenerPersonaje, guardarPersonaje,
 } from '../src/persistence/CharacterRoster.js';
@@ -1105,9 +1106,10 @@ function pedirIlustracion(escena) {
     img.className = 'arte arte--imagen arte--escena-ia';
     img.alt = pieDeEscena(escena);
 
+    const aqui = () => ver('world.ubicacion') === escena.lugar && (ver('world.sublugar') ?? null) === escena.sublugar;
+
     img.addEventListener('load', () => {
-      const aqui = ver('world.ubicacion') === escena.lugar && (ver('world.sublugar') ?? null) === escena.sublugar;
-      if (!aqui) return;
+      if (!aqui()) return;
 
       escenaIA = { lugar: escena.lugar, sublugar: escena.sublugar, url };
       const lienzo = $('#escena-lienzo');
@@ -1122,7 +1124,9 @@ function pedirIlustracion(escena) {
       refrescarTodo();
     });
 
-    img.src = url;
+    // En fila con los retratos: el servicio rechaza peticiones en paralelo.
+    // Si al llegar su turno ya se ha ido de ahí, no se pide.
+    cargarEnFila(img, url, { vigente: aqui });
   }, 1500);
 }
 

@@ -24,6 +24,7 @@
 
 import { hashSemilla } from '../core/RNG.js';
 import { LINAJES } from './paleta.js';
+import { cargarEnFila } from './cola-imagenes.js';
 
 /** Servicio. Gratuito, sin clave, sin cuenta. */
 const SERVICIO = 'https://image.pollinations.ai/prompt/';
@@ -799,5 +800,8 @@ export function mejorarRetratoIA(nodo, personaje = {}, alCambiarEstado) {
     enCurso.delete(nodo);
   });
 
-  img.src = url;
+  // En fila con las demás imágenes nuevas: el servicio rechaza las peticiones
+  // en paralelo. Si al llegar su turno el nodo ya no está (el panel se ha
+  // repintado) o pide otro retrato, no se pide.
+  cargarEnFila(img, url, { vigente: () => nodo.isConnected !== false && enCurso.get(nodo) === url });
 }

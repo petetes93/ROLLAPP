@@ -111,6 +111,7 @@ const pending = new Map();
 const exceptions = [];
 /** Cuántas veces se pide cada retrato al servicio de imágenes. */
 const pedidosRetrato = new Map();
+const inicioRegresion = Date.now();
 function cdp(method, params = {}) {
   const id = ++seq;
   ws.send(JSON.stringify({ id, method, params }));
@@ -589,8 +590,11 @@ try {
   // Un retrato que falla no se vuelve a pedir en cada repintado. Sin red los
   // pide todos y fallan todos: es donde se veía. Con el servicio saturado
   // (429), pedir nueve veces el mismo retrato era lo que lo mantenía así.
+  // Tras un fallo se espera un minuto, así que lo permitido es el primer
+  // intento más uno por cada minuto que ha durado la prueba (antes: 97).
   const masPedido = Math.max(0, ...pedidosRetrato.values());
-  if (sinIA && masPedido > 2) {
+  const permitidos = 1 + Math.ceil((Date.now() - inicioRegresion) / 60000);
+  if (sinIA && masPedido > permitidos) {
     const [url] = [...pedidosRetrato].find(([, n]) => n === masPedido);
     throw new Error(`un retrato que falla se pidió ${masPedido} veces: ${decodeURIComponent(url).slice(0, 140)}`);
   }

@@ -35,6 +35,8 @@ import { MemoryStore } from '../ai/MemoryStore.js';
 import { leerTurno } from '../ai/Cronica.js';
 import { preguntaDeMesa, cerrarConPregunta, terminaEnPregunta } from '../ai/Pregunta.js';
 import { ContextComposer } from '../ai/ContextComposer.js';
+import { construirInstantanea } from '../ai/narrador/Instantanea.js';
+import { filtrarModelo, aplicarNarrativos } from '../ai/narrador/FiltroModelo.js';
 import { ProceduralProvider } from '../ai/providers/ProceduralProvider.js';
 import { PROVEEDORES } from '../config/ai.config.js';
 import { LIMITES, TIEMPOS } from '../config/app.config.js';
@@ -206,6 +208,42 @@ export class TurnResolver extends SystemBase {
       if (entrada) entrada.origen = entidad.origen ?? 'importado';
       this.store.fijar('ai.memoria', this.memoria.serializar());
     });
+  }
+
+  /**
+   * La instantánea del turno para un modelo (ver `ai/narrador/Instantanea.js`).
+   * @private
+   */
+  _instantanea(peticion, texto) {
+    const aqui = this.leer('world.ubicacion', null);
+    const ficha = this.leer('world.localizaciones.porId.' + aqui, {}) ?? {};
+    return construirInstantanea(peticion.contexto, {
+      memoria: this.memoria,
+      entradas: this.leer('narrative.entradas', []),
+      lugar: { nombre: ficha.nombre, descripcion: ficha.descripcion },
+      elementos: (this.leer('world.elementos', {}) ?? {})[aqui]?.map((e) => e.texto) ?? [],
+      inventario: Object.values(this.leer('inventory.objetos.porId', {}) ?? {}).map((o) => ({ nombre: o.nombre, cantidad: o.cantidad ?? 1 })),
+      oro: this.leer('player.oro', null),
+      texto,
+    });
+  }
+
+  /**
+   * Quién ha narrado este turno, para la interfaz, y el aviso cuando cambia.
+   * Si la IA falla y narra el procedural, se dice; cuando vuelve, también.
+   * @private
+   */
+  _anotarNarrador(resultado) {
+    const elegido = this.director?.inspeccionar?.()?.elegido ?? PROVEEDORES.PROCEDURAL;
+    const actual = { elegido, narra: resultado.proveedor, respaldo: Boolean(resultado.degradado) && elegido !== PROVEEDORES.PROCEDURAL,
+      motivo: resultado.motivoRespaldo ?? (resultado.avisos ?? []).find((a) => /falló|agot|no respond|puente|Groq|esperar/i.test(a)) ?? null };
+    const previo = this.leer('meta.narrador', null);
+    this.store.fijar('meta.narrador', actual);
+    if (actual.respaldo && !previo?.respaldo) {
+      this.emitir('ui:notice', { mensaje: 'La IA no ha podido narrar este turno' + (actual.motivo ? ' (' + String(actual.motivo).replace(/^el director externo falló: /, '') + ')' : '') + '. Narra el procedural hasta que vuelva.', tipo: 'aviso' });
+    } else if (!actual.respaldo && previo?.respaldo && elegido !== PROVEEDORES.PROCEDURAL) {
+      this.emitir('ui:notice', { mensaje: 'La IA vuelve a narrar, con el estado de ahora.', tipo: 'exito' });
+    }
   }
 
   /**
@@ -588,6 +626,15 @@ export class TurnResolver extends SystemBase {
         if (peticion.prompt) peticion.prompt += `\n\nNOTA DEL MOTOR: ${pistas.join(' ')}`;
       }
 
+      // ─── 4b. Lo que recibe un modelo ──────────────────────────────────
+      // Un modelo no recuerda nada entre turnos: recibe la instantánea del
+      // mundo ya resuelta, con procedencia. Y un identificador de turno para
+      // que un reintento no se cobre dos veces.
+      if (this._idDirector() !== PROVEEDORES.PROCEDURAL) {
+        peticion.instantanea = this._instantanea(peticion, limpio);
+        peticion.idTurno = 'p' + String(this.leer('meta.id', null) ?? this.leer('meta.semilla', 0)).slice(-12) + '-t' + numeroTurno;
+      }
+
       // ─── 5. El director narra ─────────────────────────────────────────
       const temporizadorPensando = setTimeout(() => {
         this.emitir(EVENTOS_TURNO.PENSANDO, { turno: numeroTurno });
@@ -619,6 +666,37 @@ export class TurnResolver extends SystemBase {
         resultado.respuesta = validacion.respuesta;
       }
 
+      // ─── 6b. Lo que narra un modelo no es autoridad ────────────────────
+      // Se verifica contra el estado, se repara o se cae al procedural, y de
+      // sus efectos solo entra lo narrativo que la política autoriza. Lo
+      // mecánico es de cada sistema. Un solo camino para Groq, un modelo
+      // local o el puente (ver `ai/narrador/FiltroModelo.js`).
+      let narrativos = [];
+      let traza = null;
+      if (![PROVEEDORES.PROCEDURAL, 'minimo'].includes(resultado.proveedor)) {
+        const filtro = await filtrarModelo({
+          resultado,
+          peticion,
+          leer: (r, d) => this.leer(r, d),
+          proveedor: this.director?.proveedor?.(resultado.proveedor) ?? null,
+          permitirReparacion: this.leer('settings.reparacionRemota', true) !== false,
+        });
+        traza = { proveedor: resultado.proveedor, problemas: filtro.problemas.map((p) => p.tipo), reparado: filtro.reparado,
+          rechazados: filtro.rechazados, solicitudesExtra: filtro.solicitudesExtra, uso: resultado.uso ?? null };
+        if (filtro.caer) {
+          const interno = this.director?.proveedor?.(PROVEEDORES.PROCEDURAL) ?? this._respaldo;
+          const r2 = await interno.dirigir(peticion);
+          const v2 = validarRespuesta(r2.respuesta);
+          resultado = { ...r2, respuesta: v2.valida ? v2.respuesta : this.director.turnoMinimo(peticion, 'respuesta inválida'), degradado: true,
+            avisos: [...(resultado.avisos ?? []), ...filtro.avisos], motivoRespaldo: filtro.motivo, desde: traza.proveedor };
+        } else {
+          resultado.respuesta = filtro.respuesta;
+          resultado.avisos = [...(resultado.avisos ?? []), ...filtro.avisos];
+          narrativos = filtro.aceptados;
+        }
+        traza.final = resultado.proveedor;
+      }
+
       // ─── 7. Saneado y aplicación ──────────────────────────────────────
       const effects = this.sistema('effects');
       const { respuesta: saneada, retirado } = effects.sanear(resultado.respuesta);
@@ -627,6 +705,20 @@ export class TurnResolver extends SystemBase {
         turno: numeroTurno,
         hitoNarrativo: this._esHito(saneada),
       });
+
+      // Lo narrativo que el modelo propuso y la política aceptó, cada cosa
+      // por su sistema.
+      if (narrativos.length && traza) {
+        traza.aplicado = aplicarNarrativos(narrativos, {
+          npcs: this.sistema('npcs'),
+          relaciones: this.sistema('relationships'),
+          memoria: this.memoria,
+          registrarElemento: (t, o) => this.registrarElemento(t, o),
+          turno: numeroTurno,
+        });
+      }
+      if (traza) this.emitir('narrador:traza', { turno: numeroTurno, ...traza });
+      this._anotarNarrador(resultado);
 
       // ─── 8. Narración a la bitácora ───────────────────────────────────
       if (saneada.sceneBreak) this._cortarEscena();
@@ -725,13 +817,6 @@ export class TurnResolver extends SystemBase {
 
       this.emitir(EVENTOS_TURNO.RESUELTO, resumen);
 
-      // Un director degradado se avisa una sola vez, sin insistir.
-      if (resultado.degradado && this._idDirector() !== PROVEEDORES.PROCEDURAL) {
-        this.emitir('ui:notice', {
-          mensaje: 'El director externo no respondió; continúa el director interno',
-          tipo: 'aviso',
-        });
-      }
 
       return resumen;
 
@@ -1259,6 +1344,9 @@ export class TurnResolver extends SystemBase {
 
       if (this._idDirector() !== PROVEEDORES.PROCEDURAL) {
         const compuesto = this._compositor.componer({ accion: '', tipo: 'narracion' });
+        peticion.instantanea = this._instantanea(peticion, '');
+        peticion.instantanea.jugador.notaDelMotor = 'PRIMER TURNO: abre la crónica con una escena viva y concreta del mundo: el lugar, la hora, quién hay y lo que está pasando (enEscenaAhora). No es un encargo ni una misión y el jugador puede ignorarlo. No abras con el pasado del personaje. Termina devolviendo la palabra.';
+        peticion.idTurno = 'p' + String(this.leer('meta.id', null) ?? this.leer('meta.semilla', 0)).slice(-12) + '-t1';
         peticion.prompt = `${compuesto.texto}\n\nESTE ES EL PRIMER TURNO. Abre la crónica con una escena viva y concreta del mundo: el lugar, la hora, quién hay y algo que está pasando y admite más de una respuesta (hablar, mirar, intervenir, marcharse). No es un encargo ni una misión, y el jugador puede ignorarlo. No abras con el pasado del personaje ni lo conviertas en el motivo de la escena: puede colorear un detalle, nada más. Termina devolviendo la palabra.`;
       }
 
@@ -1268,6 +1356,16 @@ export class TurnResolver extends SystemBase {
       } finally {
         this.memoria.consumirContexto();
       }
+      if (![PROVEEDORES.PROCEDURAL, 'minimo'].includes(resultado.proveedor)) {
+        const filtro = await filtrarModelo({ resultado, peticion, leer: (r, d) => this.leer(r, d), proveedor: this.director?.proveedor?.(resultado.proveedor) ?? null });
+        if (filtro.caer) {
+          const interno = this.director?.proveedor?.(PROVEEDORES.PROCEDURAL) ?? this._respaldo;
+          resultado = { ...(await interno.dirigir(peticion)), degradado: true, motivoRespaldo: filtro.motivo };
+        } else {
+          resultado.respuesta = filtro.respuesta;
+        }
+      }
+      this._anotarNarrador(resultado);
       const validacion = validarRespuesta(resultado.respuesta);
       const respuesta = validacion.valida ? validacion.respuesta : resultado.respuesta;
 

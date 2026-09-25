@@ -90,11 +90,20 @@ export class DungeonMaster extends SystemBase {
       this._proveedores.get(PROVEEDORES.PUENTE)?.cancelar();
     });
 
-    // Al introducir una credencial se intenta recuperar el proveedor remoto.
-    this.escuchar('ai:credential:set', () => this._intentarRecuperar());
   }
 
   alArrancar() {
+    // Lo que el jugador configuró y aceptó en otra sesión. El consentimiento
+    // de Groq no es un secreto: es su decisión de enviar el contexto. La
+    // clave no está aquí: vive en el puente.
+    this._proveedores.get(PROVEEDORES.GROQ)?.configurar({
+      url: this.leer('settings.urlGroq', 'http://127.0.0.1:11436'),
+      consentido: this.leer('settings.groqConsentido', false) === true,
+    });
+    const urlLocal = this.leer('settings.urlLocal', '');
+    const modeloLocal = this.leer('settings.modeloLocal', '');
+    if (urlLocal && modeloLocal) this._proveedores.get(PROVEEDORES.LOCAL)?.configurar({ url: urlLocal, modelo: modeloLocal });
+
     const guardado = this.leer('settings.proveedor', PROVEEDORES.PROCEDURAL);
     this.cambiar(guardado, { silencioso: true });
   }
@@ -240,6 +249,7 @@ export class DungeonMaster extends SystemBase {
       return {
         ...resultado,
         degradado: true,
+        motivoRespaldo: error?.message ?? null,
         avisos: [...(resultado.avisos ?? []), `el director externo falló: ${error?.message}`],
       };
 
@@ -437,6 +447,7 @@ export class DungeonMaster extends SystemBase {
       proveedor: this._elegido,
       urlLocal: this.leer('settings.urlLocal'),
       modeloLocal: this.leer('settings.modeloLocal'),
+      groqConsentido: this.leer('settings.groqConsentido', false) === true,
     });
   }
 

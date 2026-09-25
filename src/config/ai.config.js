@@ -6,10 +6,10 @@
  * presupuesto de contexto, política de credenciales y contrato de respuesta.
  *
  * POLÍTICA DE CREDENCIALES (decisión de proyecto, no negociable en código):
- *   Ninguna clave de API se escribe jamás en LocalStorage, sessionStorage,
- *   cookies, IndexedDB ni en la URL. Vive en una variable de módulo dentro de
- *   RemoteAPIProvider y desaparece al recargar la pestaña. Este archivo lo
- *   declara y SaveManager lo verifica.
+ *   Ninguna clave de API entra en el navegador: ni en LocalStorage,
+ *   sessionStorage, cookies, IndexedDB, la URL ni la memoria de la página.
+ *   La de Groq vive solo en el proceso del puente local
+ *   (tools/groq-proxy.mjs). Este archivo lo declara y SaveManager lo verifica.
  *
  * Como los otros config, NO importa nada.
  * ═══════════════════════════════════════════════════════════════════════════
@@ -38,7 +38,7 @@ export const PROVEEDORES = congelar({
   PROCEDURAL: 'procedural',
   PUENTE: 'puente',
   LOCAL: 'local',
-  REMOTO: 'remoto',
+  GROQ: 'groq',
 });
 
 /** Proveedor activo al arrancar por primera vez. */
@@ -94,16 +94,16 @@ export const CATALOGO_PROVEEDORES = congelar({
     modeloEjemplo: 'llama3.1:8b-instruct',
   },
 
-  [PROVEEDORES.REMOTO]: {
-    nombre: 'API remota',
-    resumen: 'Servicio externo. La clave vive sólo en memoria.',
+  [PROVEEDORES.GROQ]: {
+    nombre: 'IA Groq',
+    resumen: 'openai/gpt-oss-120b en la capa Free de Groq, a través del puente local.',
     detalle:
-      'Envía cada turno a un proveedor de modelos por HTTPS. La clave que introduzcas ' +
-      'no se guarda en ningún sitio: se pierde al recargar la página y hay que volver a escribirla.',
+      'Cada turno envía a Groq el contexto narrativo (lugar, presentes, lo que ha pasado y lo que escribes). ' +
+      'La clave vive solo en el puente (tools/iniciar-groq.mjs), nunca en el navegador. ' +
+      'Si falla o se agota la cuota gratuita, el turno lo narra el procedural y se avisa.',
     requiereRed: true,
-    requiereClave: true,
+    requiereClave: false,
     esRespaldo: false,
-    urlEjemplo: 'https://api.ejemplo.com/v1/chat/completions',
   },
 });
 

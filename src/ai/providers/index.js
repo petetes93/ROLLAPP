@@ -11,6 +11,9 @@
  * primero, porque son los que más gente puede usar sin configurar nada.
  *
  * Dependencias: los cuatro proveedores.
+ *
+ * No hay proveedor que reciba una clave en el navegador: la API remota con
+ * clave en la página se retiró. Groq va por un puente local que la guarda.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -18,9 +21,7 @@ import { IDMProvider } from './IDMProvider.js';
 import { ProceduralProvider } from './ProceduralProvider.js';
 import { BridgeProvider } from './BridgeProvider.js';
 import { LocalLLMProvider } from './LocalLLMProvider.js';
-import {
-  RemoteAPIProvider, fijarCredencial, olvidarCredencial, hayCredencial, SERVICIOS,
-} from './RemoteAPIProvider.js';
+import { GroqProvider } from './GroqProvider.js';
 import { PROVEEDORES, PROVEEDOR_DEFECTO } from '../../config/ai.config.js';
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -45,8 +46,22 @@ import { PROVEEDORES, PROVEEDOR_DEFECTO } from '../../config/ai.config.js';
  */
 export const CATALOGO = Object.freeze([
   {
+    id: PROVEEDORES.GROQ,
+    nombre: 'IA Groq (nivel Free verificado; necesita internet y envía contexto narrativo a Groq)',
+    clase: GroqProvider,
+    descripcion: 'openai/gpt-oss-120b en la capa gratuita de Groq, por el puente local: la clave no entra en el navegador. '
+      + 'Cada turno envía a Groq el lugar, quién está, lo que ha pasado y lo que escribes. Groq no entrena con ello; '
+      + 'puede guardarlo hasta 30 días salvo que actives Zero Data Retention en tu cuenta.',
+    limite: 'Cuota gratuita limitada (unas decenas de turnos al día según el tamaño). Si falla o se agota, '
+      + 'narra el procedural y se avisa. No es ChatGPT: es otro modelo.',
+    requisitos: ['El puente arrancado con node tools/iniciar-groq.mjs', 'Conexión a internet', 'Tu cuenta de Groq en plan Free, comprobada por ti'],
+    sinRed: false,
+    sinCredencial: false,
+  },
+
+  {
     id: PROVEEDORES.PROCEDURAL,
-    nombre: 'Director interno',
+    nombre: 'Procedural sin IA (respaldo offline)',
     clase: ProceduralProvider,
     descripcion: 'Narración generada por el propio juego. No necesita nada y nunca falla.',
     // Su techo, dicho sin adornos: quien elige narrador tiene que saber qué
@@ -71,22 +86,13 @@ export const CATALOGO = Object.freeze([
 
   {
     id: PROVEEDORES.LOCAL,
-    nombre: 'Gemini desde tu PC',
+    nombre: 'Modelo instalado en este PC (offline si se configura)',
     clase: LocalLLMProvider,
-    descripcion: 'Usa el proxy local de ARCANVEIL: la clave nunca entra en el navegador ni en la partida.',
-    requisitos: ['El lanzador local de Gemini arrancado', 'Conexión a internet desde el proxy'],
-    sinRed: false,
+    descripcion: 'Un modelo que corre en tu equipo (Ollama, LM Studio o llama.cpp). Nada sale de tu equipo. '
+      + 'Depende de tu hardware: un equipo modesto puede ser lento o no poder con un modelo decente.',
+    requisitos: ['Un servidor de modelos instalado y arrancado en este equipo', 'La dirección y el nombre del modelo'],
+    sinRed: true,
     sinCredencial: true,
-  },
-
-  {
-    id: PROVEEDORES.REMOTO,
-    nombre: 'API remota',
-    clase: RemoteAPIProvider,
-    descripcion: 'Usa Anthropic u OpenAI. La clave no se guarda: se pide en cada sesión.',
-    requisitos: ['Una clave de API', 'Conexión a internet'],
-    sinRed: false,
-    sinCredencial: false,
   },
 ]);
 
@@ -170,8 +176,8 @@ export function paraInterfaz(estado = {}) {
     // Los que necesitan configuración se comprueban de verdad.
     if (e.id === PROVEEDORES.LOCAL) {
       listo = Boolean(estado.urlLocal && estado.modeloLocal);
-    } else if (e.id === PROVEEDORES.REMOTO) {
-      listo = hayCredencial();
+    } else if (e.id === PROVEEDORES.GROQ) {
+      listo = Boolean(estado.groqConsentido);
     }
 
     return {
@@ -205,11 +211,7 @@ export {
   ProceduralProvider,
   BridgeProvider,
   LocalLLMProvider,
-  RemoteAPIProvider,
-  fijarCredencial,
-  olvidarCredencial,
-  hayCredencial,
-  SERVICIOS,
+  GroqProvider,
 };
 
 export default {

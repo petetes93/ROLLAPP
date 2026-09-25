@@ -388,7 +388,7 @@ export const AJUSTES = congelar([
     defecto: '',
     ruta: 'settings.urlProveedor',
     dependeDe: 'proveedorIA',
-    visibleSi: ['local', 'remoto'],
+    visibleSi: ['local'],
   },
   {
     id: 'modeloProveedor',
@@ -398,20 +398,7 @@ export const AJUSTES = congelar([
     defecto: '',
     ruta: 'settings.modeloProveedor',
     dependeDe: 'proveedorIA',
-    visibleSi: ['local', 'remoto'],
-  },
-  {
-    id: 'credencial',
-    seccion: 'Director de juego',
-    etiqueta: 'Clave de acceso',
-    descripcion: 'Se mantiene sólo en memoria. Al recargar desaparece.',
-    tipo: 'password',
-    defecto: '',
-    /** No vive en el estado: va directa al proveedor. */
-    ruta: null,
-    volatil: true,
-    dependeDe: 'proveedorIA',
-    visibleSi: ['remoto'],
+    visibleSi: ['local'],
   },
   {
     id: 'dificultad',

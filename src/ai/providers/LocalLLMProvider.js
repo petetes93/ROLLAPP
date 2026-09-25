@@ -92,7 +92,7 @@ export class LocalLLMProvider extends IDMProvider {
     if (!this._url) {
       return {
         disponible: false,
-        motivo: 'Falta la dirección del proxy local. Para Gemini usa http://127.0.0.1:11435.',
+        motivo: 'Falta la dirección del servidor del modelo (Ollama suele estar en http://127.0.0.1:11434).',
       };
     }
 
@@ -103,7 +103,7 @@ export class LocalLLMProvider extends IDMProvider {
     if (!this._modelo) {
       return {
         disponible: false,
-        motivo: 'Falta el nombre del modelo. Con el proxy de ARCANVEIL usa gemini-3.5-flash.',
+        motivo: 'Falta el nombre del modelo instalado (el que muestra «ollama list», por ejemplo).',
       };
     }
 
@@ -248,6 +248,14 @@ export class LocalLLMProvider extends IDMProvider {
    * @private
    */
   _componerMensajes(peticion) {
+    // Con instantánea no hace falta historial: cada turno lleva el estado de
+    // ahora y la política entera (así además se cachea como prefijo).
+    if (peticion.instantanea) {
+      return [
+        { role: 'system', content: Prompt.sistema() },
+        { role: 'user', content: Prompt.turnoDesdeInstantanea(peticion.instantanea) },
+      ];
+    }
     const mensajes = [];
 
     if (!this._historial.length) {

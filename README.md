@@ -11,9 +11,10 @@ motor resuelve las reglas.
   sirven estáticos y todo corre en el navegador.
 - **HTML + CSS + JavaScript.** Módulos ES6, sin frameworks ni dependencias.
 - **El mundo parece crearse mientras juegas.** Retratos personalizados, escenas corrientes, clima, luz, partículas y criaturas se dibujan de forma procedural a partir del personaje y del estado vivo. Las ilustraciones originales solo refuerzan hitos de campaña.
-- **Cuatro directores de juego** intercambiables: uno procedural que funciona sin
-  red ni claves, un puente manual para copiar y pegar en cualquier asistente, un
-  modelo local y una API remota.
+- **Cuatro narradores** a elegir: IA Groq (capa gratuita, con la clave en un
+  puente local y nunca en el navegador), procedural sin IA que funciona sin red,
+  puente manual para copiar y pegar en cualquier asistente y un modelo instalado
+  en tu PC.
 - **Se juega escribiendo.** No hay botones de acción fijos: escribes lo que
   haces o dices y el máster lo interpreta. Si te quedas en blanco unos segundos,
   aparecen tres sugerencias de la escena. Las hazañas se permiten; lo imposible
@@ -123,22 +124,29 @@ cualquier pieza por un `.webp` sin tocar código.
 
 ## Directores de juego
 
-| Modo | Necesita | Calidad narrativa |
+| Modo | Necesita | Qué sale del equipo |
 |---|---|---|
-| Procedural | nada | funcional, coherente, previsible |
-| Puente manual | copiar y pegar | alta |
-| Gemini por proxy local | `GEMINI_API_KEY` solo en el proceso del PC | alta |
-| API remota | una clave | alta |
+| IA Groq (`openai/gpt-oss-120b`, capa Free) | `node tools/iniciar-groq.mjs`, tu cuenta en Free, internet | el contexto narrativo de cada turno, a Groq |
+| Procedural sin IA | nada | nada |
+| Puente manual | copiar y pegar en tu chat | lo que tú pegues |
+| Modelo instalado en este PC | Ollama, LM Studio o llama.cpp | nada |
 
-El procedural es el suelo del sistema: siempre está disponible y actúa como
-respaldo si cualquier otro falla. **La partida nunca se queda colgada.**
+El procedural es el suelo: siempre está disponible y narra cuando la IA falla
+o se agota la cuota, avisándolo. **La partida nunca se queda colgada.**
+
+Lo que narra un modelo **no es autoridad**. El motor tira los dados, resuelve a
+quién hablas y qué existe, y entrega una instantánea del mundo. El modelo narra
+eso y propone efectos. Una capa verifica la narración contra el estado y quita
+lo que contradice. De los efectos solo entra lo narrativo con tope; el oro, la
+vida, los objetos y las misiones son siempre de su sistema. Detalles y cuota en
+[GROQ_LOCAL.md](GROQ_LOCAL.md).
 
 ### Sobre las credenciales
 
-La clave de la API remota vive en una variable de módulo, fuera del estado del
-juego. No toca `localStorage`, ni `sessionStorage`, ni cookies, ni la URL. Al
-recargar la pestaña desaparece y hay que volver a introducirla. Caduca sola por
-inactividad.
+Ninguna clave entra en el navegador. La de Groq se pide sin eco en la
+terminal, vive solo en el proceso del puente local y muere con él. No toca
+`localStorage`, la partida, la URL ni el historial de la terminal. La antigua
+«API remota» con la clave dentro de la página se retiró.
 
 ## Estado
 

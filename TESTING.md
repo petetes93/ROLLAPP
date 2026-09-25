@@ -40,6 +40,23 @@ cada partida marcada (⟲ lo repetido, ✅/❌ si contesta a lo preguntado).
 node tools/medir-narrador.mjs --transcripciones /tmp/partidas
 ```
 
+**El narrador con IA se prueba sin IA, y aparte del procedural:**
+
+- `tools/auditar-interpretacion.mjs` congela los siete fallos de la partida
+  de Ena (semilla 75313) más un conjunto aparte: paráfrasis, erratas, nombres
+  parecidos, otra semilla, carro visto en otro lugar, canon y guardar/cargar.
+  Una respuesta en boca de quien no era cuenta como fallo aunque hable del
+  tema.
+- `tools/auditar-narrador-ia.mjs` levanta el puente contra un Groq falso en
+  127.0.0.1 y mete el proveedor en el motor con respuestas simuladas.
+- `medir-narrador.mjs --ia-simulada` juega las seis partidas con un modelo
+  falso que sabotea cinco de cada seis turnos: las fugas a la bitácora deben
+  ser cero.
+
+Nada de esto valida la calidad del modelo de verdad. Eso son partidas reales
+(`--groq --partida N`, ver GROQ_LOCAL.md) y el paquete ciego
+(`tools/paquete-ciego.mjs`).
+
 Lo que no se automatiza se comprueba a mano con este guion, en el orden que
 encuentra los fallos antes.
 
@@ -518,49 +535,44 @@ se cuenta tal cual.
 | Un JSON malo no cancela el turno | Se pierde el turno |
 | El primer prompt lleva instrucciones; el segundo es corto | Ambos igual de largos |
 
-### Modelo local y API remota
+### IA Groq y modelo instalado en este PC
 
 | Comprobar | Criterio de fallo |
 |---|---|
-| Sin configurar, avisa de qué falta | Falla en silencio |
-| Con la URL mal, el mensaje es concreto | «Error de red» genérico |
-| Tras tres fallos, cae al director interno | La partida se cuelga |
-| Al reintroducir la clave, vuelve al proveedor elegido | Se queda en el interno |
+| Sin marcar la casilla, Groq no recibe nada | Se envía algo antes de aceptar |
+| «Probar conexión» no genera ni envía la partida | Gasta una generación |
+| El botón del narrador dice quién narra y «respaldo» si la IA falla | No se sabe quién narra |
+| Con el puente cerrado, narra el procedural y lo avisa | La partida se cuelga o calla |
+| Al volver el puente, se avisa y narra con el estado de ahora | Arrastra historial viejo |
+| Abierta en 127.0.0.1 en vez de localhost, el error lo dice | Falla sin explicación |
 
-**Prueba de degradación.** Configura la API remota con una URL inválida y juega
-tres turnos. El juego debe seguir funcionando con el director interno y
-avisarlo una vez, sin insistir.
+**Prueba de degradación.** Con Groq activo, cierra el puente y juega tres turnos.
+El juego debe seguir con el procedural, avisarlo y mostrar «Narrador: respaldo».
 
 ---
 
 ## 12 · Blindaje contra el director
 
-Estas pruebas requieren el puente manual y pegar JSON a mano. Comprueban que el
-motor no acepta lo que no debe.
+Estas pruebas usan el puente manual y pegar JSON a mano. Lo que manda un
+modelo (el puente, Groq o uno local) pasa por `ai/narrador/FiltroModelo.js`:
+los efectos mecánicos **no se recortan, se rechazan**. La automática es
+`tools/auditar-narrador-ia.mjs`.
 
-**Daño excesivo:**
-
-```json
-{ "story": "Te caes.", "playerUpdates": { "hp": { "delta": -9999 } } }
-```
-
-Debe recortarse al máximo permitido, no matarte.
-
-**Matar fuera de combate:**
+**Daño, oro u objetos:**
 
 ```json
-{ "story": "Mueres.", "playerUpdates": { "hp": { "delta": -1000 } } }
+{ "story": "Te caes por la escalera.", "playerUpdates": { "hp": { "delta": -9999 }, "gold": { "delta": 500 } }, "newItems": [{ "nombre": "Espada divina" }] }
 ```
 
-Debe dejarte a 1 punto de vida, no a cero.
+La narración entra; la vida, el oro y el objeto no cambian.
 
-**Objeto imposible:**
+**Alguien que no está habla:**
 
 ```json
-{ "story": "Encuentras algo.", "newItems": [{ "nombre": "Espada divina", "rareza": "legendario" }] }
+{ "story": "El fuego cruje.\nBrenwen: «Te esperaba.»\nLa lluvia arrecia fuera." }
 ```
 
-Sin hito narrativo, la rareza debe recortarse.
+Si Brenwen no está en escena (o está muerta), su línea se quita y queda el resto.
 
 **Resucitar a un muerto:**
 

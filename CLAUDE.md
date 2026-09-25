@@ -353,6 +353,29 @@ no parecer del mismo juego. Eso solo se juzga en rejilla.
 
 Por orden de valor:
 
+**El narrador con IA.** Cada turno sigue este camino:
+
+- `engine/Interpretacion.js` resuelve contra la escena a quién habla el
+  jugador y qué nombra (presente, ausente, visto en otro sitio, inexistente).
+- El motor resuelve.
+- `ai/narrador/Instantanea.js` arma el estado de solo lectura con
+  procedencia.
+- El proveedor narra con la política de `PromptBuilder.sistema()` (el MASTER
+  PROMPT adaptado).
+- `ai/narrador/FiltroModelo.js` verifica y repara (`Verificador.js`) y
+  autoriza efectos (`Autorizacion.js`).
+
+Reglas que no se tocan:
+
+- Un modelo nunca aplica oro, vida, objetos, misiones, combate, tiempo, lugar
+  ni canon.
+- La clave de Groq vive solo en `tools/groq-proxy.mjs`.
+- No hay fallback a otra nube.
+- El canon lo cambia el jugador con `canon: …`.
+
+Pruebas: `auditar-interpretacion`, `auditar-narrador-ia` y
+`medir-narrador --ia-simulada`.
+
 **El techo del director interno.** Ya no baraja frases: cuenta desde el
 estado (`ai/narrador/Conocimiento.js`, `data/rasgos.data.js`, las situaciones
 con reloj y secuelas), contesta con datos del mundo y no repite coletillas; se
@@ -373,8 +396,11 @@ no hay forma de entregar uno.
 **Viaje interrumpido.** `Travel` guarda el tramo y permite reanudar; la app no
 ofrece el botón de continuar.
 
-**Puente manual de IA.** `BridgeProvider` y `BridgePanel` están escritos y
-probados. Falta un ajuste en la app para elegir proveedor.
+**La IA sin validar con partidas reales.** El camino de Groq está probado sin
+clave (dobles del puente y del modelo, simulador adversario, navegador de
+extremo a extremo). Falta jugar las seis partidas con `openai/gpt-oss-120b`
+de verdad y la evaluación a ciegas. Requiere la cuenta del autor, su
+comprobación del plan Free y su permiso.
 
 ---
 

@@ -1,41 +1,21 @@
-# Gemini como narrador, con la app en local
+# Gemini: ruta heredada y desactivada
 
-La app sigue ejecutándose en el equipo. El proxy local guarda la clave fuera del navegador y envía a Gemini solo el contexto narrativo necesario para responder cada turno.
+**No es la vía del juego.** La narración con IA va por Groq: mira [GROQ_LOCAL.md](GROQ_LOCAL.md).
 
-## Antes de arrancar
+Esta ruta se conserva como código separado y **no** aparece en el selector ni actúa como respaldo de nada. Los términos de la API gratuita de Gemini reservan a los servicios de pago los clientes con usuarios en el EEE, Suiza y el Reino Unido. Por eso no sirve para un juego publicado en España.
 
-- Instala Node.js 18 o posterior.
-- En Google AI Studio, comprueba que el proyecto indica **Free** y que Facturación dice **No hay una cuenta de facturación**.
-- No actives facturación, prepago ni límites de inversión.
-- Copia la clave solo cuando vayas a iniciar la app. No la pegues en WhatsApp, en archivos del proyecto ni en el navegador.
+Si aun así quieres probarla en tu equipo:
 
-## Arranque con un solo comando
+1. En Google AI Studio, comprueba que el proyecto está en **Free** y que no hay cuenta de facturación.
+2. Desde la carpeta de ARCANVEIL:
 
-### Windows PowerShell
+   ```powershell
+   node tools/iniciar-gemini.mjs
+   ```
 
-Reemplaza `PEGA_AQUI_TU_CLAVE` y ejecuta esta línea desde la carpeta de ARCANVEIL:
+   La clave se pide **sin eco**: no se ve al pegarla, no queda en el historial de la terminal y no se escribe en disco. Solo la recibe el proceso del proxy, no el servidor de la app.
+3. En el juego, abre **Narrador › Modelo instalado en este PC** y pon `http://127.0.0.1:11435` y el modelo `gemini-3.5-flash`.
 
-```powershell
-$env:GEMINI_API_KEY='PEGA_AQUI_TU_CLAVE'; node tools/iniciar-gemini.mjs
-```
+Aviso: el proxy de Gemini no tiene las protecciones del de Groq (comprobación de Host y Origin, topes, trazas sin contenido). Es otra razón para no usarlo más que en pruebas.
 
-### macOS o Linux
-
-Reemplaza `PEGA_AQUI_TU_CLAVE` y ejecuta esta línea desde la carpeta de ARCANVEIL:
-
-```bash
-GEMINI_API_KEY='PEGA_AQUI_TU_CLAVE' node tools/iniciar-gemini.mjs
-```
-
-Abre `http://localhost:8080/app/index.html`. En **Narrador > IA local** usa:
-
-- Dirección: `http://127.0.0.1:11435`
-- Modelo: `gemini-3.5-flash`
-
-La web ya propone esos dos valores. Abre **Narrador**, pulsa **Probar conexión** y después **Usar IA local**. Cuando termines, pulsa `Ctrl+C`; al cerrar la terminal la clave desaparece del proceso.
-
-Si cambias el puerto con `ARCANVEIL_PORT`, el lanzador configura también el origen permitido del proxy. Para servir la web desde otro host, fija `ARCANVEIL_ORIGIN` de forma explícita.
-
-## Seguridad y capa gratuita
-
-La clave no se guarda en el juego, `localStorage`, una partida guardada ni Git. El navegador solo habla con el proxy en `127.0.0.1`. La capa Free tiene límites y puede cambiar; comprueba su estado en AI Studio antes de usarla.
+Ya no se enseña a poner la clave en una variable con `$env:GEMINI_API_KEY='…'`: esa línea queda guardada en el historial de PowerShell.

@@ -189,9 +189,11 @@ export class GroqProvider extends IDMProvider {
           continue;
         }
         this._pausaHasta = Date.now() + espera * 1000;
+        // El puente dice si el tope es suyo o de Groq; se cuenta tal cual.
+        const deQuien = /puente/.test(datos?.error?.message ?? '') ? 'el puente' : 'Groq';
         this._motivoPausa = diaria
           ? 'Se ha agotado la cuota gratuita de Groq por hoy. Sigue el narrador procedural.'
-          : `Groq pide esperar ${espera} s por el límite gratuito.`;
+          : `${deQuien === 'Groq' ? 'Groq pide' : 'El puente pide'} esperar ${espera} s por el límite gratuito.`;
         throw Object.assign(new Error(this._motivoPausa), { codigo: diaria ? 'cuota_diaria' : 'cuota_minuto' });
       }
       throw Object.assign(new Error(datos?.error?.message ?? `El puente respondió ${r.status}.`), { codigo: `http_${r.status}` });

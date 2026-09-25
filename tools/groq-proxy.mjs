@@ -113,6 +113,7 @@ export function crearProxyGroq({ clave, puerto = 11436, origen, upstream = UPSTR
   let pausaHasta = 0;           // cuota agotada: hasta cuándo no se llama
   let motivoPausa = null;
   let ultimosLimites = null;    // lo último que dijo Groq en sus cabeceras
+  let ultimoSistema = { huella: null, t: 0 }; // para no reservar la política cacheada
 
   // El puerto real se conoce al escuchar (con 0, el sistema elige uno).
   let hosts = new Set([`127.0.0.1:${puerto}`, `localhost:${puerto}`]);
@@ -173,6 +174,12 @@ export function crearProxyGroq({ clave, puerto = 11436, origen, upstream = UPSTR
     }
     if (total > L.maxCaracteresEntrada) return { fallo: 'El contexto del turno es demasiado largo.' };
     const maxTokens = Math.min(Math.max(Number(entrada.max_tokens) || 700, 64), L.maxTokensSalida);
+    // La política va idéntica cada turno y Groq la sirve de caché, que no
+    // cuenta para sus límites. Si se mandó igual hace poco, no se reserva.
+    const huellaSistema = createHash('sha256').update(mensajes[0].content).digest('hex');
+    const cacheada = ultimoSistema.huella === huellaSistema && Date.now() - ultimoSistema.t < 10 * 60_000;
+    ultimoSistema = { huella: huellaSistema, t: Date.now() };
+    const resto = mensajes.slice(1).map((m) => m.content).join('');
     return {
       cuerpo: {
         model: MODELO_PERMITIDO,
@@ -184,7 +191,7 @@ export function crearProxyGroq({ clave, puerto = 11436, origen, upstream = UPSTR
         include_reasoning: false,
         stream: false,
       },
-      estimados: estimar(mensajes.map((m) => m.content).join('')) + maxTokens,
+      estimados: estimar(resto) + (cacheada ? 0 : estimar(mensajes[0].content)) + maxTokens,
       caracteres: total,
     };
   }
@@ -291,7 +298,9 @@ export function crearProxyGroq({ clave, puerto = 11436, origen, upstream = UPSTR
       // Lo cacheado (la política, idéntica cada turno) no cuenta para los
       // límites de Groq; tampoco para los nuestros.
       const cacheados = Number(r.datos?.usage?.prompt_tokens_details?.cached_tokens) || 0;
-      const real = Math.max((Number(r.datos?.usage?.total_tokens) || s.estimados) - cacheados, 0);
+      // Una petición que Groq no atendió no gasta tokens (sí cuenta como
+      // petición). Sin esto, dos fallos seguidos agotaban el tope por minuto.
+      const real = r.estado === 200 ? Math.max((Number(r.datos?.usage?.total_tokens) || s.estimados) - cacheados, 0) : 0;
       if (r.datos?.usage) r.datos.usage.cacheados = cacheados;
       minuto[minuto.length - 1].tokens = real;
       uso.sumar(1, real);

@@ -79,6 +79,16 @@ const CASOS = [
   // Lo que lleva encima: salió en la prueba de entrega y no se entendía.
   ['que lleve una capa roja', (p) => /con una capa roja$/.test(p.retrato) && p.genero === 'f'],
   ['que se llame Brun y lleva un escudo de roble', (p) => p.nombre === 'Brun' && /con un escudo de roble$/.test(p.retrato)],
+  // Cambiar un rasgo que ya tenía lo sustituye: sumarlo le pedía al retrato
+  // dos peinados a la vez («pelirroja… con el pelo negro»).
+  ['que tenga el pelo negro', (p) => /con el pelo negro$/.test(p.retrato) && !/pelirroj/.test(p.retrato) && /barba/.test(p.retrato)],
+  ['pelo negro en vez de pelirrojo', (p) => /con pelo negro$/.test(p.retrato) && !/pelirroj/.test(p.retrato)],
+  ['que sea rubia', (p) => /, rubia$/.test(p.retrato) && !/pelirroj/.test(p.retrato)],
+  ['cámbiale los ojos a verdes', (p) => /con ojos verdes$/.test(p.retrato)],
+  ['cámbiale el nombre a Brun', (p) => p.nombre === 'Brun'],
+  ['hazla más alta', (p) => /, alta$/.test(p.retrato)],
+  ['que sea más vieja', (p) => /anciana$/.test(p.retrato)],
+  ['dale un arco largo', (p) => /con un arco largo$/.test(p.retrato)],
 ];
 
 for (const [texto, bien] of CASOS) {
@@ -91,6 +101,12 @@ for (const [texto, bien] of CASOS) {
 
 for (const texto of ['sí', 'vale', 'así está bien', 'empezamos', 'vale, empezamos', '¡Adelante!']) {
   comprobar(corregir(texto).confirmar, `«${texto}» arranca la partida`);
+}
+
+// «dale» es «adelante», pero «dale un arco largo» es darle un arco: arrancaba
+// la partida en vez de añadirlo. Lo mismo con un «vale, pero…».
+for (const texto of ['dale un arco largo', 'vale, pero que sea hombre', 'vamos a cambiarle el pelo']) {
+  comprobar(!corregir(texto).confirmar, `«${texto}» no arranca la partida`);
 }
 
 const raro = corregir('hazla azul');

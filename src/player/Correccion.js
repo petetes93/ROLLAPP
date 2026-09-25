@@ -32,6 +32,22 @@ import { sinAcentos } from '../utils/text.js';
 /** Lo que significa «así está bien, empezamos». */
 const CONFIRMA = /^(?:si|vale|ok|okay|perfecto|genial|me gusta|asi (?:esta )?bien|asi vale|esta bien|empezamos|empecemos|empieza|adelante|listo|venga|dale|comenzar|comienza|a jugar|jugamos|vamos)\b/;
 
+/**
+ * Palabras que caben en una confirmación. La frase entera tiene que estar
+ * hecha de ellas: «dale» es «adelante», pero «dale un arco largo» es darle un
+ * arco, y arrancaba la partida en vez de añadirlo. Lo mismo «vamos a
+ * cambiarle el pelo» o «vale, pero que sea hombre».
+ */
+const PALABRAS_DE_CONFIRMAR = new Set([
+  'si', 'vale', 'ok', 'okay', 'perfecto', 'genial', 'me', 'gusta', 'asi', 'esta', 'bien',
+  'empezamos', 'empecemos', 'empieza', 'adelante', 'listo', 'lista', 'venga', 'dale',
+  'comenzar', 'comienza', 'a', 'jugar', 'jugamos', 'vamos', 'pues', 'entonces', 'ya',
+  'todo', 'eso', 'es', 'por', 'favor', 'claro', 'de', 'acuerdo', 'hecho', 'bueno', 'y',
+]);
+
+const esConfirmacion = (frase) => CONFIRMA.test(frase)
+  && frase.split(/[^a-zñ]+/u).filter(Boolean).every((w) => PALABRAS_DE_CONFIRMAR.has(w));
+
 /** Sustantivos de persona: femenino → masculino. */
 const PERSONA = Object.freeze({
   mujer: 'hombre', chica: 'chico', muchacha: 'muchacho', señora: 'señor', dama: 'caballero',
@@ -161,12 +177,12 @@ export function aplicarCorreccion(personaje, texto) {
   const cambios = [];
 
   if (!frase) return { personaje: p, cambios, confirmar: false, entendido: false };
-  if (CONFIRMA.test(frase)) return { personaje: p, cambios, confirmar: true, entendido: true };
+  if (esConfirmacion(frase)) return { personaje: p, cambios, confirmar: true, entendido: true };
 
   // Varias órdenes en una frase: se parten por «y», comas y puntos cuando lo
   // que sigue abre otra orden.
   const ordenes = original
-    .split(/\s*(?:[.;]|,|\by\b)\s*(?=(?:que|ponle|pon|quitale|quítale|quita|añade|añádele|anade|mejor|llamal|llámal|hazl|dale|lleva|sin|mas|más|su nombre|se llama|de oficio|linaje)\b)/iu)
+    .split(/\s*(?:[.;]|,|\by\b)\s*(?=(?:que|ponle|pon|quitale|quítale|quita|añade|añádele|anade|mejor|llamal|llámal|hazl|dale|lleva|cambia|cámbiale|cambiale|sin|mas|más|su nombre|se llama|de oficio|linaje)\b)/iu)
     .filter(Boolean);
 
   for (const orden of ordenes) {
@@ -185,7 +201,7 @@ function aplicarUna(p, orden) {
   const t = llano(orden);
 
   // ─── Nombre ─────────────────────────────────────────────────────────────
-  const nombre = orden.match(/\b(?:que se llame|ll[aá]mal[aoe]|ponle de nombre|su nombre (?:es|ser[aá])|se llama)\s+([A-Za-zÁÉÍÓÚáéíóúÑñ'-]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ'-]+)?)/u)?.[1];
+  const nombre = orden.match(/\b(?:que se llame|ll[aá]mal[aoe]|ponle de nombre|su nombre (?:es|ser[aá])|se llama|c[aá]mbia(?:le|r)? el nombre (?:a|por))\s+([A-Za-zÁÉÍÓÚáéíóúÑñ'-]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ'-]+)?)/iu)?.[1];
   if (nombre) {
     const limpio = nombre.charAt(0).toUpperCase() + nombre.slice(1);
     return { personaje: { ...p, nombre: limpio.slice(0, 28) }, cambio: `Ahora se llama ${limpio}.` };
@@ -237,10 +253,43 @@ function aplicarUna(p, orden) {
     const retrato = quitarTrozos(p.retrato, /\b(?:viej|ancian|canos|mayor)/u);
     return { personaje: { ...p, retrato: `${retrato}, joven`.replace(/^,\s*/u, '') }, cambio: 'Ahora es más joven.' };
   }
-  if (/\b(?:mas mayor|mas viej|viej|ancian|mayor)\b/.test(t)) {
+  // «viej\b» no casaba nunca con «vieja» ni «viejo»: la raíz va con su final.
+  if (/\b(?:mas mayor|viej[oa]s?|ancian[oa]s?|mayor)\b/.test(t)) {
     const retrato = quitarTrozos(p.retrato, /\bjoven/u);
     const ancian = p.genero === 'f' ? 'anciana' : 'anciano';
     return { personaje: { ...p, retrato: `${retrato}, ya ${ancian}`.replace(/^,\s*/u, '') }, cambio: 'Ahora tiene más años encima.' };
+  }
+
+  // ─── Color de pelo dicho como adjetivo ──────────────────────────────────
+  // «que sea pelirroja», «mejor rubio»: sustituye el pelo que hubiera.
+  const colorPelo = /\b(?:que sea|hazl[ao]|mejor|ahora)\s+/.test(t)
+    ? orden.match(/\b(pelirroj[oa]s?|rubi[oa]s?|moren[oa]s?|canos[oa]s?|castañ[oa]s?|calv[oa]s?)\b/iu)?.[1]
+    : null;
+  if (colorPelo) {
+    const { retrato } = sustituirRasgo(p.retrato, colorPelo);
+    return { personaje: { ...p, retrato: `${retrato}, ${colorPelo.toLowerCase()}`.replace(/^,\s*/u, '') }, cambio: `Ahora es ${colorPelo.toLowerCase()}.` };
+  }
+
+  // ─── Cambiar un rasgo por otro ──────────────────────────────────────────
+  // «cámbiale los ojos a verdes», «cambia el pelo por negro», «pelo negro en
+  // vez de plateado». Lo nuevo sustituye a lo que hubiera de lo mismo.
+  const cambia = orden.match(/\bc[aá]mbia(?:le|r)?\s+(?:el|la|los|las|su|sus)\s+([a-zñáéíóú]+)\s+(?:a|por)\s+(.{2,60})$/iu);
+  const enVez = orden.match(/^\s*(.{3,60}?)\s+en (?:vez|lugar) de\s+.+$/iu);
+  const nuevo = cambia ? `${cambia[1]} ${cambia[2]}` : enVez?.[1];
+  if (nuevo) {
+    const rasgo = nuevo.replace(/[.!]+$/u, '').trim().toLowerCase();
+    const { retrato } = sustituirRasgo(p.retrato, rasgo);
+    return { personaje: { ...p, retrato: `${retrato}, con ${rasgo}`.replace(/^,\s*/u, '').slice(0, 360) }, cambio: `Cambiado: ${rasgo}.` };
+  }
+
+  // ─── Complexión ─────────────────────────────────────────────────────────
+  // «hazla más alta», «hazlo más fuerte».
+  // Solo complexión: «hazla azul» no es nada y no se toca.
+  const complexion = orden.match(/\bhaz(?:la|lo)\s+(m[aá]s\s+)?((?:alt|baj|delgad|gord|robust|flac|musculos|corpulent|menud|esbelt|fornid|enjut|ancha|ancho)[oa]?s?|fuerte)\s*$/iu);
+  if (complexion) {
+    const adjetivo = complexion[2].toLowerCase();
+    const retrato = `${String(p.retrato ?? '').replace(/[.\s]+$/u, '')}, ${adjetivo}`.replace(/^,\s*/u, '');
+    return { personaje: { ...p, retrato: retrato.slice(0, 360) }, cambio: `Ahora es ${complexion[1] ? 'más ' : ''}${adjetivo}.` };
   }
 
   // ─── Quitar un rasgo ────────────────────────────────────────────────────
@@ -258,11 +307,43 @@ function aplicarUna(p, orden) {
   const pone = orden.match(/\b(?:p[oó]nle|pon|a[ñn][aá]dele|a[ñn]ade|dale|que tenga|que lleve|lleva|que vista|vestid[oa] con|con)\s+(.{3,80})$/iu)?.[1];
   if (pone) {
     const rasgo = pone.replace(/[.!]+$/u, '').trim();
-    const retrato = `${String(p.retrato ?? '').replace(/[.\s]+$/u, '')}, con ${rasgo}`.replace(/^,\s*/u, '');
-    return { personaje: { ...p, retrato: retrato.slice(0, 360) }, cambio: `Añadido: ${rasgo}.` };
+    // Si ya tenía algo de lo mismo (otro pelo, otros ojos, otra armadura), se
+    // cambia: «que tenga el pelo negro» dejaba «pelo plateado… con el pelo
+    // negro» y el retrato recibía las dos cosas.
+    const { retrato: base, sustituido } = sustituirRasgo(p.retrato, rasgo);
+    const retrato = `${base.replace(/[.\s]+$/u, '')}, con ${rasgo}`.replace(/^,\s*/u, '');
+    return { personaje: { ...p, retrato: retrato.slice(0, 360) }, cambio: `${sustituido ? 'Cambiado' : 'Añadido'}: ${rasgo}.` };
   }
 
   return null;
+}
+
+/**
+ * Clases de rasgo de las que un personaje solo tiene uno: pelo, ojos, piel,
+ * barba, armadura y capa. El primer grupo de cada una es la raíz que se busca
+ * en la descripción para quitar lo que había.
+ */
+const CLASES_DE_RASGO = [
+  /\b(pelo|cabello|melena|pelirroj|rubi[oa]|moren[oa]|canos[oa]|castan[oa]|calv[oa])/,
+  /\b(ojos?)\b/,
+  /\b(piel)\b/,
+  /\b(barba)\b/,
+  /\b(armadura|cota|coraza|peto)\b/,
+  /\b(capa|manto)\b/,
+];
+
+/**
+ * Quita de la descripción el rasgo de la misma clase que `nuevo`, si lo hay.
+ * @private
+ * @returns {{retrato: string, sustituido: boolean}}
+ */
+function sustituirRasgo(descripcion, nuevo) {
+  const antes = String(descripcion ?? '');
+  const clase = CLASES_DE_RASGO.find((re) => re.test(llano(nuevo)));
+  const raiz = clase ? llano(antes).match(clase)?.[1] : null;
+  if (!raiz) return { retrato: antes, sustituido: false };
+  const retrato = quitarRasgo(antes, raiz);
+  return { retrato, sustituido: retrato !== antes };
 }
 
 /**

@@ -78,6 +78,7 @@ export const INTENCIONES = Object.freeze({
       hablar: 10, hablo: 10, decir: 7, digo: 7, preguntar: 9, pregunto: 9,
       saludar: 8, conversar: 9, charlar: 8, comentar: 6, contar: 6,
       responder: 7, contestar: 7, dirigirme: 7, dirigirse: 7,
+      cuento: 6, explico: 6, respondo: 7, contesto: 7,
     },
     habilidad: 'trato_social',
     umbral: 'facil',
@@ -102,6 +103,8 @@ export const INTENCIONES = Object.freeze({
       intimidar: 10, intimido: 10, amenazar: 10, amenazo: 10,
       asustar: 8, coaccionar: 9, presionar: 7, advertir: 6,
       gritar: 6, imponerme: 8,
+      // Como se escribe: «le grito que se largue», «le exijo que hable».
+      grito: 6, exijo: 7, advierto: 6,
     },
     habilidad: 'intimidacion',
     umbral: 'moderada',
@@ -125,6 +128,9 @@ export const INTENCIONES = Object.freeze({
     verbos: {
       negociar: 10, negocio: 10, regatear: 10, ofrecer: 8, proponer: 8,
       pactar: 9, acordar: 8, tratar: 6, sobornar: 9, comprar: 5, vender: 5,
+      // Conjugados: «les ofrezco dos monedas para que me dejen pasar» se
+      // leía como esperar (por «pasar») y la patrulla lo tomaba por ignorarla.
+      ofrezco: 9, propongo: 8, soborno: 10, regateo: 10, pacto: 8,
     },
     habilidad: 'trato_social',
     umbral: 'moderada',

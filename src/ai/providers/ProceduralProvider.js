@@ -1278,8 +1278,22 @@ export class ProceduralProvider extends IDMProvider {
         `${npc.nombre} escucha con atención. No dice nada, pero algo ha cambiado en su gesto.`,
       ]);
     }
+    // Una amenaza o un grito tienen respuesta, y depende de quién la recibe:
+    // no reacciona igual quien te aprecia que quien ya no se fía de ti.
+    if (/arrepent|te mato|largate|que se largue|os largueis|te parto|te rajo|cuidado conmigo|\bo te\b|grit/.test(dicho)) {
+      const aprecio = typeof npc.actitud === 'number' ? npc.actitud : 0;
+      return aprecio >= 30
+        ? `${npc.nombre} te mira como si no te reconociera. «¿A qué viene eso?»`
+        : aprecio <= -20
+          ? `${npc.nombre} no se mueve. «Inténtalo», dice, y no aparta la vista.`
+          : `${npc.nombre} da un paso atrás, más por prudencia que por miedo, y no dice nada.`;
+    }
+    // Lo demás se oye, y quien lo oye sigue con lo suyo: se ve qué hace.
+    const suyo = ACTIVIDAD[sinAcentos(String(npc.rol ?? '').toLowerCase())];
     const resultado = t ? ` ${this._narrarResultado(t, peticion.intencion)}` : '';
-    return `${npc.nombre} te escucha.${resultado}`;
+    return suyo
+      ? `${suyo.replace('{n}', npc.nombre)} Te ha oído, pero no contesta.${resultado}`
+      : `${npc.nombre} te oye y no contesta.${resultado}`;
   }
 
   _aQuienSeHabla(peticion, ctx) {

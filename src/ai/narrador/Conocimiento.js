@@ -242,6 +242,16 @@ export function queSabe({ npc, texto, lugar, conocidos = [], situacion = null, h
       }
       break;
     }
+    case 'suceso': {
+      // Si a él no le ha pasado nada (el testimonio lo pone el narrador
+      // antes, si lo hay), cuenta lo último que ha pasado aquí de verdad: un
+      // hecho del mundo, no lo que se comenta ni lo que dijo otro.
+      const ultimo = (hechos ?? []).map((h) => h.texto)
+        .filter((t) => t && !/^(?:Según |En .+?: |En .+? se comenta)/.test(t) && !/quiere|intentará|necesita/.test(t))
+        .at(-1);
+      datos.push(ultimo ? `¿A mí? Nada. Lo que ha pasado aquí es esto: ${ultimo.charAt(0).toLowerCase()}${ultimo.slice(1)}` : '¿A mí? Nada. Aquí no ha pasado nada que yo sepa.');
+      break;
+    }
     case 'rumores': {
       // Lo que se comenta en el pueblo: los rumores que conoce y lo que pasa
       // en el sitio. Aquí sí vale el gancho del lugar: es una noticia.

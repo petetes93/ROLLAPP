@@ -295,6 +295,13 @@ export class TurnResolver extends SystemBase {
     // Negarse no se tira: es una decisión, no un intento que pueda fallar.
     if (plan.foco?.negativa) Object.assign(intencion, { requiereTirada: false, negativa: true });
 
+    // Pedirle a alguien que te diga algo es hablar con él, no ir a ninguna
+    // parte: «le exijo a Irmir que me diga dónde está el camino del norte»
+    // se tomaba por un viaje y contestaba «No sabes cómo llegar».
+    if (intencion.tipo !== 'talk' && /\b(?:que me (?:diga|digas|digais|cuente|cuentes|explique|indique)|dime|cuentame|me dices|me cuentas)\b/.test(sinAcentos(textoFoco.toLowerCase()))) {
+      Object.assign(intencion, { tipo: 'talk', habilidad: 'trato_social', requiereTirada: false, objetivo: null });
+    }
+
     // Los comandos no consumen turno.
     if (intencion.esComando) {
       return this._ejecutarComando(intencion);
@@ -333,7 +340,7 @@ export class TurnResolver extends SystemBase {
           this.store.descartarInstantanea('turno');
           return { turno: numeroTurno, encuentro: 'combate' };
         }
-        if (encuentro.narracion && !encuentro.tirada) {
+        if (encuentro.narracion && !encuentro.tirada && !encuentro.resuelto) {
           // Lo que pasa mientras hace otra cosa: la patrulla que se mueve.
           this.memoria.anotarContexto(`EN ESCENA: ${encuentro.narracion}`, { temporal: true });
         }
@@ -354,7 +361,9 @@ export class TurnResolver extends SystemBase {
         return this._turnoLocal(numeroTurno, `No va nadie contigo que pueda hacerlo por ti.`);
       }
 
-      const porEncuentro = encuentro?.tirada ? encuentro : null;
+      // Vale con dados o sin ellos: un soborno que sale bien no se tira, y
+      // se contaba como si no hubiera pasado (contestaba un vecino).
+      const porEncuentro = encuentro?.narracion && (encuentro.tirada || encuentro.resuelto) ? encuentro : null;
       const intervino = Boolean(situacion?.via) || Boolean(delegacion) || Boolean(porEncuentro);
       const resuelto = delegacion ?? (situacion?.via ? situacion : porEncuentro);
 

@@ -200,8 +200,15 @@ export class SituationSystem extends SystemBase {
     // lo que dice ahora sigue siendo con ello si encaja con alguna vía: «le
     // explico que es un abuso» después de hablar con el del peaje, «no hay de
     // qué» a la madre que acaba de dar las gracias.
+    // Pero no si le habla a otro: «le exijo a Brenis que me diga…» después de
+    // ir a por la cabra es con Brenis, no con la cabra.
+    const suyos = new Set(Object.values(sit.actores).map((a) => a.refId));
+    const aOtraPersona = (this.leer('npcs.presentes', []) ?? [])
+      .filter((id) => !suyos.has(id))
+      .map((id) => this.leer(`npcs.conocidos.porId.${id}.nombre`))
+      .some((nombre) => nombre && new RegExp(`\\b${llano(nombre)}\\b`).test(n));
     const turnoActual = this.leer('meta.turno', 0);
-    const sigue = turnoActual - (sit.ultimaAtencion ?? -99) <= 1 && plantilla.vias.some((v) => v.patron.test(n));
+    const sigue = !aOtraPersona && turnoActual - (sit.ultimaAtencion ?? -99) <= 1 && plantilla.vias.some((v) => v.patron.test(n));
     const menciona = nombrados || plantilla.claves.test(n) || (ATIENDE.test(n) && !aOtro) || sigue;
     if (!menciona) return null;
 

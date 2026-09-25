@@ -503,6 +503,11 @@ export class ContextComposer {
       // descubre dos veces.
       hechosTextos: (this.memoria.hechos ?? []).slice(-80).map((h) => h.texto),
 
+      // Solo lo que PASÓ en el mundo (desenlaces de situaciones): lo que un
+      // PNJ puede contar y lo que cambia un sitio. Ni hazañas, ni notas del
+      // motor, ni lo que dijo alguien.
+      sucesos: (this.memoria.hechos ?? []).filter((h) => h.categoria === 'suceso').slice(-20).map((h) => h.texto),
+
       accion: peticion.accion,
       intencion: peticion.intencion,
       tirada: peticion.tirada,

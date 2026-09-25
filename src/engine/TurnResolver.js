@@ -150,8 +150,10 @@ export class TurnResolver extends SystemBase {
     this.escuchar('game:open', () => this.abrirCronica());
 
     // Los hechos y hilos que publican otros sistemas van a la memoria.
-    this.escuchar('memory:remember', ({ texto, peso }) => {
-      this.memoria.recordar(texto, { turno: this.leer('meta.turno', 0), peso });
+    // La categoría viaja: sin ella todo acababa en «general» y no se podía
+    // distinguir lo que PASÓ (un robo) de una hazaña o de una nota interna.
+    this.escuchar('memory:remember', ({ texto, peso, categoria }) => {
+      this.memoria.recordar(texto, { turno: this.leer('meta.turno', 0), peso, categoria });
     });
 
     this.escuchar('memory:thread', (datos) => {

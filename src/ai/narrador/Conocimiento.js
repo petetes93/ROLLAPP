@@ -202,7 +202,7 @@ function datosDeLugar(destino, { desde, alcance, estacion }) {
  * @param {string|null} [args.lore] Historia del jugador: canon suyo, el PNJ no la conoce.
  * @returns {{tema: Object, datos: string[], nuevos: string[], yaDicho: string[], motivoEvasion: string|null, remite: string|null}}
  */
-export function queSabe({ npc, texto, lugar, conocidos = [], situacion = null, hechos = [], estacion = null, lore = null }) {
+export function queSabe({ npc, texto, lugar, conocidos = [], situacion = null, hechos = [], sucesos = null, estacion = null, lore = null }) {
   const tema = resolverTema(texto, { lugar, conocidos, interlocutor: npc?.refId });
   const oficio = oficioDe(npc?.rol);
   const aqui = obtenerLugar(lugar);
@@ -246,8 +246,9 @@ export function queSabe({ npc, texto, lugar, conocidos = [], situacion = null, h
       // Si a él no le ha pasado nada (el testimonio lo pone el narrador
       // antes, si lo hay), cuenta lo último que ha pasado aquí de verdad: un
       // hecho del mundo, no lo que se comenta ni lo que dijo otro.
-      const ultimo = (hechos ?? []).map((h) => h.texto)
-        .filter((t) => t && !/^(?:Según |En .+?: |En .+? se comenta)/.test(t) && !/quiere|intentará|necesita/.test(t))
+      // Lo que pasó de verdad (los sucesos del mundo), si se tienen.
+      const ultimo = (sucesos ?? (hechos ?? []).map((h) => h.texto))
+        .filter((t) => t && !/^(?:Según |En .+?: |En .+? se comenta|[^\s(]+ \([^)]+\): |El personaje |Conoció a )/.test(t) && !/quiere|intentará|necesita/.test(t))
         .at(-1);
       datos.push(ultimo ? `¿A mí? Nada. Lo que ha pasado aquí es esto: ${ultimo.charAt(0).toLowerCase()}${ultimo.slice(1)}` : '¿A mí? Nada. Aquí no ha pasado nada que yo sepa.');
       break;
@@ -256,7 +257,10 @@ export function queSabe({ npc, texto, lugar, conocidos = [], situacion = null, h
       // Lo que se comenta en el pueblo: los rumores que conoce y lo que pasa
       // en el sitio. Aquí sí vale el gancho del lugar: es una noticia.
       datos.push(...(npc?.conocimiento?.rumores ?? []));
-      for (const [i, g] of (aqui?.ganchos ?? []).entries()) datos.push(`${i ? 'Y también que' : 'Se comenta que'} ${g}.`);
+      // Lo que el jugador ya ha oído en la calle no se le cuenta como nuevo.
+      const oidos = (hechos ?? []).map((h) => llano(h.texto));
+      const nuevos = (aqui?.ganchos ?? []).filter((g) => !oidos.some((t) => t.includes(llano(g))));
+      for (const [i, g] of nuevos.entries()) datos.push(`${i ? 'Y también que' : 'Se comenta que'} ${g}.`);
       break;
     }
     default: {

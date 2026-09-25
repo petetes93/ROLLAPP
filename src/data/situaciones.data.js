@@ -336,7 +336,9 @@ export const SITUACIONES = Object.freeze({
         recuerdo: { arriero: 'Le pagó el peaje en el puente cuando no le llegaba.' },
       },
       {
-        clave: 'razonar', patron: /tabla|precio|justo|razon|convenc|abuso|regate|lo que pone|hablo|explico|le digo/,
+        // Hace falta hablar: «miro la tabla de precios» es mirar, no
+        // negociar, y contaba como un intento fallido que subía la tensión.
+        clave: 'razonar', patron: /\b(?:le digo|les digo|le explico|les explico|hablo|le hablo|le recuerdo|protesto|convenzo|razono|regateo|le hago ver|le pido)\b|es un abuso|lo que pone la tabla/,
         habilidad: 'trato_social', umbral: 'moderada', resuelveSiExito: true, tension: 1,
         exito: '{cobrador} mira la tabla, te mira a ti y cobra lo que pone. «Lo que pone, lo que pone.» {arriero} cruza sin mirar atrás.',
         fracaso: '{cobrador} se ríe. «La tabla la leo yo.» El del pretil se despega de la piedra y se acerca despacio.',

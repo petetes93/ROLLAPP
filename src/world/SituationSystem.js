@@ -352,7 +352,8 @@ export class SituationSystem extends SystemBase {
       }
 
       this._guardar(this._conSecuela({ ...sit, estado: ESTADO_SITUACION.DESENLACE, turnoDesenlace: turno }, 'desenlace'));
-      this.emitir('memory:remember', { texto: this.rellenar(regla.hecho, sit), peso: 2, categoria: 'situacion' });
+      // Es un suceso del mundo: lo que un PNJ puede contar que pasó aquí.
+      this.emitir('memory:remember', { texto: this.rellenar(regla.hecho, sit), peso: 2, categoria: 'suceso' });
 
       // Quien lo vivió lo cuenta si se le pregunta, también tras guardar y
       // cargar: va en su memoria. Y quien se ha ido ya no está en la calle:

@@ -587,6 +587,14 @@ export class ProceduralProvider extends IDMProvider {
       return { lineas, memoria };
     }
 
+    // Si lo que mira es lo que está pasando (el peaje, el pozo), eso es lo
+    // que se ve: con buena tirada, el detalle; si no, lo evidente. Salía
+    // «Nada ha cambiado» porque el sitio ya se había descrito.
+    if (ctx.detalleEscena) {
+      lineas.push(buena ? ctx.detalleEscena : (String(ctx.situacion?.texto ?? '').split(/(?<=\.)\s+/)[0] || ctx.detalleEscena));
+      return { lineas, memoria };
+    }
+
     const lista = rasgosDe(lugar.refId, lugar.terreno);
     const general = !buscarRasgo(foco, lugar.refId, lugar.terreno);
     let rasgo = buscarRasgo(foco, lugar.refId, lugar.terreno) ?? rasgoGeneral(lugar.refId, lugar.terreno);
@@ -607,8 +615,10 @@ export class ProceduralProvider extends IDMProvider {
     // del nombre del pueblo («vado» no hace que un rumor sea del río).
     const delNombre = new Set(sinAcentos(lugar.nombre.toLowerCase()).split(/[^a-zñ]+/u));
     const suyas = rasgo.palabras.split('|').filter((w) => w.length > 3 && !delNombre.has(w) && w !== 'alrededor');
-    const loQuePaso = (sabido.size ? [...sabido] : [])
-      .filter((h) => !/^(?:Según |En .+?: |En .+? se comenta)/.test(h))
+    const loQuePaso = (ctx.sucesos ?? [...sabido])
+      // Tampoco los recuerdos entre personas («Tormir (arriero): Le pagó…»):
+      // son de alguien, no algo que pasó en el sitio.
+      .filter((h) => !/^(?:Según |En .+?: |En .+? se comenta|[^\s(]+ \([^)]+\): |El personaje |Conoció a )/.test(h))
       .filter((h) => suyas.some((w) => new RegExp(`\\b${w}`).test(sinAcentos(h.toLowerCase()))))
       .at(-1);
 
@@ -1384,6 +1394,7 @@ export class ProceduralProvider extends IDMProvider {
       conocidos: ctx.conocidos ?? ctx.npcsPresentes ?? [],
       situacion: ctx.situacion,
       hechos: (ctx.hechosTextos ?? []).map((texto) => ({ texto })),
+      sucesos: ctx.sucesos ?? null,
       estacion: ctx.mundo?.estacion ?? null,
       lore: ctx.jugador?.lore ?? null,
     });

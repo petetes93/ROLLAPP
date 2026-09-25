@@ -18,6 +18,7 @@
 
 import { crearMotor } from './motor-sin-ventana.mjs';
 import { vigentes } from '../src/ai/narrador/Canon.js';
+import { segmentar, TIPO_SEGMENTO } from '../src/engine/Segmentos.js';
 
 let fallos = 0;
 let casos = 0;
@@ -294,6 +295,44 @@ console.log('\n── Lo que destapó la revisión manual de partidas ──');
   t = await m.jugar('miro el cielo');
   comprobar(/cielo/i.test(t) && !/río|puente|garita/.test(t), 'mirar el cielo da el cielo, no un rasgo al azar', t);
   comprobar(dallin?.refId, 'hay alguien a quien preguntar');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   6. UNA NEGATIVA Y UNA ESPERA, APARTE
+   ---------------------------------------------------------------------------
+   «No voy a darte mis monedas. Espero» salía «Le dices: «No voy a darte mis
+   monedas., Espero»»: la regla del vocativo del final tomaba «Espero» por un
+   nombre y lo cosía a la frase anterior. Un nombre suelto solo es vocativo
+   si una coma lo ata o va entre exclamaciones.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+console.log('\n── Una negativa y una espera, aparte ──');
+{
+  for (const entrada of ['No voy a darte mis monedas. Espero', 'No voy a darte mis monedas. Espero.', 'No voy a darte mis monedas; espero']) {
+    const partes = segmentar(entrada);
+    comprobar(partes.length === 2 && partes[0].tipo === TIPO_SEGMENTO.DIALOGO && partes[1].tipo === TIPO_SEGMENTO.ESPERA,
+      `«${entrada}»: la negativa y la espera son dos segmentos`, JSON.stringify(partes.map((s) => [s.tipo, s.texto])));
+    const o = oro();
+    const i = objetos();
+    const t = await m.jugar(entrada);
+    comprobar(t.includes('«No voy a darte mis monedas»') && !/monedas\.?,\s*Espero|Espero»/.test(t), `«${entrada}»: la negativa se cita literal y sin la espera dentro`, t);
+    comprobar(oro() === o && objetos() === i, `«${entrada}»: ni el oro ni el inventario cambian`, `${o}→${oro()} · ${i}→${objetos()}`);
+  }
+
+  // Lo que sí tiene que seguir unido.
+  const juntos = [
+    ['¿Te echo una mano, Ianvio?', 'el nombre del final, tras coma, es a quien se habla'],
+    ['Corvane, si ves al encapuchado, avísame', 'el nombre del principio, con coma, es a quien se habla'],
+    ['¡Rensa! ¿Sabes algo de un incendio?', 'el nombre entre exclamaciones es a quien se habla'],
+    ['me acerco a la puerta, mucho cuidado', '«mucho cuidado» no es otra acción'],
+    ['si el guardia se niega, lo empujo al río', 'la condición se lleva su consecuencia'],
+  ];
+  for (const [entrada, que] of juntos) {
+    const partes = segmentar(entrada);
+    comprobar(partes.length === 1, `«${entrada}»: ${que}`, JSON.stringify(partes.map((s) => [s.tipo, s.texto])));
+  }
+  const vuelta = segmentar('Espero. No voy a darte mis monedas');
+  comprobar(vuelta.length === 2 && vuelta[0].tipo === TIPO_SEGMENTO.ESPERA, '«Espero» al principio tampoco es un nombre', JSON.stringify(vuelta.map((s) => [s.tipo, s.texto])));
 }
 
 console.log(`\n${casos - fallos}/${casos} comprobaciones · destinatario errado: ${errados.length}${errados.length ? ` (${errados.join('; ')})` : ''}`);

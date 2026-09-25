@@ -125,12 +125,23 @@ export function segmentar(texto) {
   //   · un vocativo suelto («Corvane, si ves al encapuchado, avísame») es a
   //     quien va lo que sigue: salía un segmento «Corvane» y una condición
   //     del jugador («Queda en el aire lo que harás si ves…»).
+  //
+  // Un nombre suelto solo es vocativo si una coma lo ata a la frase
+  // («Corvane, si ves…», «¿Te echo una mano, Ianvio?») o va entre
+  // exclamaciones («¡Rensa!»). Tras un punto o un punto y coma empieza otra
+  // cosa: en «No voy a darte mis monedas. Espero», «Espero» es lo que hace, y
+  // se cosía como si se lo dijera a alguien («…monedas., Espero»).
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const vocativoDelante = (t) => esVocativo(t)
+    && (/^¡.*!$/u.test(t) || new RegExp(`^\\s*[¿¡]?\\s*${esc(t)}\\s*,`, 'u').test(original));
+  const vocativoDetras = (t) => esVocativo(t.replace(/[?!.]+$/u, '').trim())
+    && new RegExp(`,\\s*${esc(t)}\\s*$`, 'u').test(original.trim());
   const unidos = [];
   let conector = null;
   let vocativo = null;
   for (const t0 of limpios) {
     if (/^(?:mientras(?: tanto)?|entretanto|entre tanto|de momento|por ahora|por el momento)$/iu.test(t0.trim())) { conector = t0.trim(); continue; }
-    if (!unidos.length && !vocativo && esVocativo(t0.trim())) { vocativo = t0.trim().replace(/^¡\s*|\s*!$/gu, ''); continue; }
+    if (!unidos.length && !vocativo && vocativoDelante(t0.trim())) { vocativo = t0.trim().replace(/^¡\s*|\s*!$/gu, ''); continue; }
     const t = vocativo ? `${vocativo}, ${t0}` : conector ? `${conector} ${t0}` : t0;
     if (vocativo) { vocativo = null; unidos.push(t); continue; }
     conector = null;
@@ -138,7 +149,7 @@ export function segmentar(texto) {
     const primera = llano(t).split(/\s+/)[0];
     // «¿Te echo una mano, Ianvio?»: el nombre del final es a quien se habla,
     // no otra cosa que hace («… y ianvio»).
-    if (previo && esVocativo(t.replace(/[?!.]+$/u, '').trim())) {
+    if (previo && vocativoDetras(t)) {
       unidos[unidos.length - 1] = `${previo}, ${t}`;
       continue;
     }
@@ -169,7 +180,8 @@ const NO_VOCATIVO = new Set(['luego', 'entonces', 'bueno', 'vale', 'ahora', 'des
 /** «Corvane» o «¡Corvane!», solo: a quien se habla. @private */
 function esVocativo(t) {
   const nombre = t.replace(/^¡\s*|\s*!$/gu, '');
-  return /^\p{Lu}\p{Ll}{2,}$/u.test(nombre) && !NO_VOCATIVO.has(llano(nombre));
+  // «Espero», «Aguardo»: son lo que hace, aunque vayan en mayúscula.
+  return /^\p{Lu}\p{Ll}{2,}$/u.test(nombre) && !NO_VOCATIVO.has(llano(nombre)) && !ESPERA.test(llano(nombre));
 }
 
 /**

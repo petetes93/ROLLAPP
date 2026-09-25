@@ -17,6 +17,15 @@
  *   node tools/medir-narrador.mjs                # resumen
  *   node tools/medir-narrador.mjs --json out.json
  *   node tools/medir-narrador.mjs --transcripciones carpeta/
+ *   node tools/medir-narrador.mjs --ia-simulada   # el camino de la IA con un
+ *     modelo simulado que mete contradicciones a propósito (ver
+ *     narrador-simulado.mjs): mide lo que se cuela, no la calidad de un modelo
+ *   node tools/medir-narrador.mjs --groq --partida 1 --pausa-ms 25000
+ *     con el puente de Groq arrancado (node tools/iniciar-groq.mjs) y el
+ *     consentimiento dado: partidas REALES. Gastan cuota: unas 45 peticiones
+ *     por partida y hasta ~4.000 tokens cada una (menos con la política en
+ *     caché). Las seis no caben en un día de la capa Free: de una en una o
+ *     de dos en dos, con --partida 1..6.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -24,6 +33,15 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { crearMotor } from './motor-sin-ventana.mjs';
 import { obtenerEncuentro } from '../src/world/EncounterTables.js';
+import { modeloAdversario, conectar, MARCAS } from './narrador-simulado.mjs';
+
+const simulada = process.argv.includes('--ia-simulada');
+const conGroq = process.argv.includes('--groq');
+const trasArg = (n) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : null; };
+const soloPartida = Number(trasArg('--partida')) || null;
+const pausaMs = Number(trasArg('--pausa-ms')) || 0;
+let modelo = null;
+let trazasIA = [];
 
 const argumento = (n) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : null; };
 
@@ -112,6 +130,22 @@ const GENERICOS = [
 const media = (l) => (l.length ? l.reduce((a, b) => a + b, 0) / l.length : 0);
 const desviacion = (l) => { const m = media(l); return Math.sqrt(media(l.map((x) => (x - m) ** 2))); };
 
+/** ¿Dos frases distintas dicen casi lo mismo? Trigramas de palabras. */
+function parecidas(a, b) {
+  const tri = (t) => {
+    const p = t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zñ\s]/g, ' ').split(/\s+/).filter(Boolean);
+    const s = new Set();
+    for (let i = 0; i + 2 < p.length; i += 1) s.add(p.slice(i, i + 3).join(' '));
+    return s;
+  };
+  const x = tri(a);
+  const y = tri(b);
+  if (x.size < 2 || y.size < 2) return false;
+  let comun = 0;
+  for (const t of x) if (y.has(t)) comun += 1;
+  return comun / Math.min(x.size, y.size) >= 0.8;
+}
+
 function frases(texto) {
   return String(texto)
     .split('\n')
@@ -156,6 +190,7 @@ async function jugarPartida(m, personaje, estilo, guion) {
       continue;
     }
     const entrada = rellenar(plantilla);
+    if (pausaMs) await new Promise((r) => setTimeout(r, pausaMs));
     const texto = await m.jugar(entrada);
     turnos.push({ entrada, texto, pregunta: PREGUNTA.test(entrada) && /\bpor\b|qué|quién|si ha visto/i.test(entrada) });
   }
@@ -196,6 +231,15 @@ function medir(partida) {
   const repetidas = [...cuenta.entries()].filter(([, n]) => n > 1);
   const total = porTurno.flat().length;
   const repeticiones = repetidas.reduce((a, [, n]) => a + (n - 1), 0);
+  // Casi repetidas: la misma frase con otra palabra (80 % de trigramas en
+  // común con alguna anterior de la partida). Es lo que se nota sin ser
+  // literal.
+  const vistas = [];
+  let casi = 0;
+  for (const f of porTurno.flat()) {
+    if (f.length >= 24 && vistas.some((v) => v !== f && parecidas(v, f))) casi += 1;
+    vistas.push(f);
+  }
 
   const texto = partida.turnos.map((t) => t.texto).join('\n');
   const coletillas = COLETILLAS.reduce((a, re) => a + (texto.match(new RegExp(re.source, 'gi'))?.length ?? 0), 0);
@@ -208,6 +252,7 @@ function medir(partida) {
     frases: total,
     repeticiones,
     tasaRepeticion: total ? repeticiones / total : 0,
+    casiRepetidas: casi,
     repetidas: repetidas.sort((a, b) => b[1] - a[1]).slice(0, 8),
     coletillas,
     genericos,
@@ -235,9 +280,20 @@ function transcripcion(partida, metrica) {
 }
 
 const partidas = [];
+let saltadas = 0;
 for (const p of PERSONAJES) {
   const m = await crearMotor({ semilla: p.semilla });
+  if (simulada && !modelo) { modelo = modeloAdversario(); trazasIA = conectar(m, modelo); }
+  if (conGroq && !modelo) {
+    // El puente exige el Origin de la app: se pone aquí como lo pondría el
+    // navegador. La clave sigue sin salir del puente.
+    modelo = { stats: { peticiones: 0, reparaciones: 0, inyectadas: {}, tokens: [], caracteres: [] } };
+    trazasIA = conectar(m, { fetch: (url, op = {}) => fetch(url, { ...op, headers: { ...(op.headers ?? {}), Origin: 'http://localhost:8080' } }) });
+    m.sistema('dungeonmaster').proveedor('groq').configurar({ url: 'http://127.0.0.1:11436', consentido: true });
+  }
   for (const [estilo, guion] of [['contemplativo', CONTEMPLATIVO], ['impulsivo', IMPULSIVO]]) {
+    const indice = partidas.length + saltadas + 1;
+    if (soloPartida && indice !== soloPartida) { saltadas += 1; continue; }
     const partida = await jugarPartida(m, p, estilo, guion);
     partidas.push({ partida, metrica: medir(partida) });
   }
@@ -270,11 +326,32 @@ console.log('partida                      frases  repet  colet  genér  preg  co
 for (const { partida, metrica } of partidas) {
   console.log(`${`${partida.personaje} · ${partida.estilo}`.padEnd(28)} ${String(metrica.frases).padStart(6)} ${String(metrica.repeticiones).padStart(6)} ${String(metrica.coletillas).padStart(6)} ${String(metrica.genericos).padStart(6)} ${String(metrica.preguntas).padStart(5)} ${String(metrica.contestadas).padStart(8)}  ${metrica.palabrasMedia.toFixed(0)}±${metrica.palabrasDesviacion.toFixed(0)}`);
 }
-console.log(`\nTOTAL: ${resumen.turnos} turnos · ${(resumen.tasaRepeticion * 100).toFixed(1)} % de frases repetidas · ${resumen.coletillas} coletillas · ${resumen.genericos} resultados genéricos · ${resumen.contestadas}/${resumen.preguntas} preguntas contestadas`);
+console.log(`\nTOTAL: ${resumen.turnos} turnos · ${(resumen.tasaRepeticion * 100).toFixed(1)} % de frases repetidas · ${suma('casiRepetidas')} casi repetidas · ${resumen.coletillas} coletillas · ${resumen.genericos} resultados genéricos · ${resumen.contestadas}/${resumen.preguntas} preguntas contestadas`);
 console.log('\nLo que más se repite:');
 const todas = new Map();
 for (const { metrica } of partidas) for (const [f, n] of metrica.repetidas) todas.set(f, (todas.get(f) ?? 0) + n);
 for (const [f, n] of [...todas.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)) console.log(`  ${n}× ${f.slice(0, 100)}`);
+
+if (simulada) {
+  const texto = partidas.map(({ partida }) => partida.turnos.map((t) => t.texto).join('\n')).join('\n');
+  const fugas = Object.fromEntries(Object.entries(MARCAS).map(([k, marca]) => [k, texto.split(marca).length - 1]));
+  const cuenta = (lista) => lista.reduce((a, x) => ({ ...a, [x]: (a[x] ?? 0) + 1 }), {});
+  const problemas = cuenta(trazasIA.flatMap((t) => t.problemas ?? []));
+  const rechazados = cuenta(trazasIA.flatMap((t) => (t.rechazados ?? []).map((r) => r.tipo)));
+  const aplicado = cuenta(trazasIA.flatMap((t) => (t.aplicado ?? []).map((a) => a.split(/[ :]/)[0])));
+  const caidas = trazasIA.filter((t) => t.final === 'procedural').length;
+  const reparados = cuenta(trazasIA.map((t) => t.reparado));
+  const tokens = modelo.stats.tokens;
+  console.log('\n── Camino de la IA con un modelo simulado malintencionado ──');
+  console.log(`peticiones: ${modelo.stats.peticiones} (de ellas, correcciones: ${modelo.stats.reparaciones}) en ${trazasIA.length} turnos narrados por la IA`);
+  console.log(`inyectado a propósito: ${JSON.stringify(modelo.stats.inyectadas)}`);
+  console.log(`detectado por el verificador: ${JSON.stringify(problemas)}`);
+  console.log(`reparación: ${JSON.stringify(reparados)} · turnos que acabó narrando el procedural: ${caidas}`);
+  console.log(`efectos rechazados: ${JSON.stringify(rechazados)}`);
+  console.log(`efectos aplicados (solo narrativos): ${JSON.stringify(aplicado)}`);
+  console.log(`FUGAS a la bitácora (tiene que ser 0): ${JSON.stringify(fugas)}`);
+  console.log(`instantánea: media ${Math.round(media(tokens))} tokens, máx. ${Math.max(...tokens)} · petición entera: media ${Math.round(media(modelo.stats.caracteres) / 3.5)} tokens aprox.`);
+}
 
 const salida = argumento('--json');
 if (salida) writeFileSync(salida, JSON.stringify({ resumen, partidas: partidas.map(({ partida, metrica }) => ({ personaje: partida.personaje, estilo: partida.estilo, ...metrica, contestadasEntradas: [...metrica.contestadasEntradas] })) }, null, 2));

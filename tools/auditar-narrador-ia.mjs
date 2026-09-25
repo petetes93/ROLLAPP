@@ -323,6 +323,7 @@ respuestas = [{ estado: 200, contenido: 'Vervek se ríe por lo bajo. "Anda, toma
 const actitud2 = m.ver(`npcs.conocidos.porId.${vervek.refId}.actitud`, 0);
 t = await jugar('miro a Vervek');
 comprobar(m.ver(`npcs.conocidos.porId.${vervek.refId}.actitud`, 0) === actitud2, 'una respuesta rota rescatada como prosa no trae efectos', t);
+comprobar(!/\{"|proposedEffects/.test(t) && /Vervek se ríe/.test(t), 'y el JSON roto no llega a la bitácora', t);
 
 // 8 · Sin red: procedural, aviso, y el turno una vez.
 respuestas = [{ red: true }];

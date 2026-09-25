@@ -94,6 +94,20 @@ export function evidenciaDelMotor(peticion) {
   return { implicados: [...implicados], hallazgo, tiradaExito: t ? Boolean(t.exito) : null };
 }
 
+/**
+ * Quita de una narración lo que no es narración: restos de JSON y marcas de
+ * bloque de código.
+ * @param {string} story
+ * @returns {string}
+ */
+export function limpiarRestos(story) {
+  return String(story ?? '')
+    .replace(/```[a-z]*\s*/gi, '')
+    .replace(/\s*[{[]\s*"[A-Za-z_]+"\s*:[\s\S]*$/u, '')
+    .replace(/\s*"(?:story|choices|proposedEffects|pregunta|memory|mood)"\s*:[\s\S]*$/u, '')
+    .trim();
+}
+
 /** Campos que un modelo no puede traer a la partida por su cuenta. */
 const MECANICOS = { playerUpdates: {}, newItems: [], quests: [], combat: {}, events: [], npcs: [], npcMemory: [] };
 
@@ -114,6 +128,11 @@ export async function filtrarModelo({ resultado, peticion, leer, proveedor = nul
   let respuesta = resultado.respuesta;
   let reparado = 'no';
   let solicitudesExtra = 0;
+
+  // Un rescate de prosa puede arrastrar el JSON roto del final («…Dallin
+  // espera. {"proposedEffects":[…») o las marcas de bloque de código. Eso
+  // no es narración y no llega a la bitácora.
+  respuesta = { ...respuesta, story: limpiarRestos(respuesta.story) };
 
   let c = contextoDeVerificacion(leer, peticion, respuesta);
   let problemas = verificar(respuesta.story, c);

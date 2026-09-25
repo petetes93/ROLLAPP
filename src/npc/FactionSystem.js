@@ -127,7 +127,7 @@ export class FactionSystem extends SystemBase {
       const npc = conocidos[refId];
       if (npc?.encuentros > 0) {
         this.emitir('memory:context', {
-          texto: `${npc.nombre} sigue aquí y reconoce al personaje.`,
+          texto: `EN ESCENA: ${npc.nombre} sigue aquí, y te reconoce.`,
           temporal: true,
         });
       }

@@ -32,6 +32,9 @@ import { obtenerLugar } from '../../data/locations.data.js';
 import * as Cadencia from '../Cadencia.js';
 import { comentario } from '../../npc/Companero.js';
 
+/** Notas de escena que se pueden narrar tal cual: están escritas para el jugador. */
+const PARA_EL_JUGADOR = /^(?:EN ESCENA|HA CAMBIADO DESDE LA ÚLTIMA VISITA):/;
+
 export class ProceduralProvider extends IDMProvider {
   static id = 'procedural';
   static nombre = 'Director procedural';
@@ -608,7 +611,11 @@ export class ProceduralProvider extends IDMProvider {
    * @private
    */
   _narrarEscena(ctx) {
-    const notas = ctx.contextoEscena ?? [];
+    // Solo las notas escritas para el jugador. Las demás son instrucciones
+    // para un modelo («Guardias que buscan una excusa… Vías posibles…»,
+    // «Alguien podría recordárselo») y se le leían tal cual al jugador. El
+    // modelo las sigue recibiendo en su prompt.
+    const notas = (ctx.contextoEscena ?? []).filter((n) => PARA_EL_JUGADOR.test(String(n ?? '')));
     if (!notas.length) return '';
 
     // Solo la primera. Dos avisos a la vez se pisan y ninguno se lee.

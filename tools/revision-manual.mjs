@@ -236,12 +236,19 @@ for (const [i, p] of PARTIDAS.entries()) {
     if (plantilla === '@patrulla') { m.sistema('exploration')._presentar((await import('../src/world/EncounterTables.js')).obtenerEncuentro('patrulla_hostil')); lineas.push('> (llega una patrulla)', ''); continue; }
     if (plantilla === '@combate') {
       const antes = m.entradas().length;
-      for (let k = 0; k < 4 && m.ver('combat.activo', false); k += 1) {
+      for (let k = 0; k < 10 && m.ver('combat.activo', false); k += 1) {
         for (let w = 0; w < 60 && m.ver('combat.activo', false) && !m.sistema('combat').esperandoJugador; w += 1) await new Promise((r) => setTimeout(r, 25));
         if (!m.ver('combat.activo', false)) break;
         await m.sistema('combat').jugadaLibre(k < 2 ? 'golpeo al que tengo delante' : 'huyo');
       }
       lineas.push('### (combate)', '', ...m.entradas().slice(antes).map((e) => e.texto).filter(Boolean), '');
+      // En la app, mientras hay pelea se escribe en el panel de combate, no
+      // en el turno normal. Si no se ha podido huir, el arnés la corta (y lo
+      // dice) para que el guion siga siendo de turnos normales.
+      if (m.ver('combat.activo', false)) {
+        await m.sistema('combat')._terminar?.('huida');
+        lineas.push('> (el arnés corta aquí el combate: no se pudo huir en diez jugadas)', '');
+      }
       continue;
     }
     n += 1;

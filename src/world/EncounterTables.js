@@ -80,6 +80,7 @@ export const HOSTILES = Object.freeze({
     apertura: 'La temperatura baja de golpe. Hay algo delante que no acaba de estar del todo.',
     promptDirector: 'Espectro de la edad anterior. Reacciona a los nombres antiguos y a los objetos albares. Si el personaje le habla con respeto, puede no atacar.',
     resolucionesPosibles: ['combate', 'ritual', 'huida', 'dialogo'],
+    persigue: false,
     combate: { enemies: [{ refId: 'espectro_menor', count: 1 }] },
   },
 
@@ -89,6 +90,7 @@ export const HOSTILES = Object.freeze({
     apertura: 'Has entrado donde no debías, y lo que vive aquí acaba de darse cuenta.',
     promptDirector: 'Criatura defendiendo su territorio. No persigue si el personaje retrocede despacio. Atacar la enfurece.',
     resolucionesPosibles: ['combate', 'retirada', 'sigilo'],
+    persigue: false,
     combate: { enemies: [{ refId: 'tejedora_de_umbral', count: 1 }] },
   },
 
@@ -414,26 +416,27 @@ export function admiteResolucion(refId, resolucion) {
 export function resolucionDesdeIntencion(intencion, encuentro) {
   if (!intencion || !encuentro) return null;
 
+  // Cada intención, con sus alternativas en orden: hablar con una patrulla
+  // es intentar convencerla aunque el encuentro no tenga «dialogo», y
+  // retroceder ante una criatura es la retirada que ella admite. Antes solo
+  // valía la primera, y hablarle a la patrulla contaba como ignorarla.
   const mapa = {
-    attack: 'combate',
-    intimidate: 'intimidacion',
-    persuade: 'persuasion',
-    deceive: 'engano',
-    negotiate: 'soborno',
-    talk: 'dialogo',
-    hide: 'sigilo',
-    flee: 'huida',
-    travel: 'ignorar',
-    observe: 'examinar',
-    search: 'registrar',
-    rest: 'descansar',
+    attack: ['combate'],
+    intimidate: ['intimidacion'],
+    persuade: ['persuasion', 'dialogo', 'mediacion'],
+    deceive: ['engano'],
+    negotiate: ['soborno', 'persuasion', 'mediacion'],
+    talk: ['dialogo', 'persuasion', 'mediacion'],
+    hide: ['sigilo'],
+    flee: ['huida', 'retirada'],
+    travel: ['ignorar'],
+    observe: ['examinar'],
+    search: ['registrar'],
+    rest: ['descansar'],
   };
 
-  const candidata = mapa[intencion.tipo];
-  if (!candidata) return null;
-
   // Solo se admite si el encuentro la contempla.
-  return encuentro.resolucionesPosibles.includes(candidata) ? candidata : null;
+  return (mapa[intencion.tipo] ?? []).find((via) => encuentro.resolucionesPosibles.includes(via)) ?? null;
 }
 
 export default ENCUENTROS;

@@ -102,7 +102,12 @@ export class ProceduralProvider extends IDMProvider {
 
     switch (peticion.tipo) {
       case 'combate': return this._turnoCombate(peticion, ctx);
-      case 'dialogo': return this._enriquecer(peticion, ctx, this._turnoDialogo(peticion, ctx));
+      // Si el motor ya ha resuelto lo que pasa (hablar con la patrulla que
+      // corta el paso, ayudar con el carro), eso es la escena: el diálogo
+      // genérico contestaba en boca del primer vecino presente.
+      case 'dialogo': return this._enriquecer(peticion, ctx, ctx.situacionResultado
+        ? this._turnoNarrativo(peticion, ctx)
+        : this._turnoDialogo(peticion, ctx));
       default: return this._enriquecer(peticion, ctx, this._turnoNarrativo(peticion, ctx));
     }
   }
@@ -142,7 +147,10 @@ export class ProceduralProvider extends IDMProvider {
       const primera = parrafos[0] ?? '';
       // Las plantillas cortas de acción («Te pones en marcha.») sobran cuando
       // ya se narra lo que el jugador escribió.
-      const plantilla = primera.length < 60 && !primera.includes('«');
+      // Lo que ha resuelto el motor (el desenlace de un encuentro, lo que
+      // pasa en una situación) nunca es plantilla, por corto que sea:
+      // «Pones tierra de por medio.» se sustituía por el eco y se perdía.
+      const plantilla = !ctx.situacionResultado && primera.length < 60 && !primera.includes('«');
       parrafos[0] = plantilla ? frase : `${frase} ${primera}`.trim();
     }
 

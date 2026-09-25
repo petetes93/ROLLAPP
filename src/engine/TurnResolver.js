@@ -316,13 +316,22 @@ export class TurnResolver extends SystemBase {
       // ─── 2b. Encuentro pendiente ──────────────────────────────────────
       const exploration = this.sistema('exploration');
 
+      // Lo que resuelve el encuentro vale: su tirada es la del turno y su
+      // desenlace se narra. Antes se descartaba: el turno volvía a tirar con
+      // otra habilidad y el narrador no se enteraba de cómo había ido.
+      let encuentro = null;
       if (exploration?.encuentroActivo) {
-        const r = await exploration.resolverEncuentro(intencion);
+        encuentro = await exploration.resolverEncuentro(intencion);
 
-        if (r.resuelto && r.resultado === 'combate') {
+        if (encuentro.resuelto && encuentro.resultado === 'combate') {
           // El combate toma el control: este turno termina aquí.
+          if (encuentro.narracion) this._anadirEntrada(VOCES.SISTEMA, encuentro.narracion, { turno: numeroTurno });
           this.store.descartarInstantanea('turno');
           return { turno: numeroTurno, encuentro: 'combate' };
+        }
+        if (encuentro.narracion && !encuentro.tirada) {
+          // Lo que pasa mientras hace otra cosa: la patrulla que se mueve.
+          this.memoria.anotarContexto(`EN ESCENA: ${encuentro.narracion}`, { temporal: true });
         }
       }
 
@@ -341,8 +350,9 @@ export class TurnResolver extends SystemBase {
         return this._turnoLocal(numeroTurno, `No va nadie contigo que pueda hacerlo por ti.`);
       }
 
-      const intervino = Boolean(situacion?.via) || Boolean(delegacion);
-      const resuelto = delegacion ?? (situacion?.via ? situacion : null);
+      const porEncuentro = encuentro?.tirada ? encuentro : null;
+      const intervino = Boolean(situacion?.via) || Boolean(delegacion) || Boolean(porEncuentro);
+      const resuelto = delegacion ?? (situacion?.via ? situacion : porEncuentro);
 
       // ─── 2d. Enrutado local ───────────────────────────────────────────
       const router = this.sistema('router');
@@ -457,7 +467,10 @@ export class TurnResolver extends SystemBase {
         pistas.push(`El jugador se niega: ${negativa.cita}. Respeta su negativa: no entrega, no acepta ni cede nada. ${negativa.nombre} reacciona según lo que sabe y lo que quiere.`);
       }
 
-      if (delegacion) {
+      if (porEncuentro && !delegacion && !situacion?.via) {
+        peticion.contexto.situacionResultado = porEncuentro.narracion;
+        pistas.push(`Encuentro en curso, ya resuelto por el motor: ${porEncuentro.narracion} ${porEncuentro.pistaDirector ?? ''}`.trim());
+      } else if (delegacion) {
         peticion.contexto.situacionResultado = delegacion.narracion;
         pistas.push(`Actúa ${delegacion.nombre}, no el jugador, que solo observa. No pongas palabras ni ofertas en boca del jugador. Resultado ya resuelto por el motor: ${delegacion.narracion}`);
       } else if (intervino) {

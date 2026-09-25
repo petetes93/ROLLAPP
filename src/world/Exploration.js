@@ -36,6 +36,27 @@ export const EVENTOS_EXPLORACION = Object.freeze({
   NADA: 'exploration:nothing',
 });
 
+/** Cómo se cuenta cada salida de un encuentro, cuando sale bien. */
+const DESENLACE = Object.freeze({
+  dialogo: 'Habláis. La tensión se afloja y cada cual sigue a lo suyo.',
+  persuasion: 'Te escuchan y acaban cediendo: te dejan seguir tu camino.',
+  mediacion: 'Consigues que se calmen los ánimos. Nadie sale perdiendo del todo.',
+  soborno: 'Unas monedas cambian de mano y, de pronto, nadie ha visto nada.',
+  sumision: 'Te dejas registrar sin protestar. Después de mirarte con desconfianza, te dejan ir.',
+  intimidacion: 'Se lo piensan dos veces y se apartan.',
+  engano: 'Se lo creen. Por ahora.',
+  sigilo: 'Te escurres sin que nadie te vea.',
+  huida: 'Pones tierra de por medio. Nadie te sigue.',
+  retirada: 'Retrocedes despacio, sin dar la espalda, y te dejan marchar.',
+  distraccion: 'La distracción funciona: tienes tu oportunidad y la aprovechas.',
+  fuego: 'El fuego los mantiene a raya, y acaban retirándose.',
+  ritual: 'Las palabras antiguas surten efecto: aquello se aquieta.',
+  ayuda: 'Echas una mano. Te lo agradecen con lo poco que tienen.',
+  comercio: 'Hacéis trato.',
+  acompanar: 'Os ponéis en marcha juntos.',
+  ignorar: 'Sigues tu camino.',
+});
+
 export class Exploration extends SystemBase {
   static nombre = 'exploration';
   static dependencias = ['world', 'rules', 'clock'];
@@ -398,8 +419,18 @@ export class Exploration extends SystemBase {
     const resolucion = Tablas.resolucionDesdeIntencion(intencion, encuentro);
 
     if (!resolucion) {
-      // La acción no encaja con ninguna vía: el director la narra, pero el
-      // encuentro sigue abierto.
+      // Hace otra cosa. Quien tiene motivo y ocasión no se queda quieto (la
+      // patrulla que venía a por él le corta el paso); quien no persigue
+      // (una criatura en su territorio) le deja ir; lo que no era una
+      // amenaza sigue su camino al cabo de un rato.
+      encuentro.ignorado = (encuentro.ignorado ?? 0) + 1;
+      if (encuentro.familia === 'hostil' && encuentro.persigue !== false && encuentro.combate) {
+        return this._escalar(encuentro, 'No les gusta que les ignores: se mueven para cortarte el paso.');
+      }
+      if (encuentro.familia !== 'hostil' && encuentro.ignorado >= 2) {
+        this._encuentro = null;
+        return { resuelto: true, resultado: 'ignorado', narracion: 'Lo que tenías delante sigue su camino sin ti.' };
+      }
       return {
         resuelto: false,
         motivo: 'via_no_contemplada',
@@ -412,7 +443,9 @@ export class Exploration extends SystemBase {
       this._encuentro = null;
 
       if (encuentro.combate) {
-        this.emitir('combat:request', encuentro.combate);
+        // Si ataca él, golpea primero: la emboscada es suya, salvo que la
+        // del encuentro ya fuera de ellos.
+        this.emitir('combat:request', { ...encuentro.combate, playerAmbush: !encuentro.combate.ambush });
         return { resuelto: true, resultado: 'combate' };
       }
 
@@ -445,22 +478,16 @@ export class Exploration extends SystemBase {
 
       if (!tirada.exito) {
         // Fallar una vía no cierra el encuentro: se puede intentar otra cosa.
-        // Salvo en los hostiles, donde fallar suele significar pelea.
+        // Con los hostiles la tensión sube, pero una conversación que sale
+        // mal no es una guerra: hace falta un segundo tropiezo.
         if (encuentro.familia === 'hostil' && encuentro.combate) {
-          this._encuentro = null;
-          this.emitir('combat:request', encuentro.combate);
-
-          return {
-            resuelto: true,
-            resultado: 'combate',
-            tirada,
-            pistaDirector: 'El intento del personaje ha salido mal y ahora hay pelea.',
-          };
+          return { ...this._escalar(encuentro, 'No cuela. Se tensan, y un paso en falso más acabará mal.'), tirada };
         }
 
         return {
           resuelto: false,
           tirada,
+          narracion: 'No sale. Lo que tienes delante sigue ahí, esperando qué haces.',
           pistaDirector: 'El intento falla. El encuentro sigue: el personaje puede probar otra cosa.',
         };
       }
@@ -494,7 +521,27 @@ export class Exploration extends SystemBase {
       resultado: resolucion,
       tirada,
       xp,
+      narracion: DESENLACE[resolucion] ?? 'Funciona: la situación se resuelve sin más.',
       pistaDirector: `El personaje resuelve la situación mediante ${resolucion}. Narra el desenlace.`,
+    };
+  }
+
+  /**
+   * La tensión sube un escalón; al segundo, se acaba la paciencia.
+   * @private
+   */
+  _escalar(encuentro, aviso) {
+    encuentro.tension = (encuentro.tension ?? 0) + 1;
+    if (encuentro.tension >= 2 && encuentro.combate) {
+      this._encuentro = null;
+      this.emitir('combat:request', encuentro.combate);
+      return { resuelto: true, resultado: 'combate', narracion: 'Se acabó la paciencia.' };
+    }
+    return {
+      resuelto: false,
+      tension: encuentro.tension,
+      narracion: aviso,
+      pistaDirector: `La tensión sube (${encuentro.tension} de 2). Aún hay margen para hablar, ceder, retirarse o pelear; si vuelve a torcerse, habrá pelea.`,
     };
   }
 

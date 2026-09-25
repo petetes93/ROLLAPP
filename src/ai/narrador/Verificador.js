@@ -173,7 +173,7 @@ export function verificar(story, c) {
 
     // ─── Cosas que el motor no ha dado ────────────────────────────────────
     if (/\b(?:recibes|obtienes|te entrega|te regala|te pone en la mano|ahora tienes|guardas en tu)\b/.test(n)) anadir('objeto_inventado', true, 'los objetos los da el motor');
-    if (/\b(?:\d+|unas?|varias|algunas)\s+monedas?\b/.test(n) && /\b(?:recibes|te da|te paga|te pagan|ganas|te entrega|obtienes)\b/.test(n)) anadir('oro_inventado', true, 'el oro lo mueve el motor');
+    if (/\b(?:\d+|un|una|unas|dos|tres|cuatro|cinco|seis|diez|veinte|treinta|cincuenta|cien|varias|algunas|un punado de)\s+monedas?\b/.test(n) && /\b(?:recibes|te da|te paga|te pagan|ganas|te entrega|obtienes)\b/.test(n)) anadir('oro_inventado', true, 'el oro lo mueve el motor');
 
     // ─── Dónde y cuándo ───────────────────────────────────────────────────
     for (const l of c.lugares ?? []) {

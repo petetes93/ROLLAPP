@@ -51,10 +51,12 @@ const PERSONA = /\b(?:hombre|mujer|nino|nina|guardia|soldado|carretero|mercader|
 export function propuestasDe(r) {
   const p = [...(r.proposedEffects ?? [])];
   const u = r.playerUpdates ?? {};
-  if (u.gold) p.push({ tipo: 'oro', datos: u.gold, razon: 'playerUpdates.gold' });
-  for (const k of ['hp', 'mana']) if (u[k]) p.push({ tipo: 'vida', datos: u[k], razon: `playerUpdates.${k}` });
-  if (u.xp) p.push({ tipo: 'experiencia', datos: u.xp, razon: 'playerUpdates.xp' });
-  for (const k of ['hunger', 'thirst', 'fatigue', 'morale', 'flags']) if (u[k]) p.push({ tipo: 'vida', datos: u[k], razon: `playerUpdates.${k}` });
+  // El esquema rellena con ceros lo que no viene: eso no es una propuesta.
+  const cambia = (v) => (typeof v === 'number' ? v !== 0 : v && typeof v === 'object' ? ('delta' in v ? Number(v.delta) !== 0 : Object.keys(v).length > 0) : Boolean(v));
+  if (cambia(u.gold)) p.push({ tipo: 'oro', datos: u.gold, razon: 'playerUpdates.gold' });
+  for (const k of ['hp', 'mana']) if (cambia(u[k])) p.push({ tipo: 'vida', datos: u[k], razon: `playerUpdates.${k}` });
+  if (cambia(u.xp)) p.push({ tipo: 'experiencia', datos: u.xp, razon: 'playerUpdates.xp' });
+  for (const k of ['hunger', 'thirst', 'fatigue', 'morale', 'flags']) if (cambia(u[k])) p.push({ tipo: 'vida', datos: u[k], razon: `playerUpdates.${k}` });
   for (const o of r.newItems ?? []) p.push({ tipo: 'objeto', datos: o, razon: 'newItems' });
   for (const q of r.quests ?? []) p.push({ tipo: 'mision', datos: q, razon: 'quests' });
   if (r.combat?.start) p.push({ tipo: 'combate', datos: r.combat, razon: 'combat' });

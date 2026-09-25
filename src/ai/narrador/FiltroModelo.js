@@ -94,6 +94,12 @@ export async function filtrarModelo({ resultado, peticion, leer, proveedor = nul
       respuesta = { ...respuesta, story: local.story };
       reparado = 'local';
       avisos.push(`Se quitaron ${local.quitadas} frase(s) que contradecían el estado del juego.`);
+    } else if (!graves) {
+      // Solo fallos leves (una frase ya contada, la hora): no contradicen el
+      // estado. Se queda lo que sobreviva y, si no queda nada, el original:
+      // el procedural repetiría más, no menos.
+      respuesta = { ...respuesta, story: local.story.trim().length >= 20 ? local.story : respuesta.story };
+      reparado = 'local';
     } else if (graves && permitirReparacion && typeof proveedor?.reparar === 'function') {
       try {
         const segundo = await proveedor.reparar(peticion, respuesta._crudo ?? JSON.stringify({ story: respuesta.story }), problemas);

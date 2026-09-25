@@ -30,6 +30,7 @@ import { COTAS_IA } from '../config/balance.config.js';
 import { crearCanal } from '../core/Logger.js';
 import { limpiar, truncar } from '../utils/text.js';
 import { idEstable, TIPO } from '../utils/id.js';
+import { crearRegistro, anotar } from './narrador/Canon.js';
 
 const log = crearCanal('ai');
 
@@ -127,6 +128,24 @@ export class MemoryStore {
      *   notas: string[], turno: number, menciones: number}>}
      */
     this.canon = inicial.canon ?? [];
+
+    /**
+     * Las ediciones deliberadas de canon del jugador, íntegras y con sus
+     * revisiones (ver `ai/narrador/Canon.js`). No se podan ni se recortan.
+     * @type {{version: number, entradas: Array<Object>}}
+     */
+    this.registroCanon = inicial.registroCanon ?? crearRegistro();
+
+    // Partidas de antes: las ediciones vivían entre los hechos, recortadas a
+    // 200 caracteres y podables. Se pasan al registro (lo recortado ya no se
+    // puede recuperar) y se quitan de los hechos.
+    const viejas = this.hechos.filter((h) => h.categoria === 'canon_jugador');
+    if (viejas.length && !this.registroCanon.entradas.length) {
+      for (const h of viejas.sort((a, b) => (a.turno ?? 0) - (b.turno ?? 0))) {
+        this.registroCanon = anotar(this.registroCanon, h.texto, { turno: h.turno ?? 0, fuente: 'jugador (migrado)' }).registro;
+      }
+    }
+    if (viejas.length) this.hechos = this.hechos.filter((h) => h.categoria !== 'canon_jugador');
   }
 
   /* ═══════════════════════════════════════════════════════════════════════
@@ -177,12 +196,9 @@ export class MemoryStore {
 
     this.canon.push(entrada);
 
-    // Techo alto: es la historia del jugador y borrarla sería el mismo fallo
-    // que no guardarla. Si alguna vez desborda, cae lo menos mencionado.
-    if (this.canon.length > 80) {
-      this.canon.sort((a, b) => b.menciones - a.menciones || b.turno - a.turno);
-      this.canon.length = 80;
-    }
+    // Sin techo: es la historia del jugador, y borrar lo menos mencionado
+    // era perderla. Lo que no quepa en una petición lo decide la proyección
+    // de cada turno, que además dice qué se queda fuera.
 
     return { nuevo: true, entrada };
   }
@@ -684,6 +700,7 @@ export class MemoryStore {
       hilos: this.hilos,
       ultimoResumen: this.ultimoResumen,
       canon: this.canon,
+      registroCanon: this.registroCanon,
     };
   }
 
@@ -704,6 +721,7 @@ export class MemoryStore {
     this.hilos = [];
     this.ultimoResumen = 0;
     this.canon = [];
+    this.registroCanon = crearRegistro();
   }
 
   /** Radiografía, para depuración. */

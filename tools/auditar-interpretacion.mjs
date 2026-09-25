@@ -235,7 +235,7 @@ console.log('\n── Conjunto aparte (paráfrasis, erratas, nombres parecidos) 
 
 console.log('\n── Canon: se cambia a propósito, no por una frase de la historia ──');
 {
-  const canonJugador = () => (m.sistema('turns').memoria.hechos ?? []).filter((h) => h.categoria === 'canon_jugador').map((h) => h.texto);
+  const canonJugador = () => (m.sistema('turns').memoria.registroCanon?.entradas ?? []).filter((e) => e.vigente).map((e) => e.texto);
   const turno0 = m.ver('meta.turno', 0);
   let t = await m.jugar('canon: mi hermano Aldo murió en el paso del norte hace dos inviernos');
   comprobar(/Canon anotado/.test(t) && canonJugador().some((c) => /Aldo murió/.test(c)), 'una edición fuera de la historia se anota como canon del jugador', t);

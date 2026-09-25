@@ -47,7 +47,7 @@ export function contextoDeVerificacion(leer, peticion, respuesta) {
     texto: peticion.instantanea?.jugador?.escribe ?? peticion.accion ?? '',
     presentes: presentes.map((n) => ({ nombre: n.nombre, refId: n.refId, vivo: n.situacion !== 'muerto' && !caidos.has(n.refId) })),
     ausentes: todos.filter((n) => !presentesIds.has(n.refId)).map((n) => n.nombre),
-    muertos: todos.filter((n) => n.situacion === 'muerto' || caidos.has(n.refId)).map((n) => n.nombre),
+    muertos: [...todos.filter((n) => n.situacion === 'muerto' || caidos.has(n.refId)).map((n) => n.nombre), ...(peticion.canonMuertos ?? [])],
     nuevos,
     tirada: peticion.tirada ? { exito: Boolean(peticion.tirada.exito) } : null,
     negativa: Boolean(peticion.contexto?.negativa),

@@ -26,11 +26,13 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
+import { proyectar } from './Canon.js';
+
 /** Versión del formato. Sube si cambia la forma. */
-export const VERSION_INSTANTANEA = 1;
+export const VERSION_INSTANTANEA = 2;
 
 /** Presupuesto de la instantánea, en caracteres (≈ 3,5 por token). */
-export const PRESUPUESTO = Object.freeze({ total: 6000, inmediata: 5, yaContado: 14, hechos: 12, canon: 8, conocidos: 8 });
+export const PRESUPUESTO = Object.freeze({ total: 6000, canon: 2400, inmediata: 5, yaContado: 14, hechos: 12, conocidos: 8 });
 
 const recortar = (t, n) => {
   const s = String(t ?? '').replace(/\s+/g, ' ').trim();
@@ -120,14 +122,13 @@ export function construirInstantanea(e, extra = {}) {
     .slice(-PRESUPUESTO.hechos)
     .map((h) => ({ texto: recortar(h.texto, 160), fuente: procedencia(h), turno: h.turno ?? null }));
 
-  const canon = [
-    j.lore ? { texto: recortar(j.lore, 400), fuente: 'jugador', tipo: 'pasado del personaje' } : null,
-    // Lo que el jugador cambió a propósito, fuera de la historia. Lo más
-    // reciente va al final y manda.
-    ...(memoria?.hechos ?? []).filter((h) => h.categoria === 'canon_jugador').slice(-6)
-      .map((h) => ({ texto: recortar(h.texto, 280), fuente: 'jugador (edición deliberada)', tipo: 'canon', turno: h.turno ?? null })),
-    ...(e.canon ?? []).slice(0, PRESUPUESTO.canon).map((c) => ({ texto: recortar(`${c.nombre}${c.rasgos?.length ? ` (${c.rasgos.join(', ')})` : ''}${c.notas?.length ? `: ${c.notas[0]}` : ''}`, 160), fuente: c.origen === 'importado' ? 'jugador (importado)' : 'jugador', tipo: c.tipo ?? 'entidad' })),
-  ].filter(Boolean);
+  // El canon no se recorta: se PROYECTA. Lo pertinente para este turno va
+  // entero; lo que no cabe se nombra como omitido (ver `Canon.js`).
+  const proyeccion = proyectar(
+    { registro: memoria?.registroCanon, lore: j.lore, entidades: memoria?.canon ?? e.canon ?? [] },
+    { texto: extra.texto ?? e.accion ?? '', nombres: [...(e.npcsPresentes ?? []).map((n) => n.nombre), extra.lugar?.nombre ?? ''], presupuesto: PRESUPUESTO.canon },
+  );
+  const canon = proyeccion.entradas;
 
   const resultado = {
     tirada: e.tirada ? {
@@ -204,6 +205,8 @@ export function construirInstantanea(e, extra = {}) {
       hilos: (memoria?.hilosUrgentes?.(turno, 3) ?? []).map((h) => recortar(h.texto, 140)),
     },
     yaContado: frasesContadas(extra.entradas),
+    canonOmitido: proyeccion.completa ? null : { n: proyeccion.omitidas.length, total: proyeccion.total, cuales: proyeccion.omitidas.map((o) => o.resumen) },
+    canonConflictos: proyeccion.conflictos,
   };
 
   return ajustarPresupuesto(instantanea);

@@ -37,6 +37,7 @@ import { preguntaDeMesa, cerrarConPregunta, terminaEnPregunta } from '../ai/Preg
 import { ContextComposer } from '../ai/ContextComposer.js';
 import { construirInstantanea } from '../ai/narrador/Instantanea.js';
 import { filtrarModelo, aplicarNarrativos } from '../ai/narrador/FiltroModelo.js';
+import { anotar, muertosSegunCanon } from '../ai/narrador/Canon.js';
 import { ProceduralProvider } from '../ai/providers/ProceduralProvider.js';
 import { PROVEEDORES } from '../config/ai.config.js';
 import { LIMITES, TIEMPOS } from '../config/app.config.js';
@@ -220,6 +221,9 @@ export class TurnResolver extends SystemBase {
   _instantanea(peticion, texto) {
     const aqui = this.leer('world.ubicacion', null);
     const ficha = this.leer('world.localizaciones.porId.' + aqui, {}) ?? {};
+    // Quién ha muerto según el canon ENTERO: el verificador lo usa aunque
+    // esa entrada no quepa en la petición.
+    peticion.canonMuertos = muertosSegunCanon({ registro: this.memoria.registroCanon, lore: this.leer('player.lore', ''), entidades: this.memoria.canon });
     return construirInstantanea(peticion.contexto, {
       memoria: this.memoria,
       entradas: this.leer('narrative.entradas', []),
@@ -229,6 +233,24 @@ export class TurnResolver extends SystemBase {
       oro: this.leer('player.oro', null),
       texto,
     });
+  }
+
+  /**
+   * Si el canon ya no cabe entero en una petición, se dice (una vez, cuando
+   * pasa): la continuidad deja de estar garantizada por lo enviado.
+   * @private
+   */
+  _avisarCanonIncompleto(inst) {
+    const omitido = inst?.canonOmitido;
+    const antes = this.leer('meta.canonIncompleto', false);
+    const ahora = Boolean(omitido?.n);
+    this.store.fijar('meta.canonIncompleto', ahora);
+    if (ahora && !antes) {
+      this.emitir('ui:notice', {
+        mensaje: `Tu canon ya no cabe entero en una petición gratuita: van las ${inst.memoria.canon.length} entradas más pertinentes de ${omitido.total}. El resto sigue guardado y el juego comprueba lo esencial (quién ha muerto), pero la IA puede no tenerlo delante.`,
+        tipo: 'aviso',
+      });
+    }
   }
 
   /**
@@ -643,6 +665,7 @@ export class TurnResolver extends SystemBase {
       // que un reintento no se cobre dos veces.
       if (this._idDirector() !== PROVEEDORES.PROCEDURAL) {
         peticion.instantanea = this._instantanea(peticion, limpio);
+        this._avisarCanonIncompleto(peticion.instantanea);
         peticion.idTurno = 'p' + String(this.leer('meta.id', null) ?? this.leer('meta.semilla', 0)).slice(-12) + '-t' + numeroTurno;
       }
 
@@ -1250,11 +1273,15 @@ export class TurnResolver extends SystemBase {
    * @private
    */
   _editarCanon(texto) {
-    const limpio = texto.replace(/\s+/g, ' ').slice(0, 280);
-    this.memoria.recordar(limpio, { turno: this.leer('meta.turno', 0), peso: 3, categoria: 'canon_jugador' });
+    // Entero, sin recortar: es su universo.
+    const r = anotar(this.memoria.registroCanon, texto, { turno: this.leer('meta.turno', 0), fuente: 'jugador' });
+    this.memoria.registroCanon = r.registro;
     this.store.fijar('ai.memoria', this.memoria.serializar());
-    this._anadirEntrada(VOCES.SISTEMA, `Canon anotado (fuera de la historia): «${limpio}». A partir de ahora cuenta así.`);
-    return { canon: limpio };
+    const limpio = r.entrada.texto;
+    this._anadirEntrada(VOCES.SISTEMA, r.revisada
+      ? `Canon revisado (fuera de la historia): «${limpio}». Sustituye a «${r.anterior}», que queda en su historial.`
+      : `Canon anotado (fuera de la historia): «${limpio}». A partir de ahora cuenta así.`);
+    return { canon: limpio, revisada: r.revisada };
   }
 
   /**

@@ -18,7 +18,7 @@
 const IRREGULARES = {
   soy: 'eres', estoy: 'estás', voy: 'vas', doy: 'das', hago: 'haces', digo: 'dices',
   pongo: 'pones', tengo: 'tienes', salgo: 'sales', vengo: 'vienes', traigo: 'traes',
-  caigo: 'caes', oigo: 'oyes', sé: 'sabes', se: 'sabes', quepo: 'cabes', veo: 'ves',
+  caigo: 'caes', oigo: 'oyes', sé: 'sabes', quepo: 'cabes', veo: 'ves',
   sigo: 'sigues', pido: 'pides', repito: 'repites', sirvo: 'sirves', mido: 'mides',
   elijo: 'eliges', persigo: 'persigues', consigo: 'consigues', recojo: 'recoges',
   cojo: 'coges', escojo: 'escoges', protejo: 'proteges', dirijo: 'diriges', exijo: 'exiges',
@@ -291,7 +291,13 @@ function convertir(texto) {
   // («siento que algo va mal») es sentir, y eso se deja al bucle de abajo.
   let t = String(texto ?? '')
     .replace(/\bme\s+siento\b(?=\s+(en|sobre|junto|frente|cerca|a\b|al\b))/giu,
-      (m) => (m[0] === m[0].toUpperCase() ? 'Te sientas' : 'te sientas'));
+      (m) => (m[0] === m[0].toUpperCase() ? 'Te sientas' : 'te sientas'))
+    // «se» sin tilde es casi siempre pronombre («lo que se habla», «se lo
+    // digo»). Solo es saber cuando va delante de lo que se sabe («no se
+    // nada», «se que mientes») o cierra la frase («no se.»): quien escribe
+    // sin tildes también juega.
+    .replace(/\b([Ss])e\b(?=\s+(?:nada|que|si|donde|como|quien|cuando|cual|nadie|bien)\b|\s*[.,;!?]|\s*$)/gu,
+      (m, s, i, todo) => (/\b(?:no|yo|ya|bien|y|lo)\s+$/i.test(todo.slice(0, i)) || i === 0 ? `${s === 'S' ? 'S' : 's'}é` : m));
 
   const inf = infinitivoInicial(t);
   if (inf !== null) return inf;

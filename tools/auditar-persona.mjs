@@ -87,6 +87,12 @@ const CASOS = [
   ['le pregunto: ¿dónde está mi hermano?', 'le preguntas: «¿dónde está mi hermano?»'],
   ['me escondo tras la caja: no quiero que me vean', 'te escondes tras la caja: no quieres que te vean'],
 
+  // ── «se» sin tilde: pronombre casi siempre, saber a veces ─────────────
+  ['escucho lo que se habla en la calle', 'escuchas lo que se habla en la calle'],
+  ['se lo digo', 'se lo dices'],
+  ['no se nada', 'no sabes nada'],
+  ['se que mientes', 'sabes que mientes'],
+
   // ── Los nombres no se conjugan ────────────────────────────────────────
   ['Seldar me acompaña', 'Seldar te acompaña'],
   ['Dadar, ¿qué sabes del hierro?', 'Dadar, ¿qué sabes del hierro?'],

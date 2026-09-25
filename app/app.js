@@ -716,6 +716,7 @@ function fichaRetrato(x = {}) {
   return {
     raza: x.raza, nombre: x.nombre, descripcion: x.retrato,
     genero: x.genero, semillaRetrato: x.semillaRetrato,
+    sinIA: Boolean(x.sinRetratoIA),
   };
 }
 
@@ -755,6 +756,31 @@ function pintarRevelacion(p, eco = null) {
       }, 'Cambiar linaje'),
     )
     : null;
+
+  // El retrato generado no siempre sale fiel: el servicio gratuito es el
+  // que es, y no hay forma de comprobar sin coste que pinte el hacha o la
+  // barba. Quien no se reconoce puede pedir otra versión (otra semilla, el
+  // mismo encargo) o quedarse con el retrato que dibuja el juego.
+  const opcionesRetrato = el('div', { class: 'revelacion__opciones' },
+    p.sinRetratoIA ? null : el('button', {
+      class: 'btn btn--pequeno btn--fantasma', id: 'retrato-otra', type: 'button',
+      onClick: protegido('otra versión del retrato', () => {
+        const base = Number.isFinite(p.semillaRetrato) ? p.semillaRetrato : semillaDe(fichaRetrato(p));
+        Object.assign(p, { semillaRetrato: (base + 104729) % 2_000_000, retratoIA: null, sinRetratoIA: false });
+        guardarPersonaje({ ...(obtenerPersonaje(p.id) ?? p), semillaRetrato: p.semillaRetrato, retratoIA: null, sinRetratoIA: false });
+        pintarRevelacion(p);
+      }),
+    }, 'Otra versión'),
+    el('button', {
+      class: 'btn btn--pequeno btn--fantasma', id: 'retrato-dibujado', type: 'button',
+      onClick: protegido('retrato dibujado', () => {
+        const sin = !p.sinRetratoIA;
+        Object.assign(p, { sinRetratoIA: sin, retratoIA: null });
+        guardarPersonaje({ ...(obtenerPersonaje(p.id) ?? p), sinRetratoIA: sin, retratoIA: null });
+        pintarRevelacion(p);
+      }),
+    }, p.sinRetratoIA ? 'Pedir el de la IA' : 'Usar el dibujado'),
+  );
 
   caja.append(el('div', { class: 'revelacion' },
     el('div', { class: 'revelacion__marco' }, cara, estado),
@@ -802,7 +828,7 @@ function pintarRevelacion(p, eco = null) {
   // «generador apagado» debajo de una imagen recién pintada era mentira.
   const ROTULOS = {
     generando: 'La IA está pintando tu retrato…',
-    listo: 'Retrato pintado por la IA a partir de tu descripción.',
+    listo: 'Retrato pintado por la IA a partir de tu descripción. Si no te reconoces, pide otra versión.',
     ausente: 'Sin generador disponible: se muestra el retrato procedural.',
     'sin-red': 'Sin generador disponible: se muestra el retrato procedural.',
   };
@@ -840,7 +866,11 @@ function pintarRevelacion(p, eco = null) {
   cara.addEventListener('retrato-local', contar);
   cara.addEventListener('retrato-ia', contar);
 
-  animarGeneracion(cara, 'Pintando retrato');
+  if (p.sinRetratoIA) {
+    estado.textContent = 'Retrato dibujado por el juego.';
+  } else {
+    animarGeneracion(cara, 'Pintando retrato');
+  }
   pintarRetrato(cara, { ...fichaRetrato(p), inmediato: true });
 
   const pie = $('#creacion-pie');

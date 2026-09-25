@@ -43,7 +43,9 @@ const CASOS = [
     raza: 'sombracorteza',
     descripcion: 'enano pelirrojo con barba trenzada, parche en el ojo derecho, '
       + 'armadura de placas y un martillo de guerra al hombro',
-    exige: ['a man', 'dwarf', 'red hair', 'eyepatch', 'warhammer', 'plate armour',
+    // Sexo y especie juntos: «a dwarf man» es una persona; «a man, a dwarf»
+    // eran dos cosas y el modelo elegía.
+    exige: ['a dwarf man', 'red hair', 'eyepatch', 'warhammer', 'plate armour',
       'braided beard', 'right side'],
     prohibe: ['tall and gaunt', 'one person'],
   },

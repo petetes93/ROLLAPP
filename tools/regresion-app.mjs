@@ -277,7 +277,8 @@ try {
   if (pjHombre.nombre !== pjAntes.nombre) throw new Error(`«mejor que sea hombre» cambió el nombre: ${pjAntes.nombre} → ${pjHombre.nombre}`);
   if (pjHombre.id !== pjAntes.id) throw new Error('la corrección creó otro personaje');
   const encargo = encargoRetrato({ raza: pjHombre.raza, descripcion: pjHombre.retrato, genero: pjHombre.genero });
-  if (!/\ba man\b/.test(encargo) || /\ba woman\b/.test(encargo)) throw new Error(`tras «mejor que sea hombre» el retrato pide: ${encargo}`);
+  // «a man» o, con especie, «an elf man»: sexo y especie van juntos.
+  if (!/\ban? (?:\w+ )?man\b/.test(encargo) || /\bwoman\b/.test(encargo)) throw new Error(`tras «mejor que sea hombre» el retrato pide: ${encargo}`);
 
   // La forja visual dura 720 ms; la captura valida el estado final nítido.
   await new Promise(resolve => setTimeout(resolve, 850));

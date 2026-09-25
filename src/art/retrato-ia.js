@@ -77,7 +77,7 @@ const MINIMO = 8;
  * insistir no mejoraba la imagen y sí le quitaba sitio al sujeto. El anime de
  * verdad vive en el arte vectorial y en las ilustraciones del manifiesto.
  */
-const CABEZA = 'Anime cel shaded bust portrait, head and shoulders, '
+const CABEZA = 'Anime cel shaded bust portrait, head and chest, '
   + 'three-quarter view of';
 
 /**
@@ -97,7 +97,11 @@ const SUJETO_NEUTRO = 'one person';
  */
 export const PALETA = 'limited muted palette of ash grey, iron blue and oxidised bronze, dark low fantasy';
 
-const COLA = `plain flat background, soft overcast light, ${PALETA}`;
+// «plain flat background» a secas salía muchas veces blanco o gris claro,
+// pintado como una lámina con margen: dentro del marco del juego se veía un
+// rectángulo claro alrededor de la cara, unas veces sí y otras no. Fondo
+// oscuro y sin borde, como las escenas.
+const COLA = `plain dark background, full bleed, no border, no frame, no white margin, soft overcast light, ${PALETA}`;
 
 /**
  * Rasgo físico de cada linaje, en inglés.
@@ -237,7 +241,10 @@ const GLOSARIO = Object.freeze([
   // Se perdían todos. «un martillo de guerra al hombro» no dejaba rastro en el
   // encargo, y un guerrero sin su arma es otro personaje.
   ['objeto', /\bmartillo/, 'holding a large warhammer over the shoulder'],
-  ['objeto', /\bhacha/, 'holding a battle axe'],
+  // «a la espalda» o «al hombro»: que se vea el mango asomando, que es lo
+  // que cabe en un busto. «holding» a secas lo dejaba fuera del encuadre.
+  ['objeto', /\bhacha\b[^,.;]*\b(?:espalda|hombro)/, 'a battle axe strapped on the back, its haft visible over the shoulder'],
+  ['objeto', /\bhacha/, 'holding a battle axe close to the chest'],
   ['objeto', /\blanza/, 'holding a spear'],
   ['objeto', /\barco\b|\bballesta/, 'a bow slung across the back'],
   ['objeto', /\bbaston|\bcayado/, 'holding a wooden staff'],
@@ -556,7 +563,12 @@ export function encargoRetrato(personaje = {}) {
   // nombra primero; lo que va detrás describe otras cosas. Si el texto no lo
   // dice, manda la ficha.
   const sexo = sexoDeLaDescripcion(descripcion) ?? SEXO_DE_FICHA[personaje.genero] ?? null;
-  const quienEs = [sexo, porGrupo.get('especie')].filter(Boolean);
+  // «a woman, a dwarf» se leía como dos cosas, y con barba ganaba el hombre.
+  // Junto, «a dwarf woman», es una sola persona.
+  const especieFrase = porGrupo.get('especie');
+  const quienEs = sexo && especieFrase
+    ? [especieFrase.replace(/^(an?) (\w+)/, (_, art, que) => `${art} ${que} ${sexo === 'a woman' ? 'woman' : 'man'}`)]
+    : [sexo, especieFrase].filter(Boolean);
   const frasesSinSexo = frases.filter((f) => !Object.values(SEXO_DE_FICHA).includes(f));
 
   // Detrás de quién es, lo que hace a este personaje reconocible.
@@ -572,7 +584,7 @@ export function encargoRetrato(personaje = {}) {
   // Sin sexo ni especie reconocidos hace falta un sujeto: sin él el encargo
   // empieza por un rasgo suelto y el modelo decide quién es por su cuenta.
   const delante = [...(quienEs.length ? quienEs : [SUJETO_NEUTRO]), ...marca];
-  const resto = frasesSinSexo.filter((f) => !delante.includes(f));
+  const resto = frasesSinSexo.filter((f) => !delante.includes(f) && f !== especieFrase);
 
   // El linaje y los rasgos se unen con coma porque son la misma lista de
   // atributos: pegados con espacio salía «dark hair a scar across the face» y

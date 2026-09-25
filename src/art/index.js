@@ -267,6 +267,8 @@ export function pintarRetrato(nodo, personaje = {}) {
   //
   // La vía remota no exige instalar nada. Si el puente contesta, su resultado
   // llega después y se queda con el nodo; si no, ya hay retrato.
+  // Quien ha elegido el retrato dibujado se queda con él: no se pide nada.
+  if (personaje.sinIA) return;
   mejorarRetratoLocal(nodo, personaje);
   mejorarRetratoIA(nodo, personaje);
 }

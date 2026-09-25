@@ -55,8 +55,9 @@ const corregir = (texto, p = BRUNHILDA) => aplicarCorreccion(p, texto);
   comprobar(p.nombre === 'Brunhilda', 'el nombre se conserva', p.nombre);
   comprobar(p.retrato === 'enano guerrero de barba trenzada pelirroja, hacha a la espalda',
     'la descripción cambia la persona y no la barba', p.retrato);
-  comprobar(/\ba man\b/.test(encargoRetrato(p)) && !/\ba woman\b/.test(encargoRetrato(p)),
-    'el retrato pide «a man»', encargoRetrato(p));
+  // «a man» o, con especie, «a dwarf man»: sexo y especie van juntos.
+  comprobar(/\ba (?:\w+ )?man\b/.test(encargoRetrato(p)) && !/\bwoman\b/.test(encargoRetrato(p)),
+    'el retrato pide un hombre', encargoRetrato(p));
   comprobar(new URL(urlRetrato(p)).searchParams.get('seed') === String(BRUNHILDA.semillaRetrato),
     'con la misma semilla: cambia lo pedido, no la cara');
   comprobar(p.id === BRUNHILDA.id && p.raza === BRUNHILDA.raza && p.clase === BRUNHILDA.clase && p.lore === BRUNHILDA.lore,

@@ -361,6 +361,13 @@ button{font-family:inherit;cursor:pointer}
 /* El retrato generado viene más alto que el marco: se ancla arriba para que
    lo que se pierda sea la banda inferior, donde el servicio pone su marca. */
 .arte--ia{object-position:50% 0}
+/* El margen claro que a veces rodeaba la cara NO era del marco: viene pintado
+   en la imagen (el modelo la entrega como una lámina con paspartú de papel, en
+   seis de cada ocho retratos de prueba, hasta un 8 % por lado). Pedir «sin
+   borde» no lo quita. Se amplía la imagen dentro de su marco, que ya recorta
+   (`contain:paint`): un 18 % quita el margen de los lados y el de arriba, y
+   de paso la marca del servicio de abajo. */
+.arte--ia{transform:scale(1.18);transform-origin:50% 38%}
 /* En el panel lateral NO se ancla arriba del todo.
    El marco es más apaisado que la imagen —lo aplasta `max-height`— así que con
    el anclaje a cero solo se veía desde el pelo hasta la nariz: la frente contra
@@ -682,6 +689,7 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none
 @keyframes llamada{50%{opacity:.62}}
 .inicio__menu{display:flex;flex-direction:column;align-items:center;gap:.9rem;margin-top:clamp(1.2rem,4vh,2.2rem);width:100%}
 .inicio__menu[hidden]{display:none}
+.revelacion__opciones{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;margin-top:.5rem}
 .inicio__volver{min-height:44px;padding:.5rem 1.2rem;border:0;background:none;color:var(--texto-2);font:600 .8rem/1 var(--mono);letter-spacing:.2em;text-transform:uppercase;cursor:pointer}
 .inicio__volver:hover{color:#F0DDA4}
 .inicio[data-estado="menu"] .inicio__jugar{display:none}

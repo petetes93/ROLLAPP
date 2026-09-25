@@ -34,7 +34,11 @@ import * as Mapa from '../../world/MapGraph.js';
 const llano = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 /** Palabras que no identifican nada: se ignoran al buscar de qué se habla. */
-const VACIAS = new Set(['el', 'la', 'los', 'las', 'de', 'del', 'un', 'una', 'al', 'y', 'a', 'en', 'por', 'que', 'se', 'lo', 'le']);
+// También las palabras de la propia pregunta: en «le pregunto otra vez qué
+// pasa» el tema no es «pregunto», y salía «De pregunto no sé nada».
+const VACIAS = new Set(['el', 'la', 'los', 'las', 'de', 'del', 'un', 'una', 'al', 'y', 'a', 'en', 'por', 'que', 'se', 'lo', 'le',
+  'pregunto', 'preguntar', 'preguntarle', 'vuelvo', 'otra', 'vez', 'mas', 'sabes', 'sabe', 'sabeis', 'dime', 'cuentame', 'digo', 'hablo',
+  'algo', 'eso', 'esto', 'aqui', 'ahora', 'tambien', 'entonces', 'bueno', 'vale', 'oye']);
 
 /* ═══════════════════════════════════════════════════════════════════════════
    OFICIOS: DE QUÉ SABE CADA UNO
@@ -90,6 +94,8 @@ export function resolverTema(texto, { lugar, conocidos = [], interlocutor = null
   const n = llano(texto);
 
   if (/\bque (?:te |le |os |les )?(?:ha |han )?(?:pasado|ocurrido|sucedido)\b|\bque (?:te |le )?paso\b|\bestas bien\b/.test(n)) return { tipo: 'suceso' };
+  // «¿Qué pasa aquí?» es lo que está pasando; «qué pasa por aquí», lo que se cuenta.
+  if (/\bque (?:pasa|ocurre|sucede|esta pasando)\b(?! por aqui)/.test(n)) return { tipo: 'suceso' };
   if (/\bquien manda\b|\bquien gobierna\b|\bquien decide\b|\bla autoridad\b|\bel alcalde\b/.test(n)) return { tipo: 'autoridad' };
   if (/\bforaster|\bviajer|\bha(?:s)? visto (?:pasar )?a (?:alguien|algun)|\bdesconocid/.test(n)) return { tipo: 'forasteros' };
 
@@ -105,7 +111,7 @@ export function resolverTema(texto, { lugar, conocidos = [], interlocutor = null
   const palabras = n.split(/[^a-zñ]+/u).filter((p) => p.length > 2 && !VACIAS.has(p));
   // «le pregunto a Vervek por el paso»: el tema va tras «por», no tras «a».
   const tema = n.match(/\b(?:por|sobre|acerca de|hacia|donde esta|donde queda)\s+(?:el |la |los |las |mi |mis |tu |su )?([a-zñ]+)/)?.[1]
-    ?? n.match(/\b(?:de|a)\s+(?:el |la |los |las |mi |mis |tu |su )?([a-zñ]+)/)?.[1]
+    ?? n.match(/\b(?:de|a|del|al)\s+(?:el |la |los |las |mi |mis |tu |su )?([a-zñ]+)/)?.[1]
     ?? palabras[0];
   // Lo que se pregunta, tal como lo dijo: «la luna», «mi hermano».
   const dicho = String(texto).match(/\b(?:por|sobre|acerca de)\s+([^,.;:!?¿¡«»"]+)/i)?.[1]?.trim().split(/\s+/).slice(0, 5).join(' ') ?? tema;

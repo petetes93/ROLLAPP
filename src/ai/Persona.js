@@ -52,7 +52,9 @@ const PRONOMBRES = {
 };
 
 /** Palabras tras las que suele empezar una nueva acción. */
-const TRAS_VERBO = new Set(['y', 'e', 'luego', 'después', 'entonces', 'mientras', 'me', 'te', 'le', 'les', 'lo', 'la', 'los', 'las', 'se', 'no', 'también', 'ya', 'yo', 'nos', 'que', 'pero', 'ni', 'o', 'u', 'si', 'cuando']);
+// «a quien tengo delante», «a donde estaba»: tras un relativo también va un
+// verbo suyo, y se quedaba en primera persona dentro del eco.
+const TRAS_VERBO = new Set(['y', 'e', 'luego', 'después', 'entonces', 'mientras', 'me', 'te', 'le', 'les', 'lo', 'la', 'los', 'las', 'se', 'no', 'también', 'ya', 'yo', 'nos', 'que', 'pero', 'ni', 'o', 'u', 'si', 'cuando', 'quien', 'donde', 'adonde']);
 
 /**
  * Palabras en -o que no son verbos aunque abran cláusula.
@@ -352,7 +354,14 @@ function convertir(texto) {
       //
       // Los posesivos SÍ se convierten —«mi forja» es del jugador y pasa a
       // «tu forja»—; lo que no se toca es el verbo.
-      salida = PRONOMBRES[bajo] ? conMayuscula(p, PRONOMBRES[bajo]) : p;
+      //
+      // Salvo que el verbo sea, sin duda, suyo: «a quien tengo delante» es
+      // lo que tiene él. Un presente en -o (no en -io, que suele ser «vio»)
+      // no es de otro.
+      // Solo tras «quien»: tras «el que», un «quemo» suele ser «quemó» sin
+      // tilde, y es del otro.
+      const suyo = anterior === 'quien' && /^[a-zñ]{2,}[^i]o$/u.test(bajo) && !NO_VERBOS.has(bajo) ? conjugar(bajo) : null;
+      salida = PRONOMBRES[bajo] ? conMayuscula(p, PRONOMBRES[bajo]) : suyo ? conMayuscula(p, suyo) : p;
     } else if (anterior === 'que' && SUBJUNTIVOS[bajo]) {
       // Subjuntivo tras «que»: solo aquí, porque fuera de esa posición estas
       // formas son casi siempre tercera persona («la puerta que cierra mal»).

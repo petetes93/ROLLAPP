@@ -136,6 +136,18 @@ export class MemoryStore {
      */
     this.registroCanon = inicial.registroCanon ?? crearRegistro();
 
+    /**
+     * Lo que un modelo quiso recordar. NO son hechos del mundo: van aparte,
+     * con su procedencia, y ningún PNJ los cuenta como algo que pasó.
+     * @type {Array<{texto: string, turno: number}>}
+     */
+    this.notasNarrador = inicial.notasNarrador ?? [];
+    // Partidas de antes: las notas del narrador estaban entre los hechos.
+    if (this.hechos.some((h) => h.categoria === 'narrador')) {
+      this.notasNarrador.push(...this.hechos.filter((h) => h.categoria === 'narrador').map((h) => ({ texto: h.texto, turno: h.turno ?? 0 })));
+      this.hechos = this.hechos.filter((h) => h.categoria !== 'narrador');
+    }
+
     // Partidas de antes: las ediciones vivían entre los hechos, recortadas a
     // 200 caracteres y podables. Se pasan al registro (lo recortado ya no se
     // puede recuperar) y se quitan de los hechos.
@@ -701,7 +713,20 @@ export class MemoryStore {
       ultimoResumen: this.ultimoResumen,
       canon: this.canon,
       registroCanon: this.registroCanon,
+      notasNarrador: this.notasNarrador,
     };
+  }
+
+  /**
+   * Apunta una nota del narrador (lo que un modelo quiso recordar).
+   * @param {string} texto
+   * @param {number} turno
+   */
+  anotarNarrador(texto, turno = 0) {
+    const limpio = limpiar(String(texto ?? ''));
+    if (!limpio || this.notasNarrador.some((n) => n.texto === limpio)) return;
+    this.notasNarrador.push({ texto: truncar(limpio, 200), turno });
+    if (this.notasNarrador.length > 30) this.notasNarrador = this.notasNarrador.slice(-30);
   }
 
   /**
@@ -722,6 +747,7 @@ export class MemoryStore {
     this.ultimoResumen = 0;
     this.canon = [];
     this.registroCanon = crearRegistro();
+    this.notasNarrador = [];
   }
 
   /** Radiografía, para depuración. */

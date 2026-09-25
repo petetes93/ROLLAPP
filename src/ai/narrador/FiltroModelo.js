@@ -57,9 +57,41 @@ export function contextoDeVerificacion(leer, peticion, respuesta) {
     secretos: presentes.flatMap((n) => n.conocimiento?.secretos ?? []),
     inexistentes: (peticion.contexto?.interpretacion?.segmentos ?? []).flatMap((s) => s.referentes ?? []).filter((r) => r.estado === 'inexistente').map((r) => r.palabra),
     caidos: combate.filter((c) => (c.vida?.actual ?? 1) <= 0).map((c) => c.nombre),
+    enCombate: combate.length > 0,
     yaContado: peticion.instantanea?.yaContado ?? [],
     conocidos: todos.map((n) => n.nombre),
+    ...evidenciaDelMotor(peticion),
   };
+}
+
+/** Pruebas en las que una percepción cuenta como hallazgo. */
+const HALLAZGO = /percep|investig|superviv|rastre|buscar|busqueda/;
+
+/**
+ * Lo que el MOTOR dice que ha pasado este turno, que es la única evidencia
+ * que vale para un efecto. Que el modelo escriba un nombre en su narración
+ * no prueba nada: la narración la escribe él.
+ *
+ *   · implicados: con quién ha tratado el jugador (a quién se dirigió según
+ *     la interpretación, ante quién se negó, los actores de la situación en
+ *     que intervino).
+ *   · hallazgo: si el motor resolvió que ha encontrado o visto algo (una
+ *     tirada de percepción o búsqueda con éxito, un detalle de la escena).
+ *
+ * @param {Object} peticion
+ * @returns {{implicados: string[], hallazgo: boolean, tiradaExito: boolean|null}}
+ */
+export function evidenciaDelMotor(peticion) {
+  const ctx = peticion.contexto ?? {};
+  const implicados = new Set();
+  for (const s of ctx.interpretacion?.segmentos ?? []) {
+    if (s.destinatario?.estado === 'presente' && s.destinatario.refId) implicados.add(s.destinatario.refId);
+  }
+  if (ctx.negativa?.refId) implicados.add(ctx.negativa.refId);
+  if (ctx.situacionResultado) for (const a of ctx.situacion?.actores ?? []) if (a?.refId) implicados.add(a.refId);
+  const t = peticion.tirada;
+  const hallazgo = Boolean(ctx.detalleEscena) || Boolean(t?.exito && HALLAZGO.test(String(t.habilidad ?? t.nombreHabilidad ?? '').toLowerCase()));
+  return { implicados: [...implicados], hallazgo, tiradaExito: t ? Boolean(t.exito) : null };
 }
 
 /** Campos que un modelo no puede traer a la partida por su cuenta. */
@@ -130,6 +162,10 @@ export async function filtrarModelo({ resultado, peticion, leer, proveedor = nul
     conocidos: c.conocidos,
     story: respuesta.story,
     secretos: c.secretos,
+    implicados: c.implicados,
+    hallazgo: c.hallazgo,
+    tiradaExito: c.tiradaExito,
+    inexistentes: c.inexistentes,
   });
   if (respuesta._sinEfectos && (respuesta.proposedEffects?.length || Object.keys(respuesta.playerUpdates ?? {}).length)) {
     rechazados.push({ tipo: '*', motivo: 'respuesta rescatada de prosa: sin efectos' });
@@ -191,7 +227,9 @@ export function aplicarNarrativos(aceptados, s) {
         hecho.push('pista');
         break;
       case 'nota_narrador':
-        s.memoria.recordar(a.texto, { turno: s.turno, peso: 1, categoria: 'narrador' });
+        // No es un hecho del mundo: va aparte, como nota del narrador, y
+        // nadie la contará después como algo que pasó.
+        s.memoria.anotarNarrador?.(a.texto, s.turno);
         hecho.push('nota');
         break;
       default:

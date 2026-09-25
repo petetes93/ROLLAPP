@@ -203,6 +203,9 @@ export function construirInstantanea(e, extra = {}) {
       saga: hechos,
       canon,
       hilos: (memoria?.hilosUrgentes?.(turno, 3) ?? []).map((h) => recortar(h.texto, 140)),
+      // Lo que el narrador quiso recordar: para su continuidad, no es un
+      // hecho del mundo y así se marca.
+      notasDelNarrador: (memoria?.notasNarrador ?? []).slice(-6).map((n) => ({ texto: recortar(n.texto, 160), fuente: 'narrador (no es un hecho del motor)', turno: n.turno })),
     },
     yaContado: frasesContadas(extra.entradas),
     canonOmitido: proyeccion.completa ? null : { n: proyeccion.omitidas.length, total: proyeccion.total, cuales: proyeccion.omitidas.map((o) => o.resumen) },

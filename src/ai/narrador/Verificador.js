@@ -186,6 +186,10 @@ export function verificar(story, c) {
     if (noche && /\b(?:amanece|a pleno sol|sol de mediodia|a mediodia)\b/.test(n)) anadir('fase_horaria', false, `es ${c.franja}`);
 
     // ─── Combate ──────────────────────────────────────────────────────────
+    // El motor no tiene posiciones, coberturas ni flancos: no se narran.
+    if (c.enCombate && /\b(?:(?:te cubres|se cubre|se parapeta|te parapetas|se esconde|te escondes|a cubierto) (?:tras|detras de|bajo)|flanque\w*|por el flanco|le rodea\w*|os rodean|tomas? (?:la )?posicion)\b/.test(n)) {
+      anadir('geometria_inventada', false, 'el motor no tiene posiciones ni cobertura');
+    }
     for (const caido of c.caidos ?? []) {
       if (new RegExp(`\\b${llano(caido)}\\b[^.]{0,40}\\b(?:ataca|golpea|lanza|embiste|muerde|dispara|carga|arremete)`).test(n)) anadir('caido_ataca', true, `${caido} ya cayó`);
     }

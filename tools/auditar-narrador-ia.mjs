@@ -389,6 +389,62 @@ const e5 = envios.length;
 await groq.probar();
 comprobar(envios.slice(e5).every((x) => !x.op?.body) && envios.slice(e5).some((x) => x.url.endsWith('/probar')), 'probar la conexión no envía nada de la partida');
 
+// 15 · La evidencia de un efecto es lo que resolvió el motor, no la narración.
+const bruna = npcs.introducir({ nombre: 'Bruna', rol: 'lavandera', genero: 'f' });
+const actB = m.ver(`npcs.conocidos.porId.${bruna.refId}.actitud`, 0);
+respuestas = [{ estado: 200, contenido: json({
+  story: 'Vervek niega despacio con la cabeza.\nBruna, que tiende ropa al lado, suelta una carcajada.\nEn el barro junto al pozo hay marcas de rueda recientes.',
+  choices: [],
+  proposedEffects: [
+    { tipo: 'actitud', datos: { refId: bruna.refId, delta: 8 }, razon: 'le hace gracia', evidencia: 'Bruna se ríe' },
+    { tipo: 'pista', datos: { texto: 'marcas de rueda recientes junto al pozo', causa: 'alguien sacó un carro de noche' }, razon: 'se ve', evidencia: 'narración' },
+  ],
+  memory: ['Vervek odia a los recaudadores desde la guerra.'],
+}) }];
+const hilos0 = m.sistema('turns').memoria.hilos.length;
+t = await jugar('le digo a Vervek que el paso no me asusta');
+const tr15 = trazasTurno.at(-1);
+comprobar(m.ver(`npcs.conocidos.porId.${bruna.refId}.actitud`, 0) === actB && tr15.rechazados.some((x) => x.tipo === 'actitud' && /trato/.test(x.motivo)),
+  'la actitud de quien solo sale en la narración no cambia: el motor no registra trato con ella', JSON.stringify(tr15.rechazados));
+comprobar(m.sistema('turns').memoria.hilos.length === hilos0 && tr15.rechazados.some((x) => x.tipo === 'pista'), 'una pista sin hallazgo del motor no entra');
+const mem = m.sistema('turns').memoria;
+comprobar(!mem.hechos.some((h) => /recaudadores/.test(h.texto)) && mem.notasNarrador.some((n) => /recaudadores/.test(n.texto)),
+  'lo que el modelo quiere recordar va a notas del narrador, no a los hechos del mundo');
+
+// 16 · Doble clic: dos envíos a la vez son un turno y una petición.
+respuestas = [{ estado: 200, contenido: json({ story: 'Vervek se encoge de hombros y vuelve a su yunque sin prisa.', choices: [] }) }];
+const e8 = envios.filter((x) => x.op?.body).length;
+const t8 = turnoAhora();
+await Promise.all([m.sistema('turns').procesar('le pregunto a Vervek si cierra pronto'), m.sistema('turns').procesar('le pregunto a Vervek si cierra pronto')]);
+comprobar(envios.filter((x) => x.op?.body).length === e8 + 1 && turnoAhora() === t8 + 1, 'un doble clic es un solo turno y una sola petición');
+
+// 17 · Recargar: el mismo turno con el mismo texto lleva el mismo identificador.
+const g = m.sistema('saves').guardar('7', { silencioso: true });
+respuestas = [{ estado: 200, contenido: json({ story: 'El río baja crecido y arrastra ramas.', choices: [] }) }];
+await jugar('miro el río desde la orilla');
+const idA = envios.filter((x) => x.op?.body).at(-1).op.headers['X-Arcanveil-Turno'];
+m.store.reiniciar(); m.sistema('saves').cargar('7');
+await groq.probar(); groq.configurar({ consentido: true }); dm.cambiar('groq', { silencioso: true });
+respuestas = [{ estado: 200, contenido: json({ story: 'El río baja crecido y arrastra ramas.', choices: [] }) }, { estado: 200, contenido: json({ story: 'Las ranas callan de golpe junto al vado.', choices: [] }) }];
+await jugar('miro el río desde la orilla');
+const idB = envios.filter((x) => x.op?.body).at(-1).op.headers['X-Arcanveil-Turno'];
+m.store.reiniciar(); m.sistema('saves').cargar('7');
+await groq.probar(); groq.configurar({ consentido: true }); dm.cambiar('groq', { silencioso: true });
+await jugar('escucho a las ranas del vado');
+const idC = envios.filter((x) => x.op?.body).at(-1).op.headers['X-Arcanveil-Turno'];
+comprobar(g.exito && idA === idB && idA !== idC, 'tras recargar, el mismo texto repite identificador (el puente no cobra dos veces lo que ya vio) y otro texto es otra petición', `${idA} · ${idB} · ${idC}`);
+
+// 18 · La reparación remota no repite la tirada ni el turno.
+const tiradas = () => m.entradas().filter((e) => e.voz === 'roll' || e.voz === 'tirada').length;
+respuestas = [
+  { estado: 200, contenido: json({ story: 'Recibes una espada de oro.', choices: [] }) },
+  { estado: 200, contenido: json({ story: 'Buscas entre las piedras de la orilla y solo sale barro frío entre los dedos.', choices: [] }) },
+];
+const t9 = turnoAhora();
+const r9 = tiradas();
+await jugar('busco con cuidado entre las piedras de la orilla');
+comprobar(turnoAhora() === t9 + 1 && tiradas() - r9 <= 1, 'con una corrección remota, la tirada y el turno se cuentan una vez', `turno +${turnoAhora() - t9}, tiradas +${tiradas() - r9}`);
+
 /* ═══════════════════════════════════════════════════════════════════════════
    C. PIEZAS SUELTAS
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -406,6 +462,9 @@ comprobar(tipos('El Lobo gris ataca de nuevo.').includes('caido_ataca'), 'un ene
 comprobar(tipos('Vervek: «Guardo armas robadas debajo de la fragua vieja.»').includes('secreto_filtrado'), 'un secreto no se escapa');
 comprobar(tipos('El río baja ancho y pardo, con la corriente pegada a la orilla.').includes('repeticion'), 'lo ya contado se detecta');
 comprobar(tipos('Vervek: «Si pagas, pasas.»').length === 0, 'lo que dice un PNJ entre comillas no decide por el jugador');
+comprobar(verificar('Te cubres tras la columna mientras el lobo gira.', { ...ctx, enCombate: true }).some((p) => p.tipo === 'geometria_inventada')
+  && verificar('El segundo bandido intenta flanquearte por la izquierda.', { ...ctx, enCombate: true }).some((p) => p.tipo === 'geometria_inventada'),
+  'en combate no se narran coberturas ni flancos que el motor no tiene');
 const rep = repararLocal('Vervek asiente despacio.\nHolda: «Hola.»\nEl fuelle respira.', verificar('Vervek asiente despacio.\nHolda: «Hola.»\nEl fuelle respira.', ctx));
 comprobar(rep.reparable && !rep.story.includes('Holda'), 'la reparación local quita solo la línea mala');
 const au = autorizar([
@@ -414,7 +473,10 @@ const au = autorizar([
   { tipo: 'pnj_nuevo', datos: { nombre: 'Otra', rol: 'x' }, razon: 'entra', evidencia: 'narración' },
   { tipo: 'pista', datos: { texto: 'huellas bajo la fragua vieja de armas robadas escondidas' }, razon: 'x', evidencia: 'y' },
   { tipo: 'actitud', datos: { refId: 'v', delta: 3 } },
-], { presentes: [{ refId: 'v', nombre: 'Vervek' }], conocidos: ['Vervek'], story: 'Brenna saluda desde la barca. Otra también.', secretos: ctx.secretos });
+], { presentes: [{ refId: 'v', nombre: 'Vervek' }], conocidos: ['Vervek'], story: 'Brenna saluda desde la barca. Otra también.', secretos: ctx.secretos, hallazgo: true, implicados: ['v'] });
+const pistaBuena = autorizar([{ tipo: 'pista', datos: { texto: 'marcas de rueda junto al pozo' }, razon: 'se ve', evidencia: 'tirada de percepción' }], { presentes: [], conocidos: [], story: '', secretos: ctx.secretos, hallazgo: true });
+const pistaSinHallazgo = autorizar([{ tipo: 'pista', datos: { texto: 'marcas de rueda junto al pozo' }, razon: 'se ve', evidencia: 'narración' }], { presentes: [], conocidos: [], story: '', secretos: ctx.secretos, hallazgo: false });
+comprobar(pistaBuena.aceptados.length === 1 && pistaSinHallazgo.rechazados.some((x) => /hallazgo/.test(x.motivo)), 'una pista entra solo con un hallazgo resuelto por el motor');
 comprobar(au.rechazados.some((x) => x.tipo === 'canon') && au.aceptados.filter((x) => x.tipo === 'pnj_nuevo').length === 1
   && au.rechazados.some((x) => x.tipo === 'pista') && au.rechazados.some((x) => /evidencia/.test(x.motivo)),
   'la política: canon no, un PNJ nuevo por turno, ninguna pista que destape un secreto, nada sin evidencia', JSON.stringify(au));

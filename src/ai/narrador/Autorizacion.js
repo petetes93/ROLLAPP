@@ -84,7 +84,9 @@ export function autorizar(propuestas, c) {
   const presentes = new Map((c.presentes ?? []).map((p) => [p.refId, p]));
   const conocidos = new Set((c.conocidos ?? []).map((n) => llano(n)));
   const story = llano(c.story);
+  const implicados = new Set(c.implicados ?? []);
   let nuevos = 0;
+  let elementos = 0;
 
   const no = (p, motivo) => rechazados.push({ tipo: p?.tipo ?? '?', motivo });
 
@@ -102,7 +104,13 @@ export function autorizar(propuestas, c) {
         const delta = Math.round(Number(d.delta));
         if (!npc) { no(p, 'ese PNJ no está presente'); break; }
         if (!Number.isFinite(delta) || delta === 0) { no(p, 'sin cambio'); break; }
-        aceptados.push({ tipo, refId: npc.refId, delta: Math.max(-10, Math.min(10, delta)), motivo: String(p.razon ?? '').slice(0, 120) });
+        // Solo cambia lo que siente quien ha tratado con el jugador según el
+        // MOTOR, no según la narración.
+        if (!implicados.has(npc.refId)) { no(p, 'el motor no registra trato con ese PNJ este turno'); break; }
+        // Con tirada, el signo no puede contradecirla; sin tirada, cambios pequeños.
+        if (c.tiradaExito === false && delta > 0) { no(p, 'la tirada falló: no mejora la actitud'); break; }
+        const tope = c.tiradaExito === null || c.tiradaExito === undefined ? 5 : 10;
+        aceptados.push({ tipo, refId: npc.refId, delta: Math.max(-tope, Math.min(tope, delta)), motivo: String(p.razon ?? '').slice(0, 120) });
         break;
       }
       case 'recuerdo_pnj': {
@@ -110,6 +118,9 @@ export function autorizar(propuestas, c) {
         const texto = String(d.texto ?? '').trim().slice(0, 200);
         if (!npc || !texto) { no(p, 'sin PNJ presente o sin texto'); break; }
         const t = ['dicho', 'compartido', 'visto'].includes(d.tipo) ? d.tipo : 'dicho';
+        // Lo que se dijo o se contó exige haber hablado con él; lo que vio,
+        // solo estar allí.
+        if (t !== 'visto' && !implicados.has(npc.refId)) { no(p, 'el motor no registra que hablara con ese PNJ'); break; }
         aceptados.push({ tipo, refId: npc.refId, texto, recuerdo: t });
         break;
       }
@@ -117,9 +128,13 @@ export function autorizar(propuestas, c) {
         const texto = String(d.texto ?? '').trim().slice(0, 140);
         if (!texto) { no(p, 'sin texto'); break; }
         if (PERSONA.test(llano(texto))) { no(p, 'mete gente en escena: eso es pnj_nuevo'); break; }
+        if (elementos >= 1) { no(p, 'un elemento de escena por turno'); break; }
+        // Lo que el motor dijo que NO hay no lo crea el narrador.
+        if ((c.inexistentes ?? []).some((w) => llano(texto).includes(llano(w).replace(/s$/, '')))) { no(p, 'el motor dijo que eso no está'); break; }
         // Solo lo que de verdad se ha narrado: no se registra lo que no se ve.
         const claves = llano(texto).split(/[^\p{L}]+/u).filter((w) => w.length >= 4);
         if (claves.length && !claves.some((w) => story.includes(w))) { no(p, 'no aparece en la narración'); break; }
+        elementos += 1;
         aceptados.push({ tipo, texto });
         break;
       }
@@ -137,6 +152,9 @@ export function autorizar(propuestas, c) {
       case 'pista': {
         const texto = String(d.texto ?? '').trim().slice(0, 200);
         if (!texto) { no(p, 'sin texto'); break; }
+        // Una pista sale de algo que el motor ha resuelto: mirar bien, buscar,
+        // el detalle de la escena. No de la inventiva del narrador.
+        if (!c.hallazgo) { no(p, 'el motor no ha resuelto ningún hallazgo este turno'); break; }
         if ((c.secretos ?? []).some((s) => pareceSecreto(texto, s))) { no(p, 'revelaría un secreto antes de tiempo'); break; }
         aceptados.push({ tipo, texto, causa: String(d.causa ?? '').slice(0, 160) || null });
         break;

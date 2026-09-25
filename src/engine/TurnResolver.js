@@ -48,6 +48,13 @@ import { evaluar } from '../core/Dice.js';
 import { sinAcentos } from '../utils/text.js';
 import { interpretarTurno, escenaDesde } from './Interpretacion.js';
 
+/** Una huella corta y estable de un texto (FNV-1a), para identificar peticiones. */
+function huellaCorta(texto) {
+  let h = 0x811c9dc5;
+  for (const c of String(texto)) { h ^= c.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(36);
+}
+
 /** Edición deliberada del canon, fuera de la ficción: «canon: …», «(fuera de personaje): …». */
 const CANON_FUERA = /^\s*(?:\(\s*)?(?:canon|fuera de personaje|fuera de la historia|ooc)(?:\s*\))?\s*[:：]\s*(.{3,})$/iu;
 
@@ -666,7 +673,10 @@ export class TurnResolver extends SystemBase {
       if (this._idDirector() !== PROVEEDORES.PROCEDURAL) {
         peticion.instantanea = this._instantanea(peticion, limpio);
         this._avisarCanonIncompleto(peticion.instantanea);
-        peticion.idTurno = 'p' + String(this.leer('meta.id', null) ?? this.leer('meta.semilla', 0)).slice(-12) + '-t' + numeroTurno;
+        // Partida, turno y lo escrito: tras recargar, el mismo turno con el
+        // mismo texto reutiliza la respuesta que el puente ya vio; con otro
+        // texto es otra petición.
+        peticion.idTurno = 'p' + String(this.leer('meta.id', null) ?? this.leer('meta.semilla', 0)).slice(-12) + '-t' + numeroTurno + '-' + huellaCorta(limpio);
       }
 
       // ─── 5. El director narra ─────────────────────────────────────────

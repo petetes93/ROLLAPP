@@ -115,12 +115,17 @@ export function construirInstantanea(e, extra = {}) {
     .map((c) => ({ nombre: c.nombre, rol: c.rol, donde: c.lugar ?? 'desconocido' }));
 
   const hechos = (memoria?.hechosRelevantes?.(40) ?? [])
+    .filter((h) => h.categoria !== 'canon_jugador')
     .filter((h) => (h.peso ?? 1) >= 2 || h.categoria === 'suceso' || /^Según /.test(h.texto))
     .slice(-PRESUPUESTO.hechos)
     .map((h) => ({ texto: recortar(h.texto, 160), fuente: procedencia(h), turno: h.turno ?? null }));
 
   const canon = [
     j.lore ? { texto: recortar(j.lore, 400), fuente: 'jugador', tipo: 'pasado del personaje' } : null,
+    // Lo que el jugador cambió a propósito, fuera de la historia. Lo más
+    // reciente va al final y manda.
+    ...(memoria?.hechos ?? []).filter((h) => h.categoria === 'canon_jugador').slice(-6)
+      .map((h) => ({ texto: recortar(h.texto, 280), fuente: 'jugador (edición deliberada)', tipo: 'canon', turno: h.turno ?? null })),
     ...(e.canon ?? []).slice(0, PRESUPUESTO.canon).map((c) => ({ texto: recortar(`${c.nombre}${c.rasgos?.length ? ` (${c.rasgos.join(', ')})` : ''}${c.notas?.length ? `: ${c.notas[0]}` : ''}`, 160), fuente: c.origen === 'importado' ? 'jugador (importado)' : 'jugador', tipo: c.tipo ?? 'entidad' })),
   ].filter(Boolean);
 

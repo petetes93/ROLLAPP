@@ -47,6 +47,9 @@ import { evaluar } from '../core/Dice.js';
 import { sinAcentos } from '../utils/text.js';
 import { interpretarTurno, escenaDesde } from './Interpretacion.js';
 
+/** Edición deliberada del canon, fuera de la ficción: «canon: …», «(fuera de personaje): …». */
+const CANON_FUERA = /^\s*(?:\(\s*)?(?:canon|fuera de personaje|fuera de la historia|ooc)(?:\s*\))?\s*[:：]\s*(.{3,})$/iu;
+
 /** Aceptar lo que está sobre la mesa. */
 const ACEPTA = /^(?:si,?\s*)?(?:acepto|lo acepto|acepto el encargo|cuenta conmigo|lo hare|me encargo|me encargo yo|trato hecho|vale,? (?:lo hago|acepto|me encargo))\b/;
 /** Decir que no. */
@@ -382,6 +385,14 @@ export class TurnResolver extends SystemBase {
       this.emitir(EVENTOS_TURNO.BLOQUEADO, { motivo: 'la crónica ha terminado' });
       return null;
     }
+
+    // ─── 0. Cambiar el canon, a propósito y fuera de la historia ───────
+    // «canon: mi hermano murió en el paso» es el jugador editando su propio
+    // universo, no su personaje diciendo algo. Solo así se cambia el canon:
+    // lo que diga un PNJ, una suposición o una frase dentro de la ficción no
+    // lo reescribe. No consume turno ni pasa por ningún narrador.
+    const edicion = limpio.match(CANON_FUERA);
+    if (edicion) return this._editarCanon(edicion[1].trim());
 
     // ─── 1. Interpretación ──────────────────────────────────────────────
     const contextoIntencion = {
@@ -1225,6 +1236,25 @@ export class TurnResolver extends SystemBase {
     this.memoria.recordar(`${jugador} se negó ante ${npc.nombre}: ${cita}`, { turno, peso: 3 });
     this.sistema('npcs')?.recordar?.(npc.refId, `Se negó: ${cita}`, { tipo: 'negativa', peso: 3 });
     return { nombre: npc.nombre, refId: npc.refId, actitud: npc.actitud ?? 0, cita };
+  }
+
+  /**
+   * Anota un cambio de canon que el jugador hace fuera de la historia.
+   *
+   * Queda con su procedencia (el jugador) y su turno, y viaja en el canon
+   * de la instantánea; si choca con algo anterior, vale lo más reciente. No
+   * es un turno: el mundo no avanza.
+   *
+   * @param {string} texto
+   * @returns {{canon: string}}
+   * @private
+   */
+  _editarCanon(texto) {
+    const limpio = texto.replace(/\s+/g, ' ').slice(0, 280);
+    this.memoria.recordar(limpio, { turno: this.leer('meta.turno', 0), peso: 3, categoria: 'canon_jugador' });
+    this.store.fijar('ai.memoria', this.memoria.serializar());
+    this._anadirEntrada(VOCES.SISTEMA, `Canon anotado (fuera de la historia): «${limpio}». A partir de ahora cuenta así.`);
+    return { canon: limpio };
   }
 
   /**

@@ -228,6 +228,28 @@ console.log('\n── Conjunto aparte (paráfrasis, erratas, nombres parecidos) 
   comprobar(marla?.refId && destinatario(t, 'Marla', nombres, 'hipótesis'), 'y contesta Marla', t);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   4. CANON: SOLO A PROPÓSITO Y FUERA DE LA HISTORIA
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+console.log('\n── Canon: se cambia a propósito, no por una frase de la historia ──');
+{
+  const canonJugador = () => (m.sistema('turns').memoria.hechos ?? []).filter((h) => h.categoria === 'canon_jugador').map((h) => h.texto);
+  const turno0 = m.ver('meta.turno', 0);
+  let t = await m.jugar('canon: mi hermano Aldo murió en el paso del norte hace dos inviernos');
+  comprobar(/Canon anotado/.test(t) && canonJugador().some((c) => /Aldo murió/.test(c)), 'una edición fuera de la historia se anota como canon del jugador', t);
+  comprobar(m.ver('meta.turno', 0) === turno0, 'y no gasta turno ni mueve el mundo');
+
+  await m.jugar('le digo a Marla: «Mi hermano sigue vivo, lo sé»');
+  await m.jugar('si mi hermano estuviera vivo, iría a buscarlo');
+  comprobar(canonJugador().length === 1, 'lo que dice el personaje o una hipótesis no reescribe el canon', JSON.stringify(canonJugador()));
+
+  m.guardarYCargar();
+  const turnos = m.sistema('turns');
+  const inst = turnos._instantanea({ contexto: turnos._compositor.componerEstructurado({ accion: '', tipo: 'narracion' }) }, '');
+  comprobar(inst.memoria.canon.some((c) => /Aldo murió/.test(c.texto) && /deliberada/.test(c.fuente)), 'tras guardar y cargar, viaja en el canon de la instantánea con su procedencia', JSON.stringify(inst.memoria.canon).slice(0, 300));
+}
+
 console.log(`\n${casos - fallos}/${casos} comprobaciones · destinatario errado: ${errados.length}${errados.length ? ` (${errados.join('; ')})` : ''}`);
 console.log(fallos ? `\n${fallos} fallos.` : '\nTodo bien.');
 process.exit(fallos ? 1 : 0);

@@ -43,8 +43,7 @@ import { VOCES } from '../config/ui.config.js';
 import { idEntidad, TIPO } from '../utils/id.js';
 import { evaluar } from '../core/Dice.js';
 import { sinAcentos } from '../utils/text.js';
-import { segmentar, ordenar } from './Segmentos.js';
-import { oficioAusente } from './Presentes.js';
+import { interpretarTurno, escenaDesde } from './Interpretacion.js';
 
 /** Aceptar lo que está sobre la mesa. */
 const ACEPTA = /^(?:si,?\s*)?(?:acepto|lo acepto|acepto el encargo|cuenta conmigo|lo hare|me encargo|me encargo yo|trato hecho|vale,? (?:lo hago|acepto|me encargo))\b/;
@@ -59,8 +58,38 @@ const META = /^(?:me propongo|mi objetivo es|me marco como objetivo|he decidido|
  * @returns {string}
  */
 function unirHechos(hechos) {
-  const t = hechos.map((x) => x.texto.replace(/[.;,]+$/u, '').trim()).filter(Boolean);
+  // Lo que dijo sin comillas se cita tal cual: son sus palabras, no algo que
+  // haga. Y lo que nombra algo que aquí no hay no se cuenta como hecho.
+  const t = hechos.filter((x) => !x.sinReferente)
+    .map((x) => (x.citaImplicita ? `le digo: «${x.texto.replace(/[.;,]+$/u, '').trim()}»` : x.texto.replace(/[.;,]+$/u, '').trim()))
+    .filter(Boolean)
+    // «… y Espero»: lo que sigue va en minúscula, salvo que empiece por nombre.
+    .map((x, i) => (i && /^\p{Lu}\p{Ll}+[oé]\b/u.test(x) ? x[0].toLowerCase() + x.slice(1) : x));
   return t.length <= 1 ? (t[0] ?? '') : `${t.slice(0, -1).join(', ')} y ${t.at(-1)}`;
+}
+
+/**
+ * La interpretación en limpio, para el contexto de quien narre: sin las
+ * funciones de la escena y con solo lo que cambia la narración.
+ * @param {import('./Interpretacion.js').Interpretacion} ir
+ */
+function resumirInterpretacion(ir) {
+  const quien = (d) => (d ? { estado: d.estado, nombre: d.quien?.nombre ?? null, refId: d.quien?.id ?? null, implicito: Boolean(d.implicito) } : null);
+  return {
+    texto: ir.texto,
+    segmentos: ir.segmentos.map((s) => ({
+      tipo: s.tipo,
+      texto: s.texto,
+      polaridad: s.polaridad,
+      pregunta: Boolean(s.pregunta),
+      hipotesis: Boolean(s.hipotesis),
+      citaLiteral: Boolean(s.citaImplicita) || /[«"“]/.test(s.texto),
+      condicion: s.condicion ?? null,
+      consecuencia: s.consecuencia ?? null,
+      destinatario: quien(s.destinatario),
+      referentes: s.referentes.map((r) => ({ palabra: r.palabra, clase: r.clase, estado: r.estado })),
+    })),
+  };
 }
 
 /** Verbos de hablar con alguien, sin tildes: «le pregunto», «hablo», «le cuento». */
@@ -180,6 +209,48 @@ export class TurnResolver extends SystemBase {
   }
 
   /**
+   * Lo que el mundo ha puesto delante, aquí y en otros lugares, para
+   * resolver a qué se refiere el jugador.
+   * @private
+   */
+  _textosDeEscena() {
+    const aqui = this.leer('world.ubicacion', null);
+    const sits = this.sistema('situations');
+    // Lo que está pasando cuenta como aquí; lo que ya acabó, aunque fuera en
+    // este sitio, como antes: el carretero se fue con su carro.
+    const todas = sits?.todas?.() ?? [];
+    const abiertas = todas.filter((s) => s.lugar === aqui && s.estado === 'abierta');
+    const lugares = new Set(todas.map((s) => s.lugar).filter(Boolean));
+    return {
+      textos: [...(this.memoria.contextoDeEscena?.() ?? []), ...(sits?.textosDe?.(aqui, { soloAbiertas: true }) ?? [])],
+      antes: [...lugares].flatMap((lugar) => (sits.textosDe(lugar, { soloCerradas: lugar === aqui }) ?? []).map((texto) => ({ lugar, texto }))),
+      papeles: abiertas.flatMap((s) => Object.entries(s.actores ?? {}).map(([papel, a]) => ({ papel, quien: { id: a.refId, nombre: a.nombre } }))),
+    };
+  }
+
+  /**
+   * Registra algo que pasa a estar en la escena: lo introduce el narrador
+   * autorizado o un sistema. Queda guardado con su lugar, su fuente y su
+   * turno; es lo que luego permite decir «el carro que viste en el vado».
+   *
+   * @param {string} texto
+   * @param {Object} [opciones]
+   * @param {string} [opciones.fuente='motor']
+   * @param {string} [opciones.lugar]
+   */
+  registrarElemento(texto, { fuente = 'motor', lugar = this.leer('world.ubicacion', null) } = {}) {
+    const limpio = String(texto ?? '').trim().slice(0, 160);
+    if (!limpio || !lugar) return false;
+    const todos = { ...(this.leer('world.elementos', {}) ?? {}) };
+    const lista = [...(todos[lugar] ?? [])];
+    if (lista.some((e) => e.texto === limpio)) return false;
+    lista.push({ texto: limpio, fuente, turno: this.leer('meta.turno', 0) });
+    todos[lugar] = lista.slice(-24);
+    this.store.fijar('world.elementos', todos);
+    return true;
+  }
+
+  /**
    * Pasa al canon lo que el jugador ha afirmado en su turno.
    *
    * Un nombre nuevo se anuncia como hecho para que el director lo tenga
@@ -285,8 +356,14 @@ export class TurnResolver extends SystemBase {
     // después (ver `Segmentos.js`). La intención y la tirada salen de lo
     // primero que hace; lo condicional no se ejecuta, y el eco del narrador
     // cuenta solo lo que de verdad ha hecho en este turno.
-    const plan = ordenar(segmentar(limpio));
-    const textoFoco = plan.foco?.texto ?? limpio;
+    //
+    // Antes de partirlo se resuelve contra la escena a quién habla y qué
+    // nombra (ver `Interpretacion.js`): el que narre, sea el procedural o un
+    // modelo, recibe lo mismo, y lo que no existe no se narra como hecho.
+    const escena = escenaDesde((r, d) => this.leer(r, d), this._textosDeEscena());
+    const ir = interpretarTurno(limpio, escena);
+    const plan = ir.plan;
+    const textoFoco = plan.foco?.texto ?? ir.texto;
     const textoHecho = plan.hechos.length ? unirHechos(plan.hechos) : limpio;
     // Si todo es una condición («si el herrero me sigue mirando, me voy al
     // puente»), este turno no se hace nada: se espera a ver. Se interpretaba
@@ -325,6 +402,15 @@ export class TurnResolver extends SystemBase {
       // ─── 2a. Encargos y objetivos, dichos con palabras ────────────────
       const encargo = this._encargosPorTexto(textoFoco);
       if (encargo) return this._turnoLocal(numeroTurno, encargo, { voz: VOCES.DM });
+
+      // ─── 2a'. ¿Existe aquello de lo que depende? ──────────────────────
+      // Una pregunta a quien no está no la contesta el que haya al lado, y
+      // examinar un eje sin carro no se tira ni se adorna con el río. Buscar
+      // o ir hacia algo sí se puede aunque no esté: por eso se busca.
+      const buscaOva = ['travel', 'search', 'explore'].includes(intencion.tipo);
+      if (ir.bloqueo && (ir.bloqueo.motivo === 'destinatario' || !buscaOva)) {
+        return this._turnoLocal(numeroTurno, ir.bloqueo.texto, { voz: VOCES.DM });
+      }
 
       // ─── 2b. Encuentro pendiente ──────────────────────────────────────
       const exploration = this.sistema('exploration');
@@ -394,20 +480,6 @@ export class TurnResolver extends SystemBase {
         return { turno: numeroTurno, local: true };
       }
 
-      // ─── 2e. ¿Está aquí a quien se refiere? ───────────────────────────
-      // «Ayudo al carretero» sin carretero se narraba como hecho. Hablar con
-      // alguien que no está ya lo cuenta el diálogo («No hay ningún
-      // tabernero por aquí»); viajar o buscar, no: se puede ir a buscarlo.
-      if (!intervino && !['talk', 'travel', 'search', 'explore'].includes(intencion.tipo)) {
-        const conocidos = this.leer('npcs.conocidos.porId', {}) ?? {};
-        const presentes = (this.leer('npcs.presentes', []) ?? []).map((id) => conocidos[id]).filter(Boolean);
-        const falta = oficioAusente(textoFoco, presentes);
-        if (falta) {
-          const ninguno = /a$/.test(falta) ? 'ninguna' : 'ningún';
-          return this._turnoLocal(numeroTurno, `No hay ${ninguno} ${falta} por aquí.`, { voz: VOCES.DM });
-        }
-      }
-
       // ─── 3. LOS DADOS, ANTES QUE EL DIRECTOR ──────────────────────────
       // Antes de tirar se mide la ambición: lo desmedido para el nivel se
       // intenta contra la dificultad máxima; lo detallado gana un bono.
@@ -452,6 +524,11 @@ export class TurnResolver extends SystemBase {
         prompt: null,
       };
       peticion.contexto.foco = textoFoco;
+      // La interpretación viaja entera: a quién habla, qué nombra y en qué
+      // estado está cada cosa. Nadie narra sobre un referente sin resolver.
+      peticion.contexto.interpretacion = resumirInterpretacion(ir);
+      if (ir.destinatario?.quien && ir.destinatario.estado === 'presente') peticion.contexto.destinatario = ir.destinatario.quien;
+      if (ir.aclaraciones.length) peticion.contexto.aclaraciones = ir.aclaraciones;
 
       // Los proveedores basados en modelos necesitan el contexto como prosa.
       if (this.director && this._idDirector() !== PROVEEDORES.PROCEDURAL) {
@@ -797,6 +874,8 @@ export class TurnResolver extends SystemBase {
         voz,
         texto,
         meta,
+        // Dónde se dijo: lo narrado en otro lugar no cuenta como «aquí».
+        lugar: this.leer('world.ubicacion', null),
         turno: meta.turno ?? this.leer('meta.turno', 0),
       },
     });

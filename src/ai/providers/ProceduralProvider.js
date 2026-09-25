@@ -203,6 +203,9 @@ export class ProceduralProvider extends IDMProvider {
     const escena = this._narrarEscena(ctx);
     if (escena) parrafos.splice(1, 0, escena);
 
+    // Lo que nombró y aquí no hay: se dice, justo detrás de lo que sí hizo.
+    for (const a of [...(ctx.aclaraciones ?? [])].reverse()) parrafos.splice(1, 0, a);
+
     // Quien está en escena no se queda de piedra... pero tampoco comenta que
     // bebas agua.
     //
@@ -1127,8 +1130,22 @@ export class ProceduralProvider extends IDMProvider {
     // contestaba Corlin sin más: el jugador no sabía si Corlin era el
     // tabernero, si había taberna o si el juego no le había escuchado. Si el
     // nombrado no está, se dice, y contesta quien sí está.
-    const { npc, ausente } = this._aQuienSeHabla(peticion, ctx);
+    //
+    // Y si el motor ya ha resuelto a quién va dirigido, manda eso. Un
+    // destinatario que no está lo ha dicho el motor antes de llegar aquí; si
+    // no se dirige a nadie en concreto y hay varios delante, nadie contesta
+    // por él: «Quien te oye es Torela» ponía la pregunta en otra boca.
+    const { npc, ausente, alAire } = this._aQuienSeHabla(peticion, ctx);
     if (ausente && npc) partes.push(`No hay ${ausente} por aquí. Quien te oye es ${npc.nombre}.`);
+
+    if (alAire) {
+      return {
+        schemaVersion: APP.versionContratoIA,
+        story: 'Lo dices sin dirigirte a nadie en concreto, y nadie lo recoge.',
+        choices: OPCIONES.npcPresente.map((o, i) => ({ ...o, id: `c${i + 1}` })),
+        playerUpdates: {}, newItems: [], quests: [], combat: {}, events: [], memory: [], mood: 'neutro',
+      };
+    }
 
     if (!npc) {
       // Nadie con quien hablar: se genera alguien, que es más interesante que
@@ -1242,10 +1259,12 @@ export class ProceduralProvider extends IDMProvider {
   }
 
   _loQueRecuerda(npc, turno) {
-    const memoria = (npc?.memoria ?? []).filter((m) => m.tipo !== 'encuentro' && m.tipo !== 'actitud');
+    // Solo se reconoce a quien ya ha tratado con el jugador. Lo que vivió él
+    // solo (un testimonio de lo que pasó en la calle) no es recordarle.
+    const memoria = (npc?.memoria ?? []).filter((m) => !['encuentro', 'actitud', 'testimonio'].includes(m.tipo));
     if (!memoria.length) return '';
     const ultima = npc.ultimoEncuentro ?? null;
-    if (ultima !== null && turno - ultima < 3) return '';
+    if (ultima === null || turno - ultima < 3) return '';
 
     const negativa = [...memoria].reverse().find((m) => m.tipo === 'negativa');
     if (negativa) {
@@ -1308,6 +1327,12 @@ export class ProceduralProvider extends IDMProvider {
 
   _aQuienSeHabla(peticion, ctx) {
     const presentes = ctx.npcsPresentes ?? [];
+    const resuelto = ctx.interpretacion?.segmentos?.find((s) => s.destinatario)?.destinatario;
+    if (resuelto?.refId) {
+      const npc = presentes.find((n) => n.refId === resuelto.refId);
+      if (npc) return { npc, ausente: null };
+    }
+    if (resuelto && resuelto.implicito && resuelto.estado === 'ambiguo') return { npc: null, ausente: null, alAire: true };
     const llano = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
     const frase = llano(ctx.foco ?? peticion.accion);
 

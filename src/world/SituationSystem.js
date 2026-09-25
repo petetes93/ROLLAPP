@@ -86,6 +86,30 @@ export class SituationSystem extends SystemBase {
   }
 
   /**
+   * Lo que el jugador ha tenido delante en un lugar: la apertura de cada
+   * situación, los cambios que ya se vieron y cómo acabó. Es lo que existe
+   * allí para el juego, sea cual sea el narrador.
+   *
+   * @param {string} lugar
+   * @returns {string[]}
+   */
+  textosDe(lugar, { soloAbiertas = false, soloCerradas = false } = {}) {
+    const textos = [];
+    for (const sit of this.todas()) {
+      if (sit.lugar !== lugar) continue;
+      const abierta = sit.estado === ESTADO_SITUACION.ABIERTA;
+      if ((soloAbiertas && !abierta) || (soloCerradas && abierta)) continue;
+      const p = obtenerSituacion(sit.refId);
+      if (!p) continue;
+      textos.push(this.rellenar(p.apertura, sit));
+      const pulsos = p.siIgnorada?.pulsos ?? p.pulsos ?? [];
+      for (const x of pulsos.slice(0, sit.pulsos ?? 0)) textos.push(this.rellenar(x.texto, sit));
+      if (sit.estado === ESTADO_SITUACION.DESENLACE && p.siIgnorada?.texto) textos.push(this.rellenar(p.siIgnorada.texto, sit));
+    }
+    return textos;
+  }
+
+  /**
    * Sustituye {clave} por el nombre de cada actor.
    * @param {string} texto
    * @param {Object} situacion

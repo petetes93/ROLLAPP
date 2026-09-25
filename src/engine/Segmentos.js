@@ -62,13 +62,22 @@ const CORTES = [
 const HACE_EL = new RegExp(`(?:^|\\s)(?:(?:me|le|lo|la|les|los|las|nos|os|te)\\s+${PRIMERA}|(?!se\\b)\\p{L}{3,}[oé]\\b|(?:voy|doy|estoy|soy)\\b)`, 'iu');
 
 /** Gestos que preparan lo que viene después: acercarse, volver con alguien, enseñar algo. */
-const PREPARA = /^(?:me acerco|me aproximo|vuelvo (?:con|junto|a donde|hacia)|voy (?:hacia|con|junto)|me dirijo|me giro|me vuelvo hacia|(?:le|les) (?:enseno|muestro|tiendo|acerco)|saco)\b/;
+const PREPARA = /^(?:me acerco|me aproximo|vuelvo|regreso|voy (?:hacia|con|junto)|me dirijo|me giro|me vuelvo hacia|(?:le|les) (?:enseno|muestro|tiendo|acerco)|saco)\b/;
 
 const OMISION = /^(?:ignoro|paso de|no hago caso|sin hacer caso|me desentiendo|dejo (?:estar|en paz|atras)|no me meto)\b/;
 const ESPERA = /^(?:espero|aguardo|me quedo esperando|me quedo quiet[oa]|no hago nada|observo(?: en silencio)?)\s*[.!]?$/;
 const HABLA = new RegExp(`^(?:${CLITICO}\\s+)?(?:digo|pregunto|cuento|explico|contesto|respondo|grito|susurro|suplico|exijo|pido|advierto|aviso)\\b`);
 const NEGATIVA = /\b(?:me niego|no acepto|no pienso|no voy a|no (?:os|te|le|les)\s+(?:entregar|dar|vender|dejar|devolver)\w*|no (?:entregar|dar|vender|dejar|devolver)\w*|no (?:lo|la|los|las) (?:hare|har[eé]|dare|dar[eé]|entregare|entregar[eé])|jamas|ni hablar|ni loco|ni loca)\b/;
 const DELEGA = /^(?:que|dejo que|deja que)\s+(mi compañer[oa]|mi amig[oa]|[A-ZÁÉÍÓÚÑ][\p{L}]+)\s+(.+)$/iu;
+/**
+ * Lo que se le dice a alguien sin comillas: «No voy a darte mis monedas»,
+ * «os lo advierto». Un pronombre de segunda persona dirigido a otro (te, os,
+ * o pegado al verbo: darte, deciros) en boca del jugador es habla, no algo
+ * que haga. Se tomaba por acción, y el eco lo pasaba a segunda persona:
+ * «No vas a darte tus monedas».
+ */
+const A_TI = /(?:^|\s)(?:te|os)\s+\p{L}+|\p{L}+(?:ar|er|ir|ando|iendo)(?:te|os)(?:lo|la|los|las)?\b|\b(?:dame|dadme|vete|largate|apartate|escuchame|mirame)\b/u;
+
 const CONECTOR_INICIAL = /^(?:y|luego|despu[eé]s|entonces|pero)\s+/iu;
 
 /**
@@ -161,6 +170,12 @@ function clasificar(texto) {
   if (CITA.test(texto) || HABLA.test(sinCitas)) {
     CITA.lastIndex = 0;
     return { ...base, tipo: TIPO_SEGMENTO.DIALOGO };
+  }
+  CITA.lastIndex = 0;
+
+  // Habla sin comillas: se conserva literal para no reescribir sus palabras.
+  if (A_TI.test(sinCitas) && !/^(?:me|nos)\s/.test(sinCitas)) {
+    return { ...base, tipo: TIPO_SEGMENTO.DIALOGO, citaImplicita: true };
   }
 
   return { ...base, tipo: TIPO_SEGMENTO.ACCION };

@@ -196,7 +196,7 @@ const misiones = () => {
   comprobar((m.ver(`npcs.conocidos.porId.${mara.refId}.memoria`, []) ?? []).some((r) => r.tipo === 'negativa'), 'Mara lo recuerda');
 
   const t3 = await m.jugar('ayudo al carretero a levantar el carro');
-  comprobar(/No hay ningún carretero por aquí/.test(t3), 'lo que se hace con alguien que no está no se narra como hecho', t3);
+  comprobar(/No has visto a ningún carretero|El carretero, \p{Lu}\p{L}+, ya se ha ido/u.test(t3) && !/Ayudas al carretero/.test(t3), 'lo que se hace con alguien que no está no se narra como hecho', t3);
 
   // Diez turnos después, y tras guardar y cargar, Mara sigue acordándose.
   for (let i = 0; i < 9; i += 1) await m.jugar(['miro alrededor', 'compruebo mi equipo', 'escucho la calle'][i % 3]);

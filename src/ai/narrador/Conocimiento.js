@@ -189,6 +189,25 @@ function datosDeLugar(destino, { desde, alcance, estacion }) {
 }
 
 /**
+ * Un hecho del mundo contado por quien lo vivió: «la cabra de Marlo se
+ * comió el huerto» en boca de Marlo es «mi cabra se comió el huerto». Si
+ * aun así se nombra a sí mismo, no lo puede decir así y se descarta.
+ *
+ * @param {string} texto
+ * @param {{nombre?: string}|null} npc
+ * @returns {string|null}
+ */
+function enSuBoca(texto, npc) {
+  const nombre = npc?.nombre?.split(/\s+/)[0];
+  if (!nombre) return texto;
+  const propio = String(texto).replace(
+    new RegExp(`\\b(?:el|la|los|las)\\s+(\\p{L}+)\\s+de\\s+${nombre}\\b`, 'giu'),
+    (m, cosa) => (/^(?:los|las)\s/i.test(m) ? `mis ${cosa}` : `mi ${cosa}`),
+  );
+  return new RegExp(`\\b${nombre}\\b`, 'u').test(propio) ? null : propio;
+}
+
+/**
  * Qué sabe `npc` de lo que le preguntan.
  *
  * @param {Object} args
@@ -250,7 +269,8 @@ export function queSabe({ npc, texto, lugar, conocidos = [], situacion = null, h
       const ultimo = (sucesos ?? (hechos ?? []).map((h) => h.texto))
         .filter((t) => t && !/^(?:Según |En .+?: |En .+? se comenta|[^\s(]+ \([^)]+\): |El personaje |Conoció a )/.test(t) && !/quiere|intentará|necesita/.test(t))
         .at(-1);
-      datos.push(ultimo ? `¿A mí? Nada. Lo que ha pasado aquí es esto: ${ultimo.charAt(0).toLowerCase()}${ultimo.slice(1)}` : '¿A mí? Nada. Aquí no ha pasado nada que yo sepa.');
+      const propio = ultimo ? enSuBoca(ultimo, npc) : null;
+      datos.push(propio ? `¿A mí? Nada. Lo que ha pasado aquí es esto: ${propio.charAt(0).toLowerCase()}${propio.slice(1)}` : '¿A mí? Nada. Aquí no ha pasado nada que yo sepa.');
       break;
     }
     case 'rumores': {
@@ -276,7 +296,7 @@ export function queSabe({ npc, texto, lugar, conocidos = [], situacion = null, h
 
   // Lo que ha visto con sus ojos pesa más que lo que sabe de oídas.
   const vistos = (hechos ?? []).map((h) => h.texto).filter((t) => tema.nombre && llano(t).includes(llano(tema.nombre)));
-  datos.push(...vistos.map((t) => `Lo que pasó: ${t.charAt(0).toLowerCase()}${t.slice(1)}`));
+  datos.push(...vistos.map((t) => enSuBoca(t, npc)).filter(Boolean).map((t) => `Lo que pasó: ${t.charAt(0).toLowerCase()}${t.slice(1)}`));
 
   // Lo que ya le ha contado no lo repite como nuevo.
   const dicho = new Set([

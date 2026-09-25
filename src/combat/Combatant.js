@@ -79,7 +79,7 @@ export function desdeJugador(jugador, bonificadores = {}) {
   return {
     id: 'jugador',
     refId: 'jugador',
-    nombre: jugador.nombre ?? 'Tú',
+    nombre: jugador.nombre || 'Tú',
     // Sin esto el parte trataba a todo jugador en masculino: «Brunhilda queda
     // envenenado».
     genero: jugador.genero ?? 'm',

@@ -179,7 +179,9 @@ button{font-family:inherit;cursor:pointer}
 .creacion__pie{
   position:fixed;left:0;right:0;bottom:0;
   display:flex;gap:.6rem;justify-content:center;
-  padding:1rem;background:linear-gradient(transparent,var(--fondo) 40%);
+  /* Con muesca o barra de gestos, los botones no se pegan al borde. */
+  padding:1rem 1rem max(1rem,env(safe-area-inset-bottom));
+  background:linear-gradient(transparent,var(--fondo) 40%);
 }
 
 /* ═══ juego ═══════════════════════════════════════════════════════════ */

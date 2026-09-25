@@ -330,6 +330,37 @@ export class FactionSystem extends SystemBase {
     this.despachar('npc/presentes', { presentes: nuevos });
   }
 
+  /**
+   * Saca a un PNJ de la escena sin borrarlo: sigue existiendo, con su
+   * memoria, donde el mundo lo haya llevado.
+   * @param {string} refId
+   */
+  retirar(refId) {
+    const presentes = this.leer('npcs.presentes', []);
+    if (!presentes.includes(refId)) return;
+    this.despachar('npc/presentes', { presentes: presentes.filter((id) => id !== refId) });
+  }
+
+  /**
+   * Apunta algo en la memoria de un PNJ.
+   *
+   * Es lo que hace que, al volver a hablar con él diez turnos después, se
+   * acuerde de que le ayudaste con el carro o de que te negaste a darle la
+   * llave. Existía el campo y nadie escribía en él.
+   *
+   * @param {string} refId
+   * @param {string} texto
+   * @param {Object} [opciones] tipo y peso.
+   * @returns {boolean}
+   */
+  recordar(refId, texto, opciones = {}) {
+    const npc = this.leer(`npcs.conocidos.porId.${refId}`);
+    if (!npc || !texto) return false;
+    const nuevo = N.recordar(npc, texto, { ...opciones, turno: this.leer('meta.turno', 0) });
+    this.despachar('npc/registrar', { npc: nuevo });
+    return true;
+  }
+
   /* ═══════════════════════════════════════════════════════════════════════
      ENCUENTROS Y SITUACIÓN
      ═══════════════════════════════════════════════════════════════════════ */

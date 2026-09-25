@@ -253,6 +253,26 @@ export class RelationshipSystem extends SystemBase {
   }
 
   /**
+   * Cambia la actitud de un PNJ por algo concreto que ha pasado.
+   *
+   * Para lo que no está en el catálogo de acciones sociales: ayudarle con el
+   * carro, destapar su balanza trucada. Sin propagación: lo sabe él.
+   *
+   * @param {string} refId
+   * @param {number} delta
+   * @param {string} motivo
+   * @returns {boolean}
+   */
+  ajustar(refId, delta, motivo) {
+    const npc = this.obtener(refId);
+    if (!npc || !delta) return false;
+    const r = N.modificarActitud(npc, delta, motivo);
+    this.despachar('npc/actitud', { refId, npc: r.npc });
+    this.emitir(EVENTOS_RELACION.CAMBIO, { refId, nombre: npc.nombre, delta, accion: 'situacion' });
+    return true;
+  }
+
+  /**
    * Propaga el efecto de una acción a los testigos y allegados.
    *
    * La intensidad depende del tamaño del asentamiento: en una aldea de veinte

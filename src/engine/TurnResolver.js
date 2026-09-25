@@ -293,9 +293,17 @@ export class TurnResolver extends SystemBase {
         }
       }
 
-      // ─── 2c. Enrutado local ───────────────────────────────────────────
+      // ─── 2c. Situaciones en marcha ────────────────────────────────────
+      // Si lo que escribe tiene que ver con algo que está pasando aquí (el
+      // carro atascado, la niña del pozo), la vía que elige se tira y es la
+      // acción del turno. Si la deja de lado a propósito, se apunta y sigue:
+      // el turno es lo demás que haya escrito.
+      const situacion = this.sistema('situations')?.intervenir(limpio) ?? null;
+      const intervino = Boolean(situacion?.via);
+
+      // ─── 2d. Enrutado local ───────────────────────────────────────────
       const router = this.sistema('router');
-      const ruta = router?.enrutar(intencion, contextoIntencion);
+      const ruta = intervino ? null : router?.enrutar(intencion, contextoIntencion);
 
       if (ruta?.ruta === 'rechazada') {
         this._anadirEntrada(VOCES.SISTEMA, ruta.narracion, { turno: numeroTurno });
@@ -326,12 +334,12 @@ export class TurnResolver extends SystemBase {
       const intencionTirada = ambicion.grado === 'desmedida'
         ? { ...intencion, requiereTirada: true, habilidad: intencion.habilidad ?? 'atletismo' }
         : intencion;
-      const tirada = rules?.resolverIntencion(intencionTirada, {
+      const tirada = intervino ? situacion.tirada : rules?.resolverIntencion(intencionTirada, {
         situacion: this._situacionActual(),
         ...(ambicion.grado === 'desmedida' ? { umbral: 35 } : {}),
         ...(ambicion.grado === 'detallada' ? { bono: 2, fuenteBono: 'Acción bien pensada' } : {}),
       }) ?? null;
-      if (tirada && ambicion.grado === 'desmedida') {
+      if (tirada && !intervino && ambicion.grado === 'desmedida') {
         // Ni un 20 natural rompe el mundo: como mucho, un intento digno.
         tirada.exito = false; tirada.critico = false;
         if (!tirada.pifia) tirada.grado = 'fracaso';
@@ -364,6 +372,15 @@ export class TurnResolver extends SystemBase {
 
       // La pista del enrutador se añade al contexto del director.
       const pistas = [ruta?.pistaDirector, ambicion.pista].filter(Boolean);
+      if (intervino) {
+        peticion.contexto.situacionResultado = situacion.narracion;
+        pistas.push(`Lo que ha pasado al intervenir, ya resuelto por el motor: ${situacion.narracion}`);
+      } else if (situacion?.atencion && situacion.narracion) {
+        peticion.contexto.situacionResultado = situacion.narracion;
+        pistas.push(`El jugador se fija en lo que está pasando. Lo que ve de cerca: ${situacion.narracion}`);
+      } else if (situacion?.omitida) {
+        pistas.push('El jugador ha decidido no meterse en lo que está pasando aquí. Respétalo: no le lleves de vuelta a ello ni le castigues por ignorarlo.');
+      }
       if (pistas.length) {
         peticion.contexto.pistaRuta = pistas.join(' ');
         peticion.ambicion = ambicion.grado;
@@ -867,6 +884,15 @@ export class TurnResolver extends SystemBase {
       // está en Saucedo» y la campaña quedaba decidida antes de jugar. Ahora
       // se abre una escena del mundo con algo que atender o ignorar, y el
       // pasado es canon que vuelve cuando el jugador lo busca.
+      // Algo está pasando donde empieza: una escena del mundo, con gente y
+      // más de una salida. Entra como nota de escena, igual que un encuentro.
+      const situaciones = this.sistema('situations');
+      const yaHay = situaciones?.aqui?.()[0];
+      const situacion = yaHay
+        ? { ...yaHay, texto: situaciones.paraContexto()?.texto }
+        : situaciones?.abrir?.() ?? null;
+      if (situacion?.texto) this.memoria.anotarContexto(`EN ESCENA: ${situacion.texto}`, { temporal: true });
+
       const peticion = {
         accion: '',
         intencion: { tipo: 'custom', requiereTirada: false, confianza: 1 },
@@ -881,7 +907,12 @@ export class TurnResolver extends SystemBase {
         peticion.prompt = `${compuesto.texto}\n\nESTE ES EL PRIMER TURNO. Abre la crónica con una escena viva y concreta del mundo: el lugar, la hora, quién hay y algo que está pasando y admite más de una respuesta (hablar, mirar, intervenir, marcharse). No es un encargo ni una misión, y el jugador puede ignorarlo. No abras con el pasado del personaje ni lo conviertas en el motivo de la escena: puede colorear un detalle, nada más. Termina devolviendo la palabra.`;
       }
 
-      const resultado = await this.director.dirigir(peticion);
+      let resultado;
+      try {
+        resultado = await this.director.dirigir(peticion);
+      } finally {
+        this.memoria.consumirContexto();
+      }
       const validacion = validarRespuesta(resultado.respuesta);
       const respuesta = validacion.valida ? validacion.respuesta : resultado.respuesta;
 

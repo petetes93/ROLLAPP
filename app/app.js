@@ -31,6 +31,7 @@ import { ReputationSystem } from '../src/npc/ReputationSystem.js';
 import { FactionSystem } from '../src/npc/FactionSystem.js';
 import { PartySystem } from '../src/npc/PartySystem.js';
 import { SceneSystem } from '../src/world/SceneSystem.js';
+import { SituationSystem } from '../src/world/SituationSystem.js';
 import { DialogueSystem } from '../src/npc/DialogueSystem.js';
 import { MerchantSystem } from '../src/npc/MerchantSystem.js';
 import { EconomySystem } from '../src/economy/EconomySystem.js';
@@ -187,7 +188,7 @@ async function arrancarMotor() {
     Clock, Player, Inventory,
     TimeSystem, WeatherSystem, DynamicEvents, Travel, Exploration, World,
     RelationshipSystem, ReputationSystem, FactionSystem, DialogueSystem,
-    MerchantSystem, EconomySystem, QuestSystem, PartySystem, SceneSystem,
+    MerchantSystem, EconomySystem, QuestSystem, PartySystem, SceneSystem, SituationSystem,
     StatsTracker, AchievementSystem, Milestones, SaveManager,
     RulesEngine, EffectApplier, CombatManager,
     DungeonMaster, ActionRouter, ConsequenceEngine, DifficultyDirector,

@@ -70,6 +70,12 @@ export class ContextComposer {
       situacionActual: [
         this._situacion(peticion),
         this.registry?.obtener('world')?.paraDirector() ?? '',
+        // Lo que otros sistemas preparan para esta escena (un encuentro, lo
+        // que cambió desde la última visita, algo que acaba de ocurrir) solo
+        // llegaba al narrador interno: un modelo nunca se enteraba de un
+        // encuentro en curso.
+        this._notasDeEscena(),
+        this.registry?.obtener('situations')?.paraDirector?.() ?? '',
       ].filter(Boolean).join('\n'),
       turnosRecientes: this.memoria.turnosRecientes(),
       memoriaLargoPlazo: this.memoria.paraPrompt(turno),
@@ -309,6 +315,16 @@ export class ContextComposer {
   }
 
   /**
+   * Las notas de escena de este turno, en prosa.
+   * @returns {string}
+   * @private
+   */
+  _notasDeEscena() {
+    const notas = (this.memoria.contextoDeEscena?.() ?? []).filter(Boolean);
+    return notas.length ? `AHORA MISMO:\n${notas.map((n) => `· ${n}`).join('\n')}` : '';
+  }
+
+  /**
    * Misiones activas, con sus objetivos pendientes.
    * @returns {string}
    * @private
@@ -487,8 +503,13 @@ export class ContextComposer {
       // Quién viaja con el personaje, para que comenten de vez en cuando.
       grupo: (this.registry?.obtener('party')?.miembros?.() ?? []).map((m) => ({ ...m.ficha, herido: m.herido })),
 
-      // La misión principal en curso: los compañeros la tienen presente.
+      // Lo que el jugador lleva entre manos por decisión suya: los compañeros
+      // lo tienen presente.
       misionEnCurso: this._misionEnCurso(),
+
+      // Lo que está pasando aquí, con o sin él: quién, qué quiere cada uno y
+      // si ha decidido no meterse.
+      situacion: this.registry?.obtener('situations')?.paraContexto?.() ?? null,
     };
   }
 }

@@ -358,9 +358,20 @@ export class ProceduralProvider extends IDMProvider {
     // dejado llegar aquí por azar. Perdiste la forja…»), y la historia que
     // escribió el jugador pasaba a ser la campaña. Es canon: vuelve cuando él
     // lo busca o el mundo lo roza, no en la primera línea.
+    //
+    // La primera línea es dónde y cuándo: sin ella la apertura empezaba con
+    // «Un árbol solitario marca un cruce» y no se sabía ni en qué pueblo.
+    if ((peticion.turno ?? ctx.turno) <= 1 && !ctx.ultimoTurno && !peticion.accion) {
+      parrafos.push(this._abrirEscena(ctx));
+    }
 
     // ─── 1. Resultado de la acción ─────────────────────────────────────
-    if (peticion.tirada) {
+    // Si ha intervenido en algo que estaba pasando, lo que ocurre es eso: la
+    // rueda que se calza, la niña que se aparta del pozo. Una frase genérica
+    // de tirada («Todo encaja a la primera») no dice nada al lado.
+    if (ctx.situacionResultado) {
+      parrafos.push(ctx.situacionResultado);
+    } else if (peticion.tirada) {
       parrafos.push(this._narrarResultado(peticion.tirada, peticion.intencion));
     } else if (peticion.accion) {
       parrafos.push(this._narrarAccionSimple(peticion.intencion, ctx));
@@ -374,7 +385,9 @@ export class ProceduralProvider extends IDMProvider {
     // clima, vista, sonido, olfato y detalle, todo seguido— y el jugador
     // aprendía a saltarse el párrafo entero en cuatro turnos. Lo que se lee
     // siempre no es lo que más dice, es lo que cabe.
-    if (this._tocaDescribirEntorno(ctx)) {
+    // Si hay algo pasando en escena, eso es la escena: sin paisaje encima.
+    const conEscena = (ctx.contextoEscena ?? []).length > 0;
+    if (!conEscena && this._tocaDescribirEntorno(ctx)) {
       parrafos.push(this._componerAtmosfera(ctx, { frases: 2 }));
     }
 
@@ -398,13 +411,13 @@ export class ProceduralProvider extends IDMProvider {
     }
 
     // ─── 4. Suceso ambiental ───────────────────────────────────────────
-    if (this._flujo().oportunidad(0.25)) {
+    if (!conEscena && this._flujo().oportunidad(0.25)) {
       const ambiente = this._elegirAmbiente(ctx);
       if (ambiente) parrafos.push(ambiente);
     }
 
     // ─── 5. Cierre ─────────────────────────────────────────────────────
-    if (this._flujo().oportunidad(0.3)) {
+    if (!conEscena && this._flujo().oportunidad(0.3)) {
       parrafos.push(this._unico(CIERRES));
     }
 
@@ -431,6 +444,21 @@ export class ProceduralProvider extends IDMProvider {
       memory: memoria,
       mood: this._tono(peticion, ctx),
     };
+  }
+
+  /**
+   * Dónde y cuándo empieza la partida, en una línea.
+   * @private
+   */
+  _abrirEscena(ctx) {
+    const lugar = obtenerLugar(ctx.mundo?.ubicacion);
+    if (!lugar?.nombre) return '';
+    const CUANDO = {
+      madrugada: 'de madrugada', alba: 'al alba', manana: 'por la mañana', mediodia: 'a mediodía',
+      tarde: 'por la tarde', ocaso: 'al caer la tarde', noche: 'de noche',
+    };
+    const cuando = CUANDO[ctx.mundo?.franja] ? `, ${CUANDO[ctx.mundo.franja]}` : '';
+    return `${lugar.nombre}${cuando}. ${lugar.descripcion ?? ''}`.trim();
   }
 
   /**
@@ -631,7 +659,10 @@ export class ProceduralProvider extends IDMProvider {
     // contaba los surcos de carro y el viento en el trigo. El jugador tiene
     // cuatro paredes delante y le describían los campos de fuera.
     const dentro = this._sublugarActual(ctx);
-    const atmosfera = dentro ? atmosferaInterior(dentro.tipo) : atmosferaDe(ctx.mundo?.terreno ?? 'camino');
+    // En un asentamiento, ambiente de pueblo: el terreno es el de la comarca
+    // y en pleno Vado salían «campos abiertos» y «el trigo con el viento».
+    const enPueblo = obtenerLugar(ctx.mundo?.ubicacion)?.tipo === 'asentamiento';
+    const atmosfera = dentro ? atmosferaInterior(dentro.tipo) : atmosferaDe(enPueblo ? 'ciudad' : (ctx.mundo?.terreno ?? 'camino'));
     const partes = [];
 
     // La hora y el clima son cosa de fuera. Bajo techo no se ve el cielo, y
@@ -808,7 +839,7 @@ export class ProceduralProvider extends IDMProvider {
     if (ctx.mundo?.franja === 'noche' || ctx.mundo?.franja === 'madrugada') {
       grupos.push(AMBIENTE.noche);
     }
-    if (ctx.mundo?.terreno === 'ciudad') grupos.push(AMBIENTE.ciudad);
+    if (ctx.mundo?.terreno === 'ciudad' || obtenerLugar(ctx.mundo?.ubicacion)?.tipo === 'asentamiento') grupos.push(AMBIENTE.ciudad);
 
     // Cuando lleva muchos turnos sin encuentros, se siembra inquietud. No
     // promete nada, pero prepara al jugador.

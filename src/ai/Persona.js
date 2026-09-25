@@ -53,8 +53,10 @@ const PRONOMBRES = {
 
 /** Palabras tras las que suele empezar una nueva acción. */
 // «a quien tengo delante», «a donde estaba»: tras un relativo también va un
-// verbo suyo, y se quedaba en primera persona dentro del eco.
-const TRAS_VERBO = new Set(['y', 'e', 'luego', 'después', 'entonces', 'mientras', 'me', 'te', 'le', 'les', 'lo', 'la', 'los', 'las', 'se', 'no', 'también', 'ya', 'yo', 'nos', 'que', 'pero', 'ni', 'o', 'u', 'si', 'cuando', 'quien', 'donde', 'adonde']);
+// verbo suyo, y se quedaba en primera persona dentro del eco. Igual tras «de
+// momento», «por ahora», «mientras tanto», «otra vez», «de nuevo».
+const TRAS_VERBO = new Set(['y', 'e', 'luego', 'después', 'entonces', 'mientras', 'me', 'te', 'le', 'les', 'lo', 'la', 'los', 'las', 'se', 'no', 'también', 'ya', 'yo', 'nos', 'que', 'pero', 'ni', 'o', 'u', 'si', 'cuando', 'quien', 'donde', 'adonde',
+  'momento', 'ahora', 'tanto', 'vez', 'nuevo']);
 
 /**
  * Palabras en -o que no son verbos aunque abran cláusula.

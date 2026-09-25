@@ -91,6 +91,7 @@ console.log('\n── Los siete fallos de la partida de Ena (semilla 75313) ─�
 
   t = await m.jugar('Si el guardia me amenaza, me aparto; de momento espero');
   comprobar(/Queda en el aire lo que harás si el guardia te amenaza/.test(t) && !/te apartas/.test(t), '4 · la condición queda pendiente y no se ejecuta', t);
+  comprobar(!/De momento espero\b/.test(t), '4 · y la espera se cuenta en segunda persona', t);
 
   t = await m.jugar('Le pregunto al guardia qué hará con la fruta si no apartamos el carro');
   comprobar(/ningún guardia/.test(t) && !/«/.test(t), '5 · sin guardia, ni rumor de sustituto ni hipótesis tomada por hecho', t);

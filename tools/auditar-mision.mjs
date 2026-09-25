@@ -99,6 +99,7 @@ comprobar(terminaEnPregunta('Algo.\n¿Qué haces?') && !terminaEnPregunta('Algo.
     npc_dadar: { refId: 'npc_dadar', nombre: 'Dadar' }, npc_ulket: { refId: 'npc_ulket', nombre: 'Ulket' },
   } } } };
   turnos.leer = (ruta, d) => ruta.split('.').reduce((o, k) => o?.[k], estado) ?? d;
+  turnos.sistema = () => null;
   const conQuien = (accion, tipo) => {
     const dichos = [];
     turnos.emitir = (evento, datos) => { if (evento === 'npc:talked') dichos.push(datos.refId); };

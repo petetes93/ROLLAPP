@@ -43,6 +43,18 @@ import { VOCES } from '../config/ui.config.js';
 import { idEntidad, TIPO } from '../utils/id.js';
 import { evaluar } from '../core/Dice.js';
 import { sinAcentos } from '../utils/text.js';
+import { segmentar, ordenar } from './Segmentos.js';
+import { oficioAusente } from './Presentes.js';
+
+/**
+ * Cose los segmentos hechos en una sola frase: «le digo "no" y espero».
+ * @param {Array<{texto: string}>} hechos
+ * @returns {string}
+ */
+function unirHechos(hechos) {
+  const t = hechos.map((x) => x.texto.replace(/[.;,]+$/u, '').trim()).filter(Boolean);
+  return t.length <= 1 ? (t[0] ?? '') : `${t.slice(0, -1).join(', ')} y ${t.at(-1)}`;
+}
 
 /** Verbos de hablar con alguien, sin tildes: «le pregunto», «hablo», «le cuento». */
 const HABLA = /\b(?:pregunt\w*|habl[oa]\w*|dig[oa]|decirle|cuent[oa]|contarle|charl\w*|convers\w*|interrog\w*|salud[oa]\w*|le explico|le pido)\b/;
@@ -260,7 +272,17 @@ export class TurnResolver extends SystemBase {
       npcsPresentes: this.leer('npcs.presentes', []),
     };
 
-    const intencion = interpretar(limpio, contextoIntencion);
+    // El texto se parte en lo que hace, dice, deja de lado o deja para
+    // después (ver `Segmentos.js`). La intención y la tirada salen de lo
+    // primero que hace; lo condicional no se ejecuta, y el eco del narrador
+    // cuenta solo lo que de verdad ha hecho en este turno.
+    const plan = ordenar(segmentar(limpio));
+    const textoFoco = plan.foco?.texto ?? limpio;
+    const textoHecho = plan.hechos.length ? unirHechos(plan.hechos) : limpio;
+    const intencion = interpretar(textoFoco, contextoIntencion);
+
+    // Negarse no se tira: es una decisión, no un intento que pueda fallar.
+    if (plan.foco?.negativa) Object.assign(intencion, { requiereTirada: false, negativa: true });
 
     // Los comandos no consumen turno.
     if (intencion.esComando) {
@@ -298,8 +320,18 @@ export class TurnResolver extends SystemBase {
       // carro atascado, la niña del pozo), la vía que elige se tira y es la
       // acción del turno. Si la deja de lado a propósito, se apunta y sigue:
       // el turno es lo demás que haya escrito.
-      const situacion = this.sistema('situations')?.intervenir(limpio) ?? null;
-      const intervino = Boolean(situacion?.via);
+      const situaciones = this.sistema('situations');
+      for (const o of plan.omisiones) situaciones?.intervenir(o.texto);
+      const situacion = plan.delegacion ? null : (situaciones?.intervenir(textoFoco) ?? null);
+
+      // «Que mi compañera negocie; yo observo»: actúa ella, él mira.
+      const delegacion = plan.delegacion ? this._delegar(plan.delegacion) : null;
+      if (plan.delegacion && !delegacion) {
+        return this._turnoLocal(numeroTurno, `No va nadie contigo que pueda hacerlo por ti.`);
+      }
+
+      const intervino = Boolean(situacion?.via) || Boolean(delegacion);
+      const resuelto = delegacion ?? (situacion?.via ? situacion : null);
 
       // ─── 2d. Enrutado local ───────────────────────────────────────────
       const router = this.sistema('router');
@@ -326,6 +358,20 @@ export class TurnResolver extends SystemBase {
         return { turno: numeroTurno, local: true };
       }
 
+      // ─── 2e. ¿Está aquí a quien se refiere? ───────────────────────────
+      // «Ayudo al carretero» sin carretero se narraba como hecho. Hablar con
+      // alguien que no está ya lo cuenta el diálogo («No hay ningún
+      // tabernero por aquí»); viajar o buscar, no: se puede ir a buscarlo.
+      if (!intervino && !['talk', 'travel', 'search', 'explore'].includes(intencion.tipo)) {
+        const conocidos = this.leer('npcs.conocidos.porId', {}) ?? {};
+        const presentes = (this.leer('npcs.presentes', []) ?? []).map((id) => conocidos[id]).filter(Boolean);
+        const falta = oficioAusente(textoFoco, presentes);
+        if (falta) {
+          const ninguno = /a$/.test(falta) ? 'ninguna' : 'ningún';
+          return this._turnoLocal(numeroTurno, `No hay ${ninguno} ${falta} por aquí.`, { voz: VOCES.DM });
+        }
+      }
+
       // ─── 3. LOS DADOS, ANTES QUE EL DIRECTOR ──────────────────────────
       // Antes de tirar se mide la ambición: lo desmedido para el nivel se
       // intenta contra la dificultad máxima; lo detallado gana un bono.
@@ -334,7 +380,7 @@ export class TurnResolver extends SystemBase {
       const intencionTirada = ambicion.grado === 'desmedida'
         ? { ...intencion, requiereTirada: true, habilidad: intencion.habilidad ?? 'atletismo' }
         : intencion;
-      const tirada = intervino ? situacion.tirada : rules?.resolverIntencion(intencionTirada, {
+      const tirada = intervino ? resuelto.tirada : rules?.resolverIntencion(intencionTirada, {
         situacion: this._situacionActual(),
         ...(ambicion.grado === 'desmedida' ? { umbral: 35 } : {}),
         ...(ambicion.grado === 'detallada' ? { bono: 2, fuenteBono: 'Acción bien pensada' } : {}),
@@ -353,15 +399,19 @@ export class TurnResolver extends SystemBase {
       // ─── 4. Contexto ──────────────────────────────────────────────────
       const tipo = tipoDeTurno(intencion, contextoIntencion);
 
+      const accionEco = delegacion ? delegacion.eco : textoHecho;
+      // Lo que el jugador ha escrito entero sigue siendo su acción para el
+      // modelo; el eco y la respuesta usan lo que se resuelve en este turno.
       const peticion = {
-        accion: limpio,
+        accion: accionEco,
         intencion,
         tirada,
         tipo,
         turno: numeroTurno,
-        contexto: this._compositor.componerEstructurado({ accion: limpio, intencion, tirada, tipo }),
+        contexto: this._compositor.componerEstructurado({ accion: accionEco, intencion, tirada, tipo }),
         prompt: null,
       };
+      peticion.contexto.foco = textoFoco;
 
       // Los proveedores basados en modelos necesitan el contexto como prosa.
       if (this.director && this._idDirector() !== PROVEEDORES.PROCEDURAL) {
@@ -372,7 +422,34 @@ export class TurnResolver extends SystemBase {
 
       // La pista del enrutador se añade al contexto del director.
       const pistas = [ruta?.pistaDirector, ambicion.pista].filter(Boolean);
-      if (intervino) {
+
+      // Lo que el jugador ha escrito, en orden, cuando es más de una cosa.
+      if (plan.hechos.length + plan.pendientes.length + plan.omisiones.length > 1) {
+        const partes = [
+          ...plan.hechos.map((x) => `hace o dice: «${x.texto}»`),
+          ...plan.omisiones.map((x) => `deja de lado: «${x.objeto || x.texto}»`),
+        ];
+        pistas.push(`El jugador, en orden: ${partes.join('; ')}. Resuelve solo esto.`);
+      }
+      if (plan.pendientes.length) {
+        peticion.contexto.pendientes = plan.pendientes.map((x) => ({ condicion: x.condicion, consecuencia: x.consecuencia }));
+        for (const x of plan.pendientes) {
+          pistas.push(`Condición que deja dicha el jugador: si ${x.condicion}, ${x.consecuencia}. NO la ejecutes: aún no ha pasado. Cuando llegue el momento, decide él.`);
+          this.memoria.recordar(`Dejó dicho: «si ${x.condicion}, ${x.consecuencia}».`, { turno: numeroTurno, peso: 2 });
+        }
+      }
+
+      // Lo que niega, se queda negado, y quien lo oye lo recuerda.
+      const negativa = this._registrarNegativas(plan, numeroTurno);
+      if (negativa) {
+        peticion.contexto.negativa = negativa;
+        pistas.push(`El jugador se niega: ${negativa.cita}. Respeta su negativa: no entrega, no acepta ni cede nada. ${negativa.nombre} reacciona según lo que sabe y lo que quiere.`);
+      }
+
+      if (delegacion) {
+        peticion.contexto.situacionResultado = delegacion.narracion;
+        pistas.push(`Actúa ${delegacion.nombre}, no el jugador, que solo observa. No pongas palabras ni ofertas en boca del jugador. Resultado ya resuelto por el motor: ${delegacion.narracion}`);
+      } else if (intervino) {
         peticion.contexto.situacionResultado = situacion.narracion;
         pistas.push(`Lo que ha pasado al intervenir, ya resuelto por el motor: ${situacion.narracion}`);
       } else if (situacion?.atencion && situacion.narracion) {
@@ -432,7 +509,7 @@ export class TurnResolver extends SystemBase {
 
       // Con quién se ha hablado, antes de cerrar el texto: la pregunta final
       // solo nombra a quien de verdad ha intervenido.
-      const interlocutor = this._registrarConversacion(saneada, tipo, limpio);
+      const interlocutor = this._registrarConversacion(saneada, tipo, accionEco);
 
       // Cada turno termina devolviendo la palabra. La pone el modelo si la
       // trae (`pregunta`); si no, el motor.
@@ -781,7 +858,11 @@ export class TurnResolver extends SystemBase {
       ? this._aQuienSeHablo(accion)
       : (HABLA.test(sinAcentos(String(accion ?? '').toLowerCase())) ? this._aQuienSeHablo(accion, { soloNombrado: true }) : null);
     const npc = declarado ?? deLaFrase;
-    if (npc?.refId) this.emitir('npc:talked', { refId: npc.refId, nombre: npc.nombre });
+    if (npc?.refId) {
+      this.emitir('npc:talked', { refId: npc.refId, nombre: npc.nombre });
+      // Cuenta como encuentro: es lo que dice cuándo le vio por última vez.
+      this.sistema('npcs')?.registrarEncuentro?.(npc.refId);
+    }
     return npc?.nombre ? npc : null;
   }
 
@@ -797,6 +878,97 @@ export class TurnResolver extends SystemBase {
     const nombrado = presentes.find((n) => n.nombre && frase.includes(sinAcentos(n.nombre.toLowerCase())));
     if (nombrado || soloNombrado) return nombrado ?? null;
     return presentes.length === 1 ? presentes[0] : null;
+  }
+
+  /**
+   * Resuelve una delegación: el compañero actúa y el jugador observa.
+   *
+   * `quien` es un nombre o «mi compañera»: se busca en el grupo, y si no,
+   * entre los presentes. La tirada es la del compañero; la narración no
+   * atribuye nada al jugador.
+   *
+   * @param {{quien: string, delegado: string}} d
+   * @returns {{nombre: string, tirada: Object|null, narracion: string, eco: string}|null}
+   * @private
+   */
+  _delegar(d) {
+    const miembros = (this.sistema('party')?.miembros?.() ?? []).map((m) => m.ficha).filter(Boolean);
+    const q = sinAcentos(String(d.quien ?? '').toLowerCase());
+    let quien = miembros.find((f) => q.includes(sinAcentos(String(f.nombre).toLowerCase())));
+    if (!quien && /^mi\s/.test(q)) {
+      const femenino = /a$/.test(q);
+      quien = miembros.find((f) => (femenino ? f.genero === 'f' : f.genero !== 'f')) ?? miembros[0];
+    }
+    if (!quien?.nombre) return null;
+
+    const verbo = sinAcentos(String(d.delegado ?? '').toLowerCase());
+    const habilidad = /negoci|habl|convenz|pregunt|pid|regate|trat/.test(verbo) ? 'trato_social'
+      : /vigil|mir|observ|busq|registr|rastre/.test(verbo) ? 'percepcion'
+        : /cur|vend/.test(verbo) ? 'medicina'
+          : /amenac|intimid/.test(verbo) ? 'intimidacion'
+            : 'trato_social';
+    const tirada = this.sistema('rules')?.resolver({ habilidad, umbral: 'moderada' }) ?? null;
+
+    // Con quién: el que nombra la orden («negocie con Mara»); si no nombra a
+    // nadie, el primero de los presentes que no sea el propio compañero.
+    const conocidos = this.leer('npcs.conocidos.porId', {}) ?? {};
+    const presentes = (this.leer('npcs.presentes', []) ?? []).map((id) => conocidos[id])
+      .filter((n) => n?.nombre && n.nombre !== quien.nombre);
+    const otro = presentes.find((n) => verbo.includes(sinAcentos(n.nombre.toLowerCase()))) ?? presentes[0];
+    const conQuien = otro?.nombre ?? 'el otro';
+    const nom = quien.nombre;
+    const bien = Boolean(tirada?.exito);
+
+    // Lo que se cuenta depende de lo que se le ha pedido: vigilar no se
+    // narra como una negociación.
+    const NARRAR = {
+      trato_social: [`${nom} toma la palabra con calma. ${conQuien} escucha, duda y acaba cediendo algo de terreno.`,
+        `${nom} lo intenta, pero ${conQuien} no se deja llevar y la cosa se queda donde estaba.`],
+      percepcion: [`${nom} se aposta sin hacer ruido y no quita ojo: si pasa algo, lo verá antes que tú.`,
+        `${nom} se pone a ello, pero se le escapa más de lo que debería.`],
+      medicina: [`${nom} se arrodilla y hace lo que puede con manos de quien sabe.`,
+        `${nom} lo intenta, pero no consigue gran cosa.`],
+      intimidacion: [`${nom} da un paso al frente y ${conQuien} retrocede.`,
+        `${nom} alza la voz, pero ${conQuien} no se inmuta.`],
+    };
+    const [ok, mal] = NARRAR[habilidad] ?? [`${nom} se encarga, y sale bien.`, `${nom} se encarga, pero no sale como esperabas.`];
+    const narracion = bien ? ok : mal;
+
+    return { nombre: quien.nombre, tirada, narracion, eco: `dejo que ${quien.nombre} ${d.delegado} y observo` };
+  }
+
+  /**
+   * Apunta lo que el jugador se niega a hacer, y quién lo oyó.
+   *
+   * «Le digo a Mara: "No os entregaré la llave"» queda como hecho de la
+   * partida y en la memoria de Mara, para que al volver a verla lo recuerde.
+   *
+   * @returns {{nombre: string, refId: string, actitud: number, cita: string}|null}
+   * @private
+   */
+  _registrarNegativas(plan, turno) {
+    const seg = plan.hechos.find((x) => x.negativa);
+    if (!seg) return null;
+    const npc = this._aQuienSeHablo(seg.texto);
+    if (!npc?.refId) return null;
+
+    const cita = seg.texto.match(/«[^»]*»|"[^"]*"|“[^”]*”/u)?.[0] ?? `«${seg.texto}»`;
+    const jugador = this.leer('player.nombre', 'El personaje');
+    this.memoria.recordar(`${jugador} se negó ante ${npc.nombre}: ${cita}`, { turno, peso: 3 });
+    this.sistema('npcs')?.recordar?.(npc.refId, `Se negó: ${cita}`, { tipo: 'negativa', peso: 3 });
+    return { nombre: npc.nombre, refId: npc.refId, actitud: npc.actitud ?? 0, cita };
+  }
+
+  /**
+   * Un turno que se resuelve sin dados ni director: se narra y se cierra.
+   * @private
+   */
+  async _turnoLocal(numeroTurno, texto, { voz = VOCES.SISTEMA } = {}) {
+    const final = voz === VOCES.DM ? this._cerrarTurno(texto) : texto;
+    this._anadirEntrada(voz, final, { turno: numeroTurno });
+    await this.sistema('clock').turno({ tipo: 'exploracion' });
+    this.store.descartarInstantanea('turno');
+    return { turno: numeroTurno, local: true };
   }
 
   /**

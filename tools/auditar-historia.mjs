@@ -19,6 +19,7 @@
  */
 
 import { crearMotor } from './motor-sin-ventana.mjs';
+import { segmentar } from '../src/engine/Segmentos.js';
 
 let fallos = 0;
 
@@ -145,6 +146,67 @@ const misiones = () => {
   comprobar(m.ver(`npcs.conocidos.porId.${carretero.refId}.nombre`) === nombreAntes
     && (m.ver(`npcs.conocidos.porId.${carretero.refId}.memoria`, []) ?? []).some((r) => /sacar el carro/.test(r.texto)),
   'y el carretero conserva su nombre y su recuerdo');
+}
+
+/* ── 4. El texto se lee entero y en orden ────────────────────────────────── */
+
+{
+  const tipos = (t) => segmentar(t).map((x) => x.tipo).join(' + ');
+  comprobar(tipos('le pregunto por el puente, le enseño la carta y si miente me voy') === 'dialogo + accion + condicional',
+    'pregunta, gesto y condición son tres cosas', tipos('le pregunto por el puente, le enseño la carta y si miente me voy'));
+  comprobar(tipos('Ignoro al encapuchado; examino el pozo') === 'omision + accion', 'dejar algo de lado y hacer otra cosa');
+  comprobar(tipos('Que mi compañera negocie; yo observo').startsWith('delegacion'), 'delegar en un compañero');
+  const neg = segmentar('Le digo a Mara: «No os entregaré la llave». Luego espero');
+  comprobar(neg[0].tipo === 'dialogo' && neg[0].negativa && neg[0].texto.includes('«No os entregaré la llave»') && neg[1]?.tipo === 'espera',
+    'la negativa se reconoce y su cita queda literal', JSON.stringify(neg));
+  const cond = segmentar('si el guardia se niega, lo empujo al río')[0];
+  comprobar(cond.tipo === 'condicional' && cond.condicion === 'el guardia se niega' && cond.consecuencia === 'lo empujo al río',
+    'la condición conserva su consecuencia', JSON.stringify(cond));
+  comprobar(segmentar('voy con cuidado y mucho sigilo').length === 1, '«y mucho sigilo» no es otra acción');
+}
+
+{
+  await nuevaPartida({ ...FICHA, lore: '' });
+  const npcs = m.sistema('npcs');
+  const mara = npcs.introducir({ nombre: 'Mara', rol: 'contrabandista', genero: 'f' });
+  const lugar = m.ver('world.ubicacion');
+
+  const t1 = await m.jugar('le pregunto a Mara por el puente, le enseño la carta y si miente me voy');
+  comprobar(!/te vas|te marchas/i.test(t1) && m.ver('world.ubicacion') === lugar, 'lo condicional no se ejecuta: no se va', t1);
+  comprobar(/Queda en el aire lo que harás si miente/.test(t1), 'y se le devuelve la palabra con la condición pendiente', t1);
+  comprobar(/\bel puente\b/i.test(t1) && !/puente y le enseño/.test(t1), 'la respuesta trata de lo que preguntó', t1);
+
+  const objetos = () => Object.keys(m.ver('inventory.objetos.porId', {}) ?? {}).length;
+  const antes = objetos();
+  const t2 = await m.jugar('Le digo a Mara: «No os entregaré la llave». Luego espero');
+  comprobar(t2.includes('«No os entregaré la llave»'), 'la negativa se narra con sus palabras exactas', t2);
+  comprobar(objetos() === antes && !/le das|le entregas|entregas la llave/i.test(t2), 'no entrega nada', t2);
+  comprobar(/Mara/.test(t2) && !/¿En qué te ayudo\?|Pasa, pasa/.test(t2), 'Mara reacciona a la negativa, no con un saludo de catálogo', t2);
+  comprobar((m.ver(`npcs.conocidos.porId.${mara.refId}.memoria`, []) ?? []).some((r) => r.tipo === 'negativa'), 'Mara lo recuerda');
+
+  const t3 = await m.jugar('ayudo al carretero a levantar el carro');
+  comprobar(/No hay ningún carretero por aquí/.test(t3), 'lo que se hace con alguien que no está no se narra como hecho', t3);
+
+  // Diez turnos después, y tras guardar y cargar, Mara sigue acordándose.
+  for (let i = 0; i < 9; i += 1) await m.jugar(['miro alrededor', 'compruebo mi equipo', 'escucho la calle'][i % 3]);
+  m.guardarYCargar();
+  const t12 = await m.jugar('le pregunto a Mara por el puerto');
+  comprobar(m.ver('meta.turno') >= 12 && t12.includes('«No os entregaré la llave»'),
+    'en el turno 12 y tras guardar y cargar, Mara recuerda la negativa con sus palabras', t12);
+  comprobar(m.ver(`npcs.conocidos.porId.${mara.refId}.nombre`) === 'Mara', 'sin cambiarle el nombre');
+}
+
+{
+  await nuevaPartida({ ...FICHA, lore: '' });
+  const npcs = m.sistema('npcs');
+  const nera = npcs.introducir({ nombre: 'Nera', rol: 'cazadora', genero: 'f' });
+  npcs.introducir({ nombre: 'Mara', rol: 'contrabandista', genero: 'f' });
+  fijarDado(true);
+  m.sistema('party').reclutar(m.ver(`npcs.conocidos.porId.${nera.refId}`));
+
+  const t = await m.jugar('Que mi compañera negocie con Mara; yo observo');
+  comprobar(/Dejas que Nera negocie con Mara/.test(t) && /Nera/.test(t.split('\n')[1] ?? ''), 'actúa la compañera y él observa', t);
+  comprobar(!/(le )?ofreces|propones|le dices/i.test(t), 'no se inventa una oferta ni palabras del jugador', t);
 }
 
 console.log(`\n${fallos ? `${fallos} fallos.` : 'Todo correcto.'}`);

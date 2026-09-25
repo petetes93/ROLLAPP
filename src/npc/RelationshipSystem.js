@@ -378,6 +378,10 @@ export class RelationshipSystem extends SystemBase {
     const entrada = mapa[intencion.tipo];
     if (!entrada) return;
 
+    // A quien le acabas de negar algo no le sube el aprecio por haberle
+    // hablado: salía «Mara ahora te trata bien» justo después de la negativa.
+    if (intencion.negativa) return;
+
     // Mentir solo penaliza si te pillan.
     if (entrada.soloSiFallo && resumen.tirada?.exito !== false) return;
     if (entrada.soloSiExito && !resumen.tirada?.exito) return;

@@ -26,7 +26,7 @@ import {
   FRANJA, CLIMA, COMBATE, NPC, OPCIONES, CIERRES, AMBIENTE,
 } from '../../data/narrative.templates.js';
 import { APP } from '../../config/app.config.js';
-import { capitalizar, trasPreposicion } from '../../utils/text.js';
+import { capitalizar, trasPreposicion, sinAcentos } from '../../utils/text.js';
 import { aSegundaPersona, esPrimeraPersona } from '../Persona.js';
 import { obtenerLugar } from '../../data/locations.data.js';
 import * as Cadencia from '../Cadencia.js';
@@ -229,6 +229,25 @@ export class ProceduralProvider extends IDMProvider {
     // la interfaz ya escribe línea a línea y con pausa, la máquina de escribir
     // deja de ser un adorno y pasa a marcar el tiempo.
     const t = peticion.tirada;
+
+    // ─── Una negativa tiene respuesta ───────────────────────────────────
+    // Quien la oye reacciona desde lo que siente por él, sin que el
+    // narrador haga ceder al jugador ni le ponga otras palabras.
+    if (ctx.negativa?.nombre) {
+      const { nombre, actitud = 0 } = ctx.negativa;
+      const reaccion = actitud >= 30
+        ? `${nombre} asiente despacio. No le gusta, pero lo respeta.`
+        : actitud <= -20
+          ? `${nombre} entorna los ojos. «Te vas a arrepentir de eso.»`
+          : `${nombre} aprieta los labios. No insiste, pero tampoco se va.`;
+      parrafos.splice(1, 0, reaccion);
+    }
+
+    // ─── Lo que queda en el aire ────────────────────────────────────────
+    // Lo condicional no ha pasado: se deja dicho y se devuelve la palabra.
+    for (const x of ctx.pendientes ?? []) {
+      if (x.condicion) parrafos.push(`Queda en el aire lo que harás si ${x.condicion}.`);
+    }
 
     // ─── Lo que dice el grupo ───────────────────────────────────────────
     // Con la misma regla que el resto del adorno: solo cuando pasa algo, o
@@ -1037,17 +1056,19 @@ export class ProceduralProvider extends IDMProvider {
     // por el incendio de Forja Alta devolvía «Buenas. ¿Qué necesitas?»: el PNJ
     // contestaba como si acabaras de entrar por la puerta. Es el fallo que más
     // rompe la ilusión de estar hablando con alguien.
-    const respuesta = this._responderPregunta(peticion, ctx, npc);
+    // Si ya os conocíais y ha pasado un rato, se acuerda. Antes de lo que
+    // conteste: es lo primero que se nota al volver a alguien.
+    const recuerdo = this._loQueRecuerda(npc, peticion.turno ?? ctx.turno ?? 0);
+    if (recuerdo) partes.push(recuerdo);
+
+    // Una negativa no se contesta con un saludo ni se tira: la reacción de
+    // quien la oye la pone `_enriquecer`, desde lo que siente por él.
+    const respuesta = ctx.negativa ? '' : this._responderPregunta(peticion, ctx, npc);
 
     if (respuesta) {
       partes.push(respuesta);
-    } else {
-      const saludos = NPC.saludos[actitud] ?? NPC.saludos.cordial;
-      partes.push(this._unico(saludos));
-    }
-
-    if (peticion.tirada && !respuesta) {
-      partes.push(this._narrarResultado(peticion.tirada, peticion.intencion));
+    } else if (!ctx.negativa) {
+      partes.push(this._responderAfirmacion(peticion, ctx, npc, actitud));
     }
 
     return {
@@ -1078,10 +1099,74 @@ export class ProceduralProvider extends IDMProvider {
    *   determinante concordado: «ningún tabernero», «ninguna herrera».
    * @private
    */
+  /**
+   * Lo que un PNJ recuerda del jugador, dicho al volver a verle.
+   *
+   * Solo al reencontrarse (han pasado unos turnos desde la última vez) y con
+   * algo que recordar. Una negativa se trae con las palabras exactas del
+   * jugador: es lo único que se puede citar sin ponerle en la boca nada
+   * que no dijo.
+   *
+   * @param {Object} npc Registro del PNJ, con `memoria` y `ultimoEncuentro`.
+   * @param {number} turno
+   * @returns {string}
+   * @private
+   */
+  _loQueRecuerda(npc, turno) {
+    const memoria = (npc?.memoria ?? []).filter((m) => m.tipo !== 'encuentro' && m.tipo !== 'actitud');
+    if (!memoria.length) return '';
+    const ultima = npc.ultimoEncuentro ?? null;
+    if (ultima !== null && turno - ultima < 3) return '';
+
+    const negativa = [...memoria].reverse().find((m) => m.tipo === 'negativa');
+    if (negativa) {
+      const cita = negativa.texto.match(/«[^»]*»|"[^"]*"|“[^”]*”/u)?.[0];
+      if (cita) return `${npc.nombre} no ha olvidado lo que le dijiste: ${cita}.`;
+    }
+
+    const actitud = npc.actitud ?? 0;
+    return actitud >= 30
+      ? `${npc.nombre} te reconoce enseguida, y se le nota que se alegra.`
+      : actitud <= -20
+        ? `${npc.nombre} te reconoce, y no parece alegrarse.`
+        : `${npc.nombre} te reconoce. Se acuerda de ti.`;
+  }
+
+  /**
+   * Lo que contesta alguien a una frase que no es una pregunta.
+   *
+   * Contestaba siempre con un saludo de catálogo —«Pasa, pasa. ¿En qué te
+   * ayudo?»— dijera el jugador lo que dijera. Ahora se mira qué es: un
+   * saludo se devuelve, una petición se concede o no según la tirada, y lo
+   * que se le cuenta se escucha.
+   * @private
+   */
+  _responderAfirmacion(peticion, ctx, npc, actitud) {
+    const dicho = sinAcentos(String(peticion.accion ?? '').toLowerCase());
+    const t = peticion.tirada;
+
+    if (/\b(?:hola|buenas|buenos dias|saludo|me presento)\b/.test(dicho)) {
+      return this._unico(NPC.saludos[actitud] ?? NPC.saludos.cordial);
+    }
+    if (/\b(?:te pido|le pido|os pido|necesito|ayudame|me ayudas|podrias|puedes|dejame|me dejas)\b/.test(dicho)) {
+      return t?.exito
+        ? this._unico([`${npc.nombre} se lo piensa un momento y acaba asintiendo.`, `${npc.nombre} suspira. «Está bien. Pero que sea rápido.»`])
+        : this._unico([`${npc.nombre} niega con la cabeza. «Eso no puedo hacerlo.»`, `${npc.nombre} te sostiene la mirada. «No.»`]);
+    }
+    if (/\b(?:cuento|le cuento|explico|le explico|le digo que|te digo que|le hablo de)\b/.test(dicho)) {
+      return this._unico([
+        `${npc.nombre} te escucha sin interrumpir. Cuando terminas, se queda un momento callado, midiéndote.`,
+        `${npc.nombre} escucha con atención. No dice nada, pero algo ha cambiado en su gesto.`,
+      ]);
+    }
+    const resultado = t ? ` ${this._narrarResultado(t, peticion.intencion)}` : '';
+    return `${npc.nombre} te escucha.${resultado}`;
+  }
+
   _aQuienSeHabla(peticion, ctx) {
     const presentes = ctx.npcsPresentes ?? [];
     const llano = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-    const frase = llano(peticion.accion);
+    const frase = llano(ctx.foco ?? peticion.accion);
 
     const m = frase.match(/\b(?:pregunto|preguntar|hablo|hablar|digo|decir|le pregunto|le digo)\s+(?:a la|al|a|con la|con el|con)\s+([a-zñ]+)/u);
     const destinatario = m?.[1] ?? null;
@@ -1139,7 +1224,7 @@ export class ProceduralProvider extends IDMProvider {
    * @private
    */
   _responderPregunta(peticion, ctx, npc) {
-    const accion = String(peticion.accion ?? '').trim();
+    const accion = String(ctx.foco ?? peticion.accion ?? '').trim();
     if (!accion) return null;
 
     const plano = accion.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();

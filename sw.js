@@ -1,6 +1,6 @@
 // Generado por tools/generar-sw.mjs. No editar a mano.
 // La lista se recorre del disco: un archivo nuevo entra solo al regenerar.
-const CACHE = 'arcanveil-1bkov5p';
+const CACHE = 'arcanveil-ev1dyy';
 const SHELL = [
   './manifest.webmanifest',
   './app/app.js',
@@ -88,7 +88,9 @@ const SHELL = [
   './src/engine/DifficultyDirector.js',
   './src/engine/EffectApplier.js',
   './src/engine/IntentParser.js',
+  './src/engine/Presentes.js',
   './src/engine/RulesEngine.js',
+  './src/engine/Segmentos.js',
   './src/engine/TurnResolver.js',
   './src/inventory/Durability.js',
   './src/inventory/Encumbrance.js',

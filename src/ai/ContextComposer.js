@@ -25,6 +25,7 @@ import { CONTEXTO, DIRECTOR } from '../config/ai.config.js';
 import { instruccionesContrato } from './ResponseSchema.js';
 import { crearCanal } from '../core/Logger.js';
 import { truncar } from '../utils/text.js';
+import { memoriaParaPrompt } from '../npc/NPC.js';
 
 const log = crearCanal('ai');
 
@@ -357,15 +358,20 @@ export class ContextComposer {
 
     if (!presentes.length) return '';
 
+    // La actitud se leía de `npcs.relaciones`, que no existe: todos salían
+    // «neutral» dijera lo que dijera el estado. Es la del propio PNJ. Y cada
+    // uno lleva lo que recuerda del jugador: sin eso, volver a hablar con
+    // alguien era conocerle de nuevo.
     const lineas = presentes.map((n) => {
-      const relacion = npcs.relaciones?.[n.refId] ?? 0;
+      const relacion = n.actitud ?? 0;
       const actitud = relacion >= 45 ? 'te aprecia'
         : relacion >= 15 ? 'es cordial'
         : relacion <= -45 ? 'te detesta'
         : relacion <= -15 ? 'desconfía de ti'
         : 'es neutral';
+      const recuerda = n.memoria?.length ? ` Recuerda: ${memoriaParaPrompt(n, 3)}.` : '';
 
-      return `· ${n.nombre ?? n.rol} (${n.rol}): ${actitud}.`;
+      return `· ${n.nombre ?? n.rol} (${n.rol}): ${actitud}.${recuerda}`;
     });
 
     return `PRESENTES EN LA ESCENA:\n${lineas.join('\n')}`;

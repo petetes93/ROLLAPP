@@ -133,12 +133,15 @@ comprobar(r.estado === 200 && llamadas.length === n1, 'el mismo turno repetido n
 r = await pedir('/v1/chat/completions', { cuerpo: buena('Otra cosa.'), turno: 'p1-t1' });
 comprobar(r.estado === 409, 'el mismo turno con otro contenido se rechaza', r.estado);
 
-guion = [{ estado: 429, retry: 3, codigo: 'rate_limit_exceeded' }, { estado: 200 }];
+guion = [{ estado: 429, retry: 1, codigo: 'rate_limit_exceeded' }, { estado: 200 }];
 r = await pedir('/v1/chat/completions', { cuerpo: buena('a'), turno: 'p1-t2' });
-comprobar(r.estado === 429 && r.cab['retry-after'] === '3' && !r.texto.includes(CLAVE), 'un 429 corto llega con su Retry-After y sin el error crudo', r.texto);
+comprobar(r.estado === 429 && r.cab['retry-after'] === '1' && !r.texto.includes(CLAVE), 'un 429 corto llega con su Retry-After y sin el error crudo', r.texto);
 const n2 = llamadas.length;
 r = await pedir('/v1/chat/completions', { cuerpo: buena('a'), turno: 'p1-t2' });
-comprobar(r.estado === 200 && llamadas.length === n2 + 1, 'tras un 429, el reintento del mismo turno sí vuelve a pedir');
+comprobar(r.estado === 429 && llamadas.length === n2, 'reintentar antes de lo que pidió Groq no llega a Groq', r.estado);
+await new Promise((ok) => setTimeout(ok, 1100));
+r = await pedir('/v1/chat/completions', { cuerpo: buena('a'), turno: 'p1-t2' });
+comprobar(r.estado === 200 && llamadas.length === n2 + 1, 'pasada la espera, el reintento del mismo turno sí vuelve a pedir');
 
 guion = [{ estado: 401, codigo: 'invalid_api_key' }];
 r = await pedir('/v1/chat/completions', { cuerpo: buena('b'), turno: 'p1-t3' });

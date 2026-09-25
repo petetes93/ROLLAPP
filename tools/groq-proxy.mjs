@@ -34,9 +34,12 @@
 
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, appendFileSync, existsSync, renameSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
+
+/** Identidad del puente: la app comprueba que habla con él y no con otra cosa. */
+export const SERVICIO = 'arcanveil-puente-groq/2';
 
 /** El único modelo que este puente acepta. */
 export const MODELO_PERMITIDO = 'openai/gpt-oss-120b';
@@ -61,25 +64,112 @@ export const LIMITES_LOCALES = Object.freeze({
 
 /* ═══════════════════════════════════════════════════════════════════════════
    USO
+   ---------------------------------------------------------------------------
+   La cuenta de lo gastado, en un fichero fuera del repositorio y sin
+   contenido. Tres reglas:
+
+   · Se RESERVA antes de llamar, en el peor caso (sin suponer que Groq tenga
+     la política en caché: eso solo se sabe cuando responde), y la reserva
+     se escribe en disco ANTES de enviar. Luego se ajusta con lo que Groq
+     dice que ha contado. Node atiende una cosa cada vez, y reservar es
+     síncrono: dos peticiones simultáneas no pueden colarse por el mismo
+     hueco.
+   · Si el fichero está dañado, no se arranca; si no se puede escribir, no
+     se llama a Groq. Un contador que se pierde al reiniciar es un contador
+     que miente.
+   · Lo que no se sabe si Groq procesó (un timeout, una conexión cortada)
+     se da por gastado.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/** Cuentas del día, en un fichero fuera del repositorio. Sin contenido. */
-function almacenUso(ruta) {
-  const hoy = () => new Date().toISOString().slice(0, 10);
-  let datos = { dia: hoy(), peticiones: 0, tokens: 0 };
-  if (ruta) {
-    try {
-      const leido = JSON.parse(readFileSync(ruta, 'utf8'));
-      if (leido?.dia === hoy()) datos = { dia: leido.dia, peticiones: Number(leido.peticiones) || 0, tokens: Number(leido.tokens) || 0 };
-    } catch { /* primera vez: sin fichero */ }
+/**
+ * @param {string|null} ruta Sin ruta (pruebas), solo en memoria.
+ * @param {Object} [op]
+ * @param {() => number} [op.ahora]
+ */
+export function libroDeUso(ruta, { ahora = () => Date.now() } = {}) {
+  const hoy = () => new Date(ahora()).toISOString().slice(0, 10);
+  const valida = (x) => x && Number.isFinite(x.t) && Number.isFinite(x.tokens);
+  let datos = { version: 1, dia: hoy(), peticiones: 0, tokens: 0, minuto: [] };
+  let roto = null;
+
+  if (ruta && existsSync(ruta)) {
+    let leido;
+    try { leido = JSON.parse(readFileSync(ruta, 'utf8')); } catch { leido = null; }
+    if (!leido || typeof leido.dia !== 'string' || !Number.isFinite(leido.peticiones) || !Number.isFinite(leido.tokens)) {
+      throw new Error(`El fichero de uso (${ruta}) está dañado. El puente no arranca con la cuenta a ciegas: revísalo o bórralo a mano sabiendo que se pierde lo contado hoy.`);
+    }
+    const minuto = Array.isArray(leido.minuto) ? leido.minuto.filter(valida) : [];
+    datos = leido.dia === hoy()
+      ? { version: 1, dia: leido.dia, peticiones: leido.peticiones, tokens: leido.tokens, minuto }
+      : { version: 1, dia: hoy(), peticiones: 0, tokens: 0, minuto };
   }
-  const guardar = () => {
+
+  const persistir = (nuevo) => {
     if (!ruta) return;
-    try { mkdirSync(dirname(ruta), { recursive: true }); writeFileSync(ruta, JSON.stringify(datos)); } catch { /* sin disco: seguimos en memoria */ }
+    mkdirSync(dirname(ruta), { recursive: true });
+    const tmp = `${ruta}.tmp`;
+    writeFileSync(tmp, JSON.stringify(nuevo));
+    renameSync(tmp, ruta);
   };
+
+  /** El estado de ahora: día renovado y minuto limpio. */
+  const vigente = () => {
+    const t = ahora();
+    const base = datos.dia === hoy() ? datos : { ...datos, dia: hoy(), peticiones: 0, tokens: 0 };
+    return { ...base, minuto: base.minuto.filter((x) => t - x.t < 60_000) };
+  };
+
   return {
-    get() { if (datos.dia !== hoy()) datos = { dia: hoy(), peticiones: 0, tokens: 0 }; return datos; },
-    sumar(peticiones, tokens) { const d = this.get(); d.peticiones += peticiones; d.tokens += tokens; guardar(); },
+    get: () => vigente(),
+    get roto() { return roto; },
+
+    /**
+     * Reserva sitio para una petición. Síncrono y persistido antes de volver.
+     * @returns {{ok: true, reserva: Object} | {ok: false, estado: number, motivo: string, espera?: number, dia?: boolean}}
+     */
+    reservar(tokens, L) {
+      if (roto) return { ok: false, estado: 503, motivo: roto };
+      const d = vigente();
+      const t = ahora();
+      const tokensMin = d.minuto.reduce((s, x) => s + x.tokens, 0);
+      const falta = (ms) => Math.max(1, Math.ceil(ms / 1000));
+      if (d.peticiones + 1 > L.porDia) return { ok: false, estado: 429, dia: true, motivo: 'tope diario de peticiones de este puente' };
+      if (d.tokens + tokens > L.tokensDia) return { ok: false, estado: 429, dia: true, motivo: 'tope diario de tokens de este puente' };
+      if (d.minuto.length + 1 > L.porMinuto) return { ok: false, estado: 429, espera: falta(60_000 - (t - d.minuto[0].t)), motivo: 'tope por minuto de este puente' };
+      if (tokensMin + tokens > L.tokensMinuto) return { ok: false, estado: 429, espera: falta(60_000 - (t - (d.minuto[0]?.t ?? t))), motivo: 'tope de tokens por minuto de este puente' };
+      const reserva = { t, tokens };
+      const nuevo = { ...d, peticiones: d.peticiones + 1, tokens: d.tokens + tokens, minuto: [...d.minuto, reserva] };
+      try {
+        persistir(nuevo);
+      } catch {
+        roto = 'No se pudo guardar el uso en disco: el puente no llama a Groq sin poder contarlo.';
+        return { ok: false, estado: 503, motivo: roto };
+      }
+      datos = nuevo;
+      return { ok: true, reserva };
+    },
+
+    /**
+     * Ajusta una reserva con lo que de verdad se gastó.
+     * @param {Object} reserva
+     * @param {Object} real
+     * @param {number} real.tokens
+     * @param {boolean} [real.noEnviada] No llegó a Groq: tampoco cuenta como petición.
+     */
+    ajustar(reserva, { tokens, noEnviada = false }) {
+      const d = vigente();
+      const minuto = d.minuto.map((x) => (x === reserva || (x.t === reserva.t && x.tokens === reserva.tokens) ? { ...x, tokens } : x))
+        .filter((x) => !(noEnviada && x.t === reserva.t && x.tokens === tokens && tokens === 0));
+      const nuevo = { ...d, tokens: Math.max(0, d.tokens - reserva.tokens + tokens), peticiones: Math.max(0, d.peticiones - (noEnviada ? 1 : 0)), minuto };
+      try {
+        persistir(nuevo);
+        datos = nuevo;
+      } catch {
+        // No se pudo apuntar el ajuste: se deja la reserva (el peor caso) y
+        // no se llama más hasta reiniciar.
+        roto = 'No se pudo guardar el uso en disco: el puente no llama a Groq sin poder contarlo.';
+      }
+    },
   };
 }
 
@@ -107,13 +197,13 @@ export function crearProxyGroq({ clave, puerto = 11436, origen, upstream = UPSTR
   if (upstream !== UPSTREAM && !/^http:\/\/127\.0\.0\.1:\d+(?:\/.*)?$/.test(upstream)) throw new Error('Solo se admite Groq o un doble de pruebas en 127.0.0.1.');
 
   const L = { ...LIMITES_LOCALES, ...limites };
-  const uso = almacenUso(rutaUso);
-  const minuto = [];            // [{t, tokens}]
+  // Si el fichero de uso está dañado, esto lanza y el puente no arranca.
+  const uso = libroDeUso(rutaUso);
   const cache = new Map();      // turno → {huella, promesa, expira}
-  let pausaHasta = 0;           // cuota agotada: hasta cuándo no se llama
+  const inciertos = new Map();  // turno → expira: resultado desconocido, no se reenvía
+  let pausaHasta = 0;           // hasta cuándo no se llama (429, cuota)
   let motivoPausa = null;
   let ultimosLimites = null;    // lo último que dijo Groq en sus cabeceras
-  let ultimoSistema = { huella: null, t: 0 }; // para no reservar la política cacheada
 
   // El puerto real se conoce al escuchar (con 0, el sistema elige uno).
   let hosts = new Set([`127.0.0.1:${puerto}`, `localhost:${puerto}`]);
@@ -174,12 +264,6 @@ export function crearProxyGroq({ clave, puerto = 11436, origen, upstream = UPSTR
     }
     if (total > L.maxCaracteresEntrada) return { fallo: 'El contexto del turno es demasiado largo.' };
     const maxTokens = Math.min(Math.max(Number(entrada.max_tokens) || 700, 64), L.maxTokensSalida);
-    // La política va idéntica cada turno y Groq la sirve de caché, que no
-    // cuenta para sus límites. Si se mandó igual hace poco, no se reserva.
-    const huellaSistema = createHash('sha256').update(mensajes[0].content).digest('hex');
-    const cacheada = ultimoSistema.huella === huellaSistema && Date.now() - ultimoSistema.t < 10 * 60_000;
-    ultimoSistema = { huella: huellaSistema, t: Date.now() };
-    const resto = mensajes.slice(1).map((m) => m.content).join('');
     return {
       cuerpo: {
         model: MODELO_PERMITIDO,
@@ -191,23 +275,11 @@ export function crearProxyGroq({ clave, puerto = 11436, origen, upstream = UPSTR
         include_reasoning: false,
         stream: false,
       },
-      estimados: estimar(resto) + (cacheada ? 0 : estimar(mensajes[0].content)) + maxTokens,
+      // El peor caso: todo lo enviado más la salida máxima. Si Groq tenía la
+      // política en caché, se sabrá al responder y se devuelve la diferencia.
+      estimados: estimar(mensajes.map((m) => m.content).join('')) + maxTokens,
       caracteres: total,
     };
-  }
-
-  /** ¿Cabe esta petición en los topes? */
-  function cabe(estimados) {
-    const ahora = Date.now();
-    while (minuto.length && ahora - minuto[0].t > 60_000) minuto.shift();
-    if (pausaHasta > ahora) return { no: true, dia: pausaHasta - ahora > 120_000, espera: Math.ceil((pausaHasta - ahora) / 1000), motivo: motivoPausa ?? 'cuota agotada' };
-    const d = uso.get();
-    if (d.peticiones + 1 > L.porDia) return { no: true, dia: true, motivo: 'tope diario de peticiones de este puente' };
-    if (d.tokens + estimados > L.tokensDia) return { no: true, dia: true, motivo: 'tope diario de tokens de este puente' };
-    if (minuto.length + 1 > L.porMinuto) return { no: true, espera: Math.ceil((60_000 - (ahora - minuto[0].t)) / 1000), motivo: 'tope por minuto de este puente' };
-    const tokensMin = minuto.reduce((s, x) => s + x.tokens, 0);
-    if (tokensMin + estimados > L.tokensMinuto) return { no: true, espera: Math.ceil((60_000 - (ahora - (minuto[0]?.t ?? ahora))) / 1000) || 1, motivo: 'tope de tokens por minuto de este puente' };
-    return { no: false };
   }
 
   function leerLimites(h) {
@@ -248,7 +320,11 @@ export function crearProxyGroq({ clave, puerto = 11436, origen, upstream = UPSTR
       const datos = await r.json().catch(() => ({}));
       return { estado: r.status, datos, retry: r.headers.get('retry-after') };
     } catch (e) {
-      return { estado: e?.name === 'AbortError' ? 504 : 502, datos: {}, retry: null };
+      // No llegó (no hay conexión, no resuelve): no se gastó nada. Timeout o
+      // conexión cortada a medias: Groq pudo haberla procesado.
+      const codigo = e?.cause?.code ?? e?.code;
+      if (['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'EHOSTUNREACH', 'ENETUNREACH'].includes(codigo)) return { estado: 502, datos: {}, retry: null, noEnviada: true };
+      return { estado: e?.name === 'AbortError' ? 504 : 502, datos: {}, retry: null, incierto: true };
     } finally {
       clearTimeout(reloj);
     }
@@ -286,24 +362,43 @@ export function crearProxyGroq({ clave, puerto = 11436, origen, upstream = UPSTR
       return responder(res, r.estado, r.cuerpo, r.extra);
     }
 
-    const hueco = cabe(s.estimados);
-    if (hueco.no) {
-      trazar({ ruta: 'completar', estado: 429, local: true, motivo: hueco.motivo, turno: resumir(turno) });
-      return error(res, 429, `Pausa: ${hueco.motivo}.`, hueco.espera ? { 'Retry-After': String(hueco.espera) } : {}, hueco.dia ? 'cuota_diaria' : 'cuota_minuto');
+    // Un turno cuyo resultado no se conoce no se reenvía: Groq pudo haberlo
+    // procesado y cobrado.
+    if (turno && (inciertos.get(turno) ?? 0) > Date.now()) {
+      trazar({ ruta: 'completar', estado: 409, local: true, motivo: 'resultado incierto', turno: resumir(turno) });
+      return error(res, 409, 'Ese turno tuvo un resultado incierto (Groq pudo procesarlo). No se reenvía: sigue con el narrador procedural.', {}, 'resultado_incierto');
     }
 
-    minuto.push({ t: Date.now(), tokens: s.estimados });
+    const ahora = Date.now();
+    if (pausaHasta > ahora) {
+      const espera = Math.ceil((pausaHasta - ahora) / 1000);
+      trazar({ ruta: 'completar', estado: 429, local: true, motivo: motivoPausa, turno: resumir(turno) });
+      return error(res, 429, `Pausa: ${motivoPausa ?? 'límite de la capa gratuita'}.`, { 'Retry-After': String(espera) }, espera > 120 ? 'cuota_diaria' : 'cuota_minuto');
+    }
+
+    const hueco = uso.reservar(s.estimados, L);
+    if (!hueco.ok) {
+      trazar({ ruta: 'completar', estado: hueco.estado, local: true, motivo: hueco.motivo, turno: resumir(turno) });
+      if (hueco.estado === 503) return error(res, 503, hueco.motivo, {}, 'uso_no_persistido');
+      return error(res, 429, `Pausa: ${hueco.motivo}.`, { 'Retry-After': String(hueco.espera ?? 3600) }, hueco.dia ? 'cuota_diaria' : 'cuota_minuto');
+    }
+
     const promesa = (async () => {
       const r = await llamar(s.cuerpo);
-      // Lo cacheado (la política, idéntica cada turno) no cuenta para los
-      // límites de Groq; tampoco para los nuestros.
       const cacheados = Number(r.datos?.usage?.prompt_tokens_details?.cached_tokens) || 0;
-      // Una petición que Groq no atendió no gasta tokens (sí cuenta como
-      // petición). Sin esto, dos fallos seguidos agotaban el tope por minuto.
-      const real = r.estado === 200 ? Math.max((Number(r.datos?.usage?.total_tokens) || s.estimados) - cacheados, 0) : 0;
+      if (r.estado === 200) {
+        // Lo que Groq dice que contó; si no lo dice, se queda la reserva.
+        const total = Number(r.datos?.usage?.total_tokens);
+        uso.ajustar(hueco.reserva, { tokens: Number.isFinite(total) ? Math.max(total - cacheados, 0) : s.estimados });
+      } else if (r.noEnviada) {
+        uso.ajustar(hueco.reserva, { tokens: 0, noEnviada: true });
+      } else if ([400, 401, 403, 404, 413, 415, 422].includes(r.estado)) {
+        // Rechazada antes de generar: la petición cuenta, los tokens no.
+        uso.ajustar(hueco.reserva, { tokens: 0 });
+      }
+      // 429, 5xx, timeout o corte: se queda la reserva entera (el peor caso).
+      if (r.incierto && turno) inciertos.set(turno, Date.now() + 10 * 60_000);
       if (r.datos?.usage) r.datos.usage.cacheados = cacheados;
-      minuto[minuto.length - 1].tokens = real;
-      uso.sumar(1, real);
 
       if (r.estado === 200) {
         const contenido = r.datos?.choices?.[0]?.message?.content ?? '';
@@ -327,14 +422,18 @@ export function crearProxyGroq({ clave, puerto = 11436, origen, upstream = UPSTR
       }
 
       if (r.estado === 429) {
-        const espera = Number(r.retry) || 60;
-        // Una espera larga es la cuota del día: se para hasta entonces.
-        if (espera > 120) { pausaHasta = Date.now() + espera * 1000; motivoPausa = 'Groq indica que se ha agotado la cuota'; }
+        // Sin Retry-After, o uno que no se entiende, se esperan 60 s: nunca
+        // un reintento apresurado. Y nadie más llama hasta entonces.
+        const leida = Number(r.retry);
+        const espera = Number.isFinite(leida) && leida > 0 ? Math.ceil(leida) : 60;
+        pausaHasta = Math.max(pausaHasta, Date.now() + espera * 1000);
+        motivoPausa = espera > 120 ? 'Groq indica que se ha agotado la cuota' : 'Groq pide esperar';
         return { estado: 429, cuerpo: { error: { message: 'Groq pide esperar: límite de la capa gratuita.', code: espera > 120 ? 'cuota_diaria' : 'cuota_minuto' } }, extra: { 'Retry-After': String(espera) } };
       }
 
-      const codigo = typeof r.datos?.error?.code === 'string' ? r.datos.error.code : null;
-      return { estado: r.estado, cuerpo: { error: { message: MENSAJES[r.estado] ?? `Groq respondió con un error ${r.estado}.`, code: codigo && /^[a-z_]{1,40}$/.test(codigo) ? codigo : null } }, extra: {} };
+      const codigo = r.incierto ? 'resultado_incierto' : (typeof r.datos?.error?.code === 'string' ? r.datos.error.code : null);
+      const mensaje = r.incierto ? `${MENSAJES[r.estado]} No se sabe si Groq llegó a procesarla: se cuenta como gastada.` : (MENSAJES[r.estado] ?? `Groq respondió con un error ${r.estado}.`);
+      return { estado: r.estado, cuerpo: { error: { message: mensaje, code: codigo && /^[a-z_]{1,40}$/.test(codigo) ? codigo : null } }, extra: {} };
     })();
 
     if (turno) cache.set(turno, { huella, promesa, expira: Date.now() + 10 * 60_000 });
@@ -366,7 +465,7 @@ export function crearProxyGroq({ clave, puerto = 11436, origen, upstream = UPSTR
       trazar({ ruta: 'probar', estado: r.status, ms: Date.now() - inicio });
       if (!r.ok) return error(res, r.status, MENSAJES[r.status] ?? `Groq respondió con un error ${r.status}.`);
       const hay = (datos?.data ?? []).some((m) => m?.id === MODELO_PERMITIDO);
-      return responder(res, 200, { ok: hay, modelo: MODELO_PERMITIDO, disponible: hay, generacion: false });
+      return responder(res, 200, { ok: hay, servicio: SERVICIO, modelo: MODELO_PERMITIDO, disponible: hay, generacion: false });
     } catch {
       return error(res, 502, MENSAJES[502]);
     } finally {
@@ -377,10 +476,13 @@ export function crearProxyGroq({ clave, puerto = 11436, origen, upstream = UPSTR
   function estado() {
     const d = uso.get();
     return {
+      // Quién es: la app no confía en una dirección cualquiera que conteste.
+      servicio: SERVICIO,
       modelo: MODELO_PERMITIDO,
       limitesLocales: { porMinuto: L.porMinuto, porDia: L.porDia, tokensMinuto: L.tokensMinuto, tokensDia: L.tokensDia },
       usoHoy: { dia: d.dia, peticiones: d.peticiones, tokens: d.tokens },
       pausa: pausaHasta > Date.now() ? { hasta: new Date(pausaHasta).toISOString(), motivo: motivoPausa } : null,
+      persistencia: uso.roto ? { ok: false, motivo: uso.roto } : { ok: true },
       groq: ultimosLimites,
     };
   }

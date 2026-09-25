@@ -185,7 +185,8 @@ export class GroqProvider extends IDMProvider {
         const espera = Number(r.headers?.get?.('retry-after')) || 60;
         const diaria = datos?.error?.code === 'cuota_diaria' || espera > 120;
         if (!diaria && espera <= ESPERA_CORTA_S && intento === 0) {
-          await this._dormirMs(espera * 1000);
+          // Un poco más de lo pedido: llegar justo al borde es volver a chocar.
+          await this._dormirMs(espera * 1000 + 300);
           continue;
         }
         this._pausaHasta = Date.now() + espera * 1000;

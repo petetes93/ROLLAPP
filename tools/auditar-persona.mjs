@@ -83,6 +83,9 @@ const CASOS = [
   // ── Lo entrecomillado son sus palabras, literales ─────────────────────
   ['le digo "no voy a firmar" y me voy', 'le dices "no voy a firmar" y te vas'],
   ['Le digo a Mara: «No os entregaré la llave». Luego espero', 'Le dices a Mara: «No os entregaré la llave». Luego esperas'],
+  ['les hablo con calma: solo estoy de paso y no busco problemas', 'les hablas con calma: «solo estoy de paso y no busco problemas»'],
+  ['le pregunto: ¿dónde está mi hermano?', 'le preguntas: «¿dónde está mi hermano?»'],
+  ['me escondo tras la caja: no quiero que me vean', 'te escondes tras la caja: no quieres que te vean'],
 
   // ── Los nombres no se conjugan ────────────────────────────────────────
   ['Seldar me acompaña', 'Seldar te acompaña'],

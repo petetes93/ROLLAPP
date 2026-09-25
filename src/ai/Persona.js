@@ -259,6 +259,9 @@ const SUBJUNTIVOS = Object.freeze({
 /** Lo que el jugador pone entre comillas: son sus palabras y no se tocan. */
 const CITA = /(«[^»]*»|"[^"]*"|“[^”]*”)/u;
 
+/** «les digo con calma: …», sin comillas: verbo de habla, dos puntos y lo dicho. */
+const HABLA_SIN_COMILLAS = /^([^«"“:]*\b(?:digo|decimos|hablo|grito|pregunto|explico|respondo|contesto|susurro|murmuro|replico|advierto|aseguro|insisto)\b[^«"“:]*):\s*([^«"“]+?)\s*(\.?)$/iu;
+
 /**
  * Pasa a segunda persona lo que va fuera de comillas.
  *
@@ -266,11 +269,18 @@ const CITA = /(«[^»]*»|"[^"]*"|“[^”]*”)/u;
  * el resto: «le digo "no voy a firmar"» salía «le dices "no vas a firmar"»,
  * y la negativa del jugador acababa en boca de otro.
  *
+ * Lo que sigue a los dos puntos de un verbo de habla también son sus
+ * palabras, aunque no lleve comillas: «les digo: no busco problemas» salía
+ * «les dices: no buscas problemas». Se le ponen las comillas que faltan.
+ *
  * @param {string} texto
  * @returns {string}
  */
 export function aSegundaPersona(texto) {
-  const partes = String(texto ?? '').split(CITA);
+  let t = String(texto ?? '');
+  const abierta = t.match(HABLA_SIN_COMILLAS);
+  if (abierta) t = `${abierta[1]}: «${abierta[2]}»${abierta[3]}`;
+  const partes = t.split(CITA);
   return partes.map((p, i) => (i % 2 === 1 ? p : convertir(p))).join('');
 }
 
